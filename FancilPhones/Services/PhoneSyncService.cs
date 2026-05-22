@@ -59,11 +59,14 @@ public class PhoneSyncService
             if (!login.ok)
                 throw new Exception(login.message);
 
-            // Step 2: multipart POST of the phonebook CSV to the upload page,
-            // then log out so the phone releases its (limited) session slot.
+            // Step 2: wipe the phone's existing phonebook then upload the master
+            // CSV - the phone's import only merges, so a delete-all first makes the
+            // sync a true mirror (deletions in the app propagate). Finally log out
+            // so the phone releases its (limited) session slot.
             FanvilResponse resp;
             try
             {
+                await client.DeleteAllContactsAsync(ct);
                 resp = await client.PostFileAsync(
                     phone.UploadPath, phone.UploadFieldName, "phonebook.csv",
                     csv, "application/octet-stream", ct);

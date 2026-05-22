@@ -204,3 +204,4 @@ C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\refint\
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\FancilPhones.pdb
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\FancilPhones.genruntimeconfig.cache
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\ref\FancilPhones.dll
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\FancilPhones.sourcelink.json

@@ -122,11 +122,25 @@ public sealed class FanvilHttpClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Deletes every contact in the phone's local phonebook, mirroring the
+    /// Contacts tab's "Delete All" button (POST /contacts.htm, DefaultDeleteAll).
+    /// </summary>
+    public Task<FanvilResponse> DeleteAllContactsAsync(CancellationToken ct = default)
+        => PostFormAsync("/contacts.htm", new Dictionary<string, string>
+        {
+            ["ReturnPage"] = "/contacts.htm",
+            ["PHB_SelectCheckBox_Sets"] = "",
+            ["PHB_GroupIndex"] = "",
+            ["DefaultDeleteAll"] = "Delete All",
+        }, ct);
+
     public Task<FanvilResponse> PostFormAsync(
         string path, IReadOnlyDictionary<string, string> fields, CancellationToken ct = default)
     {
+        // application/x-www-form-urlencoded encodes spaces as '+' (not %20).
         var body = string.Join("&", fields.Select(kv =>
-            $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value)}"));
+            $"{FormEncode(kv.Key)}={FormEncode(kv.Value)}"));
         return SendAsync("POST", path, "application/x-www-form-urlencoded",
             Encoding.ASCII.GetBytes(body), ct);
     }
@@ -363,6 +377,8 @@ public sealed class FanvilHttpClient : IDisposable
 
         return resp;
     }
+
+    private static string FormEncode(string s) => Uri.EscapeDataString(s).Replace("%20", "+");
 
     private static string Md5Hex(string s)
     {
