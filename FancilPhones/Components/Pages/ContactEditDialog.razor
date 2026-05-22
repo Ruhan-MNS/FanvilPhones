@@ -1,0 +1,33 @@
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudTextField @bind-Value="Model.DisplayName" Label="Display name" Required="true" />
+            <MudTextField @bind-Value="Model.OfficeNumber" Label="Office number" />
+            <MudTextField @bind-Value="Model.MobileNumber" Label="Mobile number" />
+            <MudTextField @bind-Value="Model.OtherNumber" Label="Other number" />
+            <MudTextField @bind-Value="Model.Group" Label="Group" />
+            <MudTextField @bind-Value="Model.Ring" Label="Ring" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Ok">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public Contact Model { get; set; } = new();
+    private MudForm? _form;
+
+    private async Task Ok()
+    {
+        if (_form is not null)
+        {
+            await _form.ValidateAsync();
+            if (!_form.IsValid) return;
+        }
+        MudDialog.Close(DialogResult.Ok(Model));
+    }
+    private void Cancel() => MudDialog.Cancel();
+}

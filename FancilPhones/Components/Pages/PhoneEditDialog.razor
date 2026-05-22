@@ -1,0 +1,58 @@
+@* Reusable dialog for adding/editing a Phone. *@
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudTextField @bind-Value="Model.Name" Label="Name" Required="true"
+                          Placeholder="Reception" />
+            <MudGrid>
+                <MudItem xs="4">
+                    <MudSelect T="string" @bind-Value="Model.Scheme" Label="Scheme">
+                        <MudSelectItem Value="@("http")">http</MudSelectItem>
+                        <MudSelectItem Value="@("https")">https</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="8">
+                    <MudTextField @bind-Value="Model.IpAddress" Label="IP address" Required="true"
+                                  Placeholder="192.168.55.101" />
+                </MudItem>
+            </MudGrid>
+            <MudGrid>
+                <MudItem xs="6">
+                    <MudTextField @bind-Value="Model.Username" Label="Username" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudTextField @bind-Value="Model.Password" Label="Password"
+                                  InputType="InputType.Password" />
+                </MudItem>
+            </MudGrid>
+            <MudTextField @bind-Value="Model.UploadPath" Label="Upload path"
+                          HelperText="Path the phone's web UI posts to when uploading contacts (capture via DevTools)." />
+            <MudTextField @bind-Value="Model.UploadFieldName" Label="Upload field name"
+                          HelperText="Multipart form field name for the file (usually 'file')." />
+            <MudCheckBox T="bool" @bind-Value="Model.Enabled" Label="Enabled (included in 'Sync All')" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Ok">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public Phone Model { get; set; } = new();
+    private MudForm? _form;
+
+    private async Task Ok()
+    {
+        if (_form is not null)
+        {
+            await _form.ValidateAsync();
+            if (!_form.IsValid) return;
+        }
+        MudDialog.Close(DialogResult.Ok(Model));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

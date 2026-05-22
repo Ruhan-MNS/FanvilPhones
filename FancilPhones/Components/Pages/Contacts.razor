@@ -1,0 +1,168 @@
+@page "/contacts"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+
+<PageTitle>Contacts</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Contacts</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
+        Add contact
+    </MudButton>
+    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Upload"
+               HtmlTag="label" for="csvUploadInput">
+        Import CSV
+    </MudButton>
+    <InputFile id="csvUploadInput" OnChange="ImportCsvAsync" accept=".csv" style="display:none" />
+    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
+               Href="api/phonebook.csv" Target="_blank">
+        Preview CSV
+    </MudButton>
+</MudStack>
+
+<MudTextField @bind-Value="_search" Placeholder="Search..." Adornment="Adornment.Start"
+              AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" Class="mb-2" />
+
+<MudTable Items="Filtered" Dense="true" Hover="true" Bordered="true" Loading="_loading">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Office</MudTh>
+        <MudTh>Mobile</MudTh>
+        <MudTh>Other</MudTh>
+        <MudTh>Group</MudTh>
+        <MudTh Style="text-align:right">Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.DisplayName</MudTd>
+        <MudTd>@context.OfficeNumber</MudTd>
+        <MudTd>@context.MobileNumber</MudTd>
+        <MudTd>@context.OtherNumber</MudTd>
+        <MudTd>@context.Group</MudTd>
+        <MudTd Style="text-align:right">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                           OnClick="@(() => EditAsync(context))" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                           OnClick="@(() => DeleteAsync(context))" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>No contacts. Add one above to get started.</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+<MudText Typo="Typo.body2" Class="mt-3">@_contacts.Count contact(s) total</MudText>
+
+@code {
+    private List<Contact> _contacts = new();
+    private string _search = "";
+    private bool _loading = true;
+
+    private IEnumerable<Contact> Filtered =>
+        string.IsNullOrWhiteSpace(_search)
+            ? _contacts
+            : _contacts.Where(c =>
+                (c.DisplayName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (c.OfficeNumber?.Contains(_search) ?? false)
+                || (c.MobileNumber?.Contains(_search) ?? false));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _contacts = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+            .ToListAsync(db.Contacts.OrderBy(c => c.DisplayName));
+        _loading = false;
+    }
+
+    private async Task ImportCsvAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+        try
+        {
+            using var reader = new StreamReader(file.OpenReadStream(5 * 1024 * 1024));
+            var text = await reader.ReadToEndAsync();
+            var parsed = PhonebookCsv.Parse(text);
+            if (parsed.Count == 0)
+            {
+                Snackbar.Add("No contacts found in that CSV.", Severity.Warning);
+                return;
+            }
+
+            var ok = await Dialogs.ShowMessageBoxAsync("Import CSV",
+                $"Found {parsed.Count} contacts. Replace the current master list with these?",
+                yesText: "Replace all", cancelText: "Cancel");
+            if (ok != true) return;
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+            db.Contacts.RemoveRange(db.Contacts);
+            db.Contacts.AddRange(parsed);
+            await db.SaveChangesAsync();
+            Snackbar.Add($"Imported {parsed.Count} contacts.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Import failed: " + ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task AddNewAsync()
+    {
+        var parameters = new DialogParameters<ContactEditDialog> { { x => x.Model, new Contact() } };
+        var dlg = await Dialogs.ShowAsync<ContactEditDialog>("Add contact", parameters);
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: Contact c })
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            c.UpdatedAt = DateTime.UtcNow;
+            db.Contacts.Add(c);
+            await db.SaveChangesAsync();
+            await LoadAsync();
+        }
+    }
+
+    private async Task EditAsync(Contact contact)
+    {
+        var copy = new Contact
+        {
+            Id = contact.Id, DisplayName = contact.DisplayName,
+            OfficeNumber = contact.OfficeNumber, MobileNumber = contact.MobileNumber,
+            OtherNumber = contact.OtherNumber, Group = contact.Group, Ring = contact.Ring
+        };
+        var parameters = new DialogParameters<ContactEditDialog> { { x => x.Model, copy } };
+        var dlg = await Dialogs.ShowAsync<ContactEditDialog>("Edit contact", parameters);
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: Contact c })
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var tracked = await db.Contacts.FindAsync(c.Id);
+            if (tracked is null) return;
+            tracked.DisplayName = c.DisplayName;
+            tracked.OfficeNumber = c.OfficeNumber;
+            tracked.MobileNumber = c.MobileNumber;
+            tracked.OtherNumber = c.OtherNumber;
+            tracked.Group = c.Group;
+            tracked.Ring = c.Ring;
+            tracked.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            await LoadAsync();
+        }
+    }
+
+    private async Task DeleteAsync(Contact c)
+    {
+        var ok = await Dialogs.ShowMessageBoxAsync("Delete", $"Delete '{c.DisplayName}'?",
+            yesText: "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Contacts.Remove(c);
+        await db.SaveChangesAsync();
+        await LoadAsync();
+    }
+}

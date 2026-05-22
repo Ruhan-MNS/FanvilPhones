@@ -1,0 +1,45 @@
+@page "/"
+
+<PageTitle>FancilPhones</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">FancilPhones</MudText>
+<MudText Class="mb-4">Manage and sync phonebook contacts across all your Fanvil IP phones.</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="4">
+        <MudCard>
+            <MudCardContent>
+                <MudIcon Icon="@Icons.Material.Filled.Phone" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-2">Phones</MudText>
+                <MudText>Add the IP, credentials and upload endpoint for each handset.</MudText>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Href="phones" Variant="Variant.Filled" Color="Color.Primary">Open</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <MudCard>
+            <MudCardContent>
+                <MudIcon Icon="@Icons.Material.Filled.Contacts" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-2">Contacts</MudText>
+                <MudText>The single master phonebook pushed to every phone.</MudText>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Href="contacts" Variant="Variant.Filled" Color="Color.Primary">Open</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <MudCard>
+            <MudCardContent>
+                <MudIcon Icon="@Icons.Material.Filled.Sync" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-2">Sync</MudText>
+                <MudText>Push the master list to all enabled phones at once.</MudText>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Href="sync" Variant="Variant.Filled" Color="Color.Primary">Open</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+</MudGrid>

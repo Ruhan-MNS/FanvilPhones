@@ -1,0 +1,173 @@
+@page "/phones"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject PhoneSyncService SyncSvc
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+
+<PageTitle>Phones</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Phones</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
+        Add phone
+    </MudButton>
+</MudStack>
+
+<MudTable Items="_phones" Dense="true" Hover="true" Bordered="true" Loading="_loading">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>IP</MudTh>
+        <MudTh>Username</MudTh>
+        <MudTh>Upload Path</MudTh>
+        <MudTh>Enabled</MudTh>
+        <MudTh>Last Sync</MudTh>
+        <MudTh Style="text-align:right">Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Name</MudTd>
+        <MudTd>@context.Scheme://@context.IpAddress</MudTd>
+        <MudTd>@context.Username</MudTd>
+        <MudTd><code>@context.UploadPath</code></MudTd>
+        <MudTd>
+            <MudSwitch T="bool" Value="context.Enabled"
+                       ValueChanged="@(v => ToggleEnabled(context, v))" Color="Color.Success" />
+        </MudTd>
+        <MudTd>
+            @if (context.LastSyncedAt is null)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Default">never</MudText>
+            }
+            else
+            {
+                <MudTooltip Text="@context.LastSyncMessage">
+                    <MudChip T="string" Size="Size.Small"
+                             Color="@StatusColor(context.LastSyncStatus)">
+                        @context.LastSyncStatus @context.LastSyncedAt?.ToLocalTime().ToString("g")
+                    </MudChip>
+                </MudTooltip>
+            }
+        </MudTd>
+        <MudTd Style="text-align:right">
+            <MudIconButton Icon="@Icons.Material.Filled.Wifi" Size="Size.Small"
+                           OnClick="@(() => ProbeAsync(context))" aria-label="Probe" />
+            <MudIconButton Icon="@Icons.Material.Filled.Sync" Size="Size.Small"
+                           OnClick="@(() => SyncOneAsync(context))" aria-label="Sync this phone" />
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                           OnClick="@(() => EditAsync(context))" aria-label="Edit" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                           OnClick="@(() => DeleteAsync(context))" aria-label="Delete" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>No phones yet. Click <b>Add phone</b> to start.</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+<MudAlert Severity="Severity.Info" Class="mt-6">
+    Defaults (<code>/pBookAdv.htm</code>, field <code>PHONEBOOK</code>) match Fanvil X-series
+    phones and rarely need changing. Credentials default to <b>admin / admin</b>.
+    Use <b>Probe</b> to verify a phone is reachable and the login works before syncing.
+</MudAlert>
+
+@code {
+    private List<Phone> _phones = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _phones = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+            .ToListAsync(db.Phones.OrderBy(p => p.Name));
+        _loading = false;
+    }
+
+    private static Color StatusColor(string? s) => s switch
+    {
+        "Success" => Color.Success,
+        "Failed" => Color.Warning,
+        "Error" => Color.Error,
+        _ => Color.Default
+    };
+
+    private async Task ToggleEnabled(Phone p, bool v)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        p.Enabled = v;
+        db.Phones.Update(p);
+        await db.SaveChangesAsync();
+    }
+
+    private async Task AddNewAsync()
+    {
+        var parameters = new DialogParameters<PhoneEditDialog> { { x => x.Model, new Phone() } };
+        var dlg = await Dialogs.ShowAsync<PhoneEditDialog>("Add phone", parameters);
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: Phone p })
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            db.Phones.Add(p);
+            await db.SaveChangesAsync();
+            Snackbar.Add($"Added {p.Name}", Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task EditAsync(Phone phone)
+    {
+        var copy = new Phone
+        {
+            Id = phone.Id, Name = phone.Name, IpAddress = phone.IpAddress,
+            Username = phone.Username, Password = phone.Password, Scheme = phone.Scheme,
+            UploadPath = phone.UploadPath, UploadFieldName = phone.UploadFieldName,
+            Enabled = phone.Enabled
+        };
+        var parameters = new DialogParameters<PhoneEditDialog> { { x => x.Model, copy } };
+        var dlg = await Dialogs.ShowAsync<PhoneEditDialog>("Edit phone", parameters);
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: Phone p })
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var tracked = await db.Phones.FindAsync(p.Id);
+            if (tracked is null) return;
+            tracked.Name = p.Name; tracked.IpAddress = p.IpAddress;
+            tracked.Username = p.Username; tracked.Password = p.Password;
+            tracked.Scheme = p.Scheme; tracked.UploadPath = p.UploadPath;
+            tracked.UploadFieldName = p.UploadFieldName;
+            await db.SaveChangesAsync();
+            Snackbar.Add("Saved", Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task DeleteAsync(Phone phone)
+    {
+        var ok = await Dialogs.ShowMessageBoxAsync("Delete phone",
+            $"Delete '{phone.Name}' ({phone.IpAddress})?",
+            yesText: "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Phones.Remove(phone);
+        await db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private async Task ProbeAsync(Phone phone)
+    {
+        Snackbar.Add($"Probing {phone.IpAddress}...", Severity.Info);
+        var (ok, status, msg) = await SyncSvc.ProbeAsync(phone);
+        Snackbar.Add($"{phone.Name}: {msg}", ok ? Severity.Success : Severity.Error);
+    }
+
+    private async Task SyncOneAsync(Phone phone)
+    {
+        Snackbar.Add($"Syncing {phone.Name}...", Severity.Info);
+        var r = await SyncSvc.SyncOneAsync(phone.Id);
+        Snackbar.Add($"{phone.Name}: {r.Message}", r.Success ? Severity.Success : Severity.Error);
+        await LoadAsync();
+    }
+}

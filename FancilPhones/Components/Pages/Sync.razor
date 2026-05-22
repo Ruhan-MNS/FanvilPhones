@@ -1,0 +1,108 @@
+@page "/sync"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject PhoneSyncService SyncSvc
+@inject ISnackbar Snackbar
+
+<PageTitle>Sync</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Sync</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.CloudUpload"
+                   Disabled="_running" OnClick="RunAsync">
+            @(_running ? "Syncing..." : "Sync all enabled phones")
+        </MudButton>
+        <MudText>@_summary</MudText>
+    </MudStack>
+    @if (_running)
+    {
+        <MudProgressLinear Indeterminate="true" Class="mt-4" />
+    }
+</MudPaper>
+
+@if (_results.Count > 0)
+{
+    <MudTable Items="_results" Dense="true" Bordered="true">
+        <HeaderContent>
+            <MudTh>Phone</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>HTTP</MudTh>
+            <MudTh>Message</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.PhoneName</MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@(context.Success ? Color.Success : Color.Error)">
+                    @(context.Success ? "Success" : "Failed")
+                </MudChip>
+            </MudTd>
+            <MudTd>@context.HttpStatus</MudTd>
+            <MudTd>@context.Message</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+<MudText Typo="Typo.h6" Class="mt-6 mb-2">Recent sync history</MudText>
+<MudTable Items="_history" Dense="true" Bordered="true">
+    <HeaderContent>
+        <MudTh>Started</MudTh>
+        <MudTh>Phone</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Contacts</MudTh>
+        <MudTh>Message</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.StartedAt.ToLocalTime().ToString("g")</MudTd>
+        <MudTd>@(context.Phone?.Name ?? "?")</MudTd>
+        <MudTd>@context.Status</MudTd>
+        <MudTd>@context.ContactCount</MudTd>
+        <MudTd>@context.Message</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private bool _running;
+    private string _summary = "";
+    private List<SyncResult> _results = new();
+    private List<SyncRun> _history = new();
+
+    protected override async Task OnInitializedAsync() => await LoadHistoryAsync();
+
+    private async Task LoadHistoryAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _history = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+            .ToListAsync(
+                Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                    .Include(db.SyncRuns, r => r.Phone)
+                    .OrderByDescending(r => r.StartedAt)
+                    .Take(50));
+    }
+
+    private async Task RunAsync()
+    {
+        _running = true;
+        _summary = "Pushing phonebook to all enabled phones...";
+        try
+        {
+            var rs = await SyncSvc.SyncAllAsync();
+            _results = rs.ToList();
+            var ok = _results.Count(r => r.Success);
+            _summary = $"{ok} of {_results.Count} phones succeeded.";
+            Snackbar.Add(_summary, ok == _results.Count ? Severity.Success : Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            _summary = "Error: " + ex.Message;
+            Snackbar.Add(_summary, Severity.Error);
+        }
+        finally
+        {
+            _running = false;
+            await LoadHistoryAsync();
+        }
+    }
+}
