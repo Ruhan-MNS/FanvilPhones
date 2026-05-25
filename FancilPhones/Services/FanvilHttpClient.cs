@@ -83,6 +83,7 @@ public sealed class FanvilHttpClient : IDisposable
             _cookies["auth"] = nonce;
 
             var digest = Md5Hex($"{username}:{password}:{nonce}");
+            
             var encoded = $"{username}:{digest}";
 
             var resp = await PostFormAsync("/", new Dictionary<string, string>
