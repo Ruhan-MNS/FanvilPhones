@@ -1,4 +1,5 @@
 @page "/sync"
+@attribute [Authorize]
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject PhoneSyncService SyncSvc
 @inject ISnackbar Snackbar
@@ -15,10 +16,19 @@
 
 <MudPaper Elevation="0" Class="pa-5 mb-4 fp-card-surface">
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"                   StartIcon="@Icons.Material.Filled.CloudUpload"
-                   Disabled="_running" OnClick="RunAsync">
-            @(_running ? "Syncing..." : "Sync all enabled phones")
-        </MudButton>
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" StartIcon="@Icons.Material.Filled.CloudUpload"
+                           Disabled="_running" OnClick="RunAsync">
+                    @(_running ? "Syncing..." : "Sync all enabled phones")
+                </MudButton>
+            </Authorized>
+            <NotAuthorized>
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                    Read-only view. Ask an admin to run a sync.
+                </MudAlert>
+            </NotAuthorized>
+        </AuthorizeView>
         <MudText Class="mud-text-secondary">@_summary</MudText>
     </MudStack>
     @if (_running)

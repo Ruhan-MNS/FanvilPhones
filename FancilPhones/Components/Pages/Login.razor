@@ -1,0 +1,62 @@
+@page "/login"
+@layout EmptyLayout
+@attribute [AllowAnonymous]
+@inject NavigationManager Nav
+
+<PageTitle>Sign in — FancilPhones</PageTitle>
+
+<div class="fp-login-wrap">
+    <div class="fp-login-card">
+        <div class="fp-login-brand">
+            <span class="fp-brand-mark">
+                <MudIcon Icon="@Icons.Material.Filled.Smartphone" Size="Size.Small" />
+            </span>
+            <div>
+                <div class="fp-brand-title">Multinet-Systems</div>
+                <div class="fp-brand-sub">Fanvil phone manager</div>
+            </div>
+        </div>
+
+        <h1 class="fp-login-title">Sign in</h1>
+        <p class="fp-login-sub">Use your admin or technician account to continue.</p>
+
+        @if (HasError)
+        {
+            <div class="fp-login-error">
+                <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Small" Class="mr-1" />
+                Invalid username or password.
+            </div>
+        }
+
+        <form method="post" action="/auth/login" class="fp-login-form">
+            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+
+            <label class="fp-login-label" for="username">Username</label>
+            <input id="username" name="username" type="text" autocomplete="username"
+                   required autofocus class="fp-login-input" placeholder="admin" />
+
+            <label class="fp-login-label" for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password"
+                   required class="fp-login-input" placeholder="••••••" />
+
+            <button type="submit" class="fp-login-btn">
+                Sign in
+            </button>
+        </form>
+
+        <p class="fp-login-hint">
+            First-time admin login? Default credentials are <code>admin / admin</code> —
+            you'll be asked to change them right after.
+        </p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    private bool HasError => !string.IsNullOrEmpty(Error);
+}

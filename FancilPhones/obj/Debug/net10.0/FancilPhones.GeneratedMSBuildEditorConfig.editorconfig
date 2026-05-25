@@ -38,6 +38,14 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Layout/EmptyLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcRW1wdHlMYXlvdXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Pages/ChangePassword.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDaGFuZ2VQYXNzd29yZC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Pages/ContactEditDialog.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDb250YWN0RWRpdERpYWxvZy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
@@ -46,12 +54,20 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDb250YWN0cy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Pages/CreateUserDialog.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDcmVhdGVVc2VyRGlhbG9nLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Pages/Error.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xFcnJvci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Pages/Home.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xIb21lLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Pages/Login.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMb2dpbi5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Pages/NotFound.razor]
@@ -66,8 +82,20 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaG9uZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Pages/ResetPasswordDialog.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZXNldFBhc3N3b3JkRGlhbG9nLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Pages/Sync.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTeW5jLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Pages/Users.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xVc2Vycy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/RedirectToLogin.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSZWRpcmVjdFRvTG9naW4ucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/ruhan/RiderProjects/FancilPhones/FancilPhones/Components/Routes.razor]

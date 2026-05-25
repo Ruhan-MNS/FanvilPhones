@@ -1,0 +1,47 @@
+@* Dialog: create a new technician user. Returns (username, password) tuple. *@
+
+<MudDialog Class="fp-phone-dialog">
+    <TitleContent>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="fp-section-icon" style="background: rgba(14, 165, 164, 0.12); color: #0EA5A4;">
+                <MudIcon Icon="@Icons.Material.Filled.PersonAdd" />
+            </span>
+            <div style="display: flex; flex-direction: column;">
+                <MudText Typo="Typo.h6" Style="line-height: 1.2;">Add technician</MudText>
+                <MudText Typo="Typo.caption" Style="color: #6B7280;">
+                    They will be asked to change their password on first login.
+                </MudText>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_username" Label="Username" Required="true"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" />
+        <MudTextField @bind-Value="_password" Label="Temporary password" Required="true"
+                      InputType="@(_show ? InputType.Text : InputType.Password)"
+                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                      HelperText="Minimum 4 characters."
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@(_show ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                      OnAdornmentClick="@(() => _show = !_show)" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())" Variant="Variant.Text">Cancel</MudButton>
+        <MudButton OnClick="Ok" Color="Color.Primary" Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.PersonAdd">Create</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    private string _username = "";
+    private string _password = "";
+    private bool _show;
+
+    private void Ok()
+    {
+        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password)) return;
+        MudDialog.Close(DialogResult.Ok<(string, string)>((_username.Trim(), _password)));
+    }
+}

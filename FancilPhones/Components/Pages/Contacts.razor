@@ -1,4 +1,5 @@
 @page "/contacts"
+@attribute [Authorize]
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject ISnackbar Snackbar
 @inject IDialogService Dialogs
@@ -15,14 +16,16 @@
         </div>
     </div>
     <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
-        Add contact
-    </MudButton>
-    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload"
-               HtmlTag="label" for="csvUploadInput">
-        Import CSV
-    </MudButton>
-    <InputFile id="csvUploadInput" OnChange="ImportCsvAsync" accept=".csv" style="display:none" />
+    <AuthorizeView Roles="Admin">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
+            Add contact
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload"
+                   HtmlTag="label" for="csvUploadInput">
+            Import CSV
+        </MudButton>
+        <InputFile id="csvUploadInput" OnChange="ImportCsvAsync" accept=".csv" style="display:none" />
+    </AuthorizeView>
     <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download"
                Href="api/phonebook.csv" Target="_blank">
         Preview CSV
@@ -52,10 +55,12 @@
         <MudTd>@context.OtherNumber</MudTd>
         <MudTd>@context.Group</MudTd>
         <MudTd Style="text-align:right">
-            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                           OnClick="@(() => EditAsync(context))" />
-            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                           OnClick="@(() => DeleteAsync(context))" />
+            <AuthorizeView Roles="Admin" Context="auth">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               OnClick="@(() => EditAsync(context))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(() => DeleteAsync(context))" />
+            </AuthorizeView>
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>

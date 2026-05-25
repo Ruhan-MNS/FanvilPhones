@@ -27,6 +27,47 @@
                  Variant="Variant.Outlined" Size="Size.Small" Class="ml-2">
             @_contactCount contact@(_contactCount == 1 ? "" : "s")
         </MudChip>
+
+        <AuthorizeView Context="auth">
+            <Authorized>
+                <MudMenu Class="ml-3" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
+                         ActivationEvent="MouseEvent.LeftClick">
+                    <ActivatorContent>
+                        <MudButton Variant="Variant.Text" Class="fp-user-chip-btn"
+                                   EndIcon="@Icons.Material.Filled.ArrowDropDown">
+                            <span class="fp-user-avatar mr-2">@(auth.User.Identity?.Name?.Substring(0,1).ToUpper())</span>
+                            <span style="font-weight: 500;">@auth.User.Identity?.Name</span>
+                        </MudButton>
+                    </ActivatorContent>
+                    <ChildContent>
+                        <MudMenuItem Href="/account/change-password" Icon="@Icons.Material.Filled.Password">
+                            Change password
+                        </MudMenuItem>
+                        <AuthorizeView Roles="Admin" Context="adminCtx">
+                            <MudMenuItem Href="/users" Icon="@Icons.Material.Filled.People">
+                                Manage users
+                            </MudMenuItem>
+                        </AuthorizeView>
+                        <MudDivider />
+                        <form method="post" action="/auth/logout" style="margin: 0;">
+                            <button type="submit"
+                                    style="all: unset; display: flex; align-items: center; gap: 12px;
+                                           padding: 6px 16px; width: 100%; cursor: pointer; box-sizing: border-box;">
+                                <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" />
+                                <span>Sign out</span>
+                            </button>
+                        </form>
+                    </ChildContent>
+                </MudMenu>
+                <form method="post" action="/auth/logout" style="margin: 0;" class="ml-2">
+                    <MudTooltip Text="Sign out">
+                        <button type="submit" class="fp-logout-btn" aria-label="Sign out">
+                            <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" />
+                        </button>
+                    </MudTooltip>
+                </form>
+            </Authorized>
+        </AuthorizeView>
     </MudAppBar>
     <MudDrawer Open="true" Variant="DrawerVariant.Mini" OpenMiniOnHover="true" Elevation="0"
                Class="fp-drawer">

@@ -301,3 +301,187 @@ h1:focus {
     background: #FAFAFE;
     margin-top: 6px;
 }
+
+/* ---- Login page ---- */
+.fp-empty-layout {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 20% 0%, rgba(79, 70, 229, 0.10), transparent 50%),
+        radial-gradient(circle at 90% 100%, rgba(14, 165, 164, 0.12), transparent 55%),
+        var(--fp-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.fp-login-wrap {
+    width: 100%;
+    max-width: 420px;
+}
+
+.fp-login-card {
+    background: var(--fp-surface);
+    border: 1px solid var(--fp-border);
+    border-radius: 18px;
+    box-shadow: var(--fp-shadow-lg);
+    padding: 32px;
+}
+
+.fp-login-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.fp-login-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    color: var(--fp-text);
+}
+
+.fp-login-sub {
+    color: var(--fp-text-muted);
+    margin: 0 0 20px 0;
+    font-size: 0.9rem;
+}
+
+.fp-login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.fp-login-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--fp-text-muted);
+    margin: 10px 0 4px 0;
+    letter-spacing: 0.02em;
+}
+
+.fp-login-input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid var(--fp-border);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    background: #fff;
+    color: var(--fp-text);
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+    box-sizing: border-box;
+}
+
+.fp-login-input:focus {
+    outline: none;
+    border-color: var(--fp-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.fp-login-btn {
+    margin-top: 18px;
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, var(--fp-primary), #6366F1);
+    color: white;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+    box-shadow: var(--fp-shadow-sm);
+}
+
+.fp-login-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--fp-shadow-md);
+}
+
+.fp-login-error {
+    display: flex;
+    align-items: center;
+    background: rgba(239, 68, 68, 0.08);
+    color: #B91C1C;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+}
+
+.fp-login-hint {
+    color: var(--fp-text-muted);
+    font-size: 0.78rem;
+    margin: 20px 0 0 0;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.fp-login-hint code {
+    background: #F3F4F6;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+/* ---- App bar user chip ---- */
+.fp-user-chip-btn.mud-button-root {
+    border-radius: 999px !important;
+    background: #F3F4F6 !important;
+    padding: 4px 14px 4px 4px !important;
+    text-transform: none;
+    min-width: 0;
+}
+
+.fp-user-chip-btn.mud-button-root:hover {
+    background: #E5E7EB !important;
+}
+
+.fp-logout-btn {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--fp-text-muted);
+    transition: background 160ms ease, color 160ms ease;
+}
+
+.fp-logout-btn:hover {
+    background: rgba(239, 68, 68, 0.10);
+    color: #DC2626;
+}
+
+.fp-logout-btn:focus-visible {
+    outline: 2px solid var(--fp-primary);
+    outline-offset: 2px;
+}
+
+.fp-user-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px 4px 4px;
+    border-radius: 999px;
+    background: #F3F4F6;
+}
+
+.fp-user-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--fp-primary), var(--fp-secondary));
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+}

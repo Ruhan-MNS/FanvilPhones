@@ -1,4 +1,5 @@
 @page "/phones"
+@attribute [Authorize]
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject PhoneSyncService SyncSvc
 @inject ISnackbar Snackbar
@@ -14,9 +15,11 @@
         </div>
     </div>
     <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
-        Add phone
-    </MudButton>
+    <AuthorizeView Roles="Admin">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
+            Add phone
+        </MudButton>
+    </AuthorizeView>
 </MudStack>
 <div class="fp-section-subtitle">Each Fanvil handset on your network — credentials, upload endpoint, and last sync status.</div>
 
@@ -38,7 +41,15 @@
         <MudTd>@context.Username</MudTd>
         <MudTd><code>@context.UploadPath</code></MudTd>
         <MudTd>
-            <MudSwitch T="bool" Value="context.Enabled" ValueChanged="@(v => ToggleEnabled(context, v))" Color="Color.Success" />
+            <AuthorizeView Roles="Admin" Context="auth">
+                <Authorized>
+                    <MudSwitch T="bool" Value="context.Enabled" ValueChanged="@(v => ToggleEnabled(context, v))" Color="Color.Success" />
+                </Authorized>
+                <NotAuthorized>
+                    <MudIcon Icon="@(context.Enabled ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.RadioButtonUnchecked)"
+                             Color="@(context.Enabled ? Color.Success : Color.Default)" />
+                </NotAuthorized>
+            </AuthorizeView>
         </MudTd>
         <MudTd>
             @if (context.LastSyncedAt is null)
@@ -58,12 +69,14 @@
         <MudTd Style="text-align:right">
             <MudIconButton Icon="@Icons.Material.Filled.Wifi" Size="Size.Small"
                            OnClick="@(() => ProbeAsync(context))" aria-label="Probe" />
-            <MudIconButton Icon="@Icons.Material.Filled.Sync" Size="Size.Small"
-                           OnClick="@(() => SyncOneAsync(context))" aria-label="Sync this phone" />
-            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                           OnClick="@(() => EditAsync(context))" aria-label="Edit" />
-            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                           OnClick="@(() => DeleteAsync(context))" aria-label="Delete" />
+            <AuthorizeView Roles="Admin" Context="auth">
+                <MudIconButton Icon="@Icons.Material.Filled.Sync" Size="Size.Small"
+                               OnClick="@(() => SyncOneAsync(context))" aria-label="Sync this phone" />
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               OnClick="@(() => EditAsync(context))" aria-label="Edit" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(() => DeleteAsync(context))" aria-label="Delete" />
+            </AuthorizeView>
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>

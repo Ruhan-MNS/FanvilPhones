@@ -1,0 +1,174 @@
+@page "/users"
+@attribute [Authorize(Roles = "Admin")]
+@inject UserManager<AppUser> UserManager
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+
+<PageTitle>Users</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+    <div class="fp-section-header" style="margin-bottom: 0;">
+        <span class="fp-section-icon" style="background: rgba(79, 70, 229, 0.10); color: #4F46E5;">
+            <MudIcon Icon="@Icons.Material.Filled.People" />
+        </span>
+        <div>
+            <MudText Typo="Typo.h4">Users</MudText>
+        </div>
+    </div>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+               OnClick="AddTechAsync">
+        Add technician
+    </MudButton>
+</MudStack>
+<div class="fp-section-subtitle">
+    Admins can edit everything. Technicians have view-only access.
+</div>
+
+<div class="fp-table-wrap">
+<MudTable Items="_rows" Dense="true" Hover="true" Bordered="false" Elevation="0">
+    <HeaderContent>
+        <MudTh>Username</MudTh>
+        <MudTh>Role</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh Style="text-align:right">Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd><strong>@context.UserName</strong></MudTd>
+        <MudTd>
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(context.Role == "Admin" ? Color.Primary : Color.Secondary)">
+                @context.Role
+            </MudChip>
+        </MudTd>
+        <MudTd>
+            @if (context.MustChangePassword)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">
+                    Must change password
+                </MudChip>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Style="color: #6B7280;">Active</MudText>
+            }
+        </MudTd>
+        <MudTd Style="text-align:right">
+            <MudIconButton Icon="@Icons.Material.Filled.LockReset" Size="Size.Small"
+                           OnClick="@(() => ResetAsync(context))" aria-label="Reset password" />
+            @if (context.Role != "Admin")
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(() => DeleteAsync(context))" aria-label="Delete" />
+            }
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>No users yet.</MudText>
+    </NoRecordsContent>
+</MudTable>
+</div>
+
+@code {
+    private List<Row> _rows = new();
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var rows = new List<Row>();
+        foreach (var u in UserManager.Users.ToList())
+        {
+            var roles = await UserManager.GetRolesAsync(u);
+            rows.Add(new Row
+            {
+                Id = u.Id,
+                UserName = u.UserName ?? "",
+                Role = roles.FirstOrDefault() ?? "(none)",
+                MustChangePassword = u.MustChangePassword
+            });
+        }
+        _rows = rows.OrderBy(r => r.Role == "Admin" ? 0 : 1).ThenBy(r => r.UserName).ToList();
+    }
+
+    private async Task AddTechAsync()
+    {
+        var (username, password) = await PromptCreateAsync();
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password)) return;
+
+        if (await UserManager.FindByNameAsync(username) is not null)
+        {
+            Snackbar.Add("That username already exists.", Severity.Warning);
+            return;
+        }
+        var user = new AppUser { UserName = username, MustChangePassword = true };
+        var res = await UserManager.CreateAsync(user, password);
+        if (!res.Succeeded)
+        {
+            Snackbar.Add(string.Join(" ", res.Errors.Select(e => e.Description)), Severity.Error);
+            return;
+        }
+        await UserManager.AddToRoleAsync(user, "Technician");
+        Snackbar.Add($"Created technician '{username}'.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task ResetAsync(Row row)
+    {
+        var pwd = await PromptPasswordAsync($"Reset password for '{row.UserName}'");
+        if (string.IsNullOrWhiteSpace(pwd)) return;
+
+        var user = await UserManager.FindByIdAsync(row.Id);
+        if (user is null) return;
+        var token = await UserManager.GeneratePasswordResetTokenAsync(user);
+        var res = await UserManager.ResetPasswordAsync(user, token, pwd);
+        if (!res.Succeeded)
+        {
+            Snackbar.Add(string.Join(" ", res.Errors.Select(e => e.Description)), Severity.Error);
+            return;
+        }
+        user.MustChangePassword = true;
+        await UserManager.UpdateAsync(user);
+        Snackbar.Add($"Password reset. {row.UserName} must change it on next login.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Row row)
+    {
+        var ok = await Dialogs.ShowMessageBoxAsync("Delete user",
+            $"Delete '{row.UserName}'? This cannot be undone.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (ok != true) return;
+        var user = await UserManager.FindByIdAsync(row.Id);
+        if (user is null) return;
+        await UserManager.DeleteAsync(user);
+        Snackbar.Add($"Deleted {row.UserName}.", Severity.Info);
+        await LoadAsync();
+    }
+
+    private async Task<(string username, string password)> PromptCreateAsync()
+    {
+        var parameters = new DialogParameters<CreateUserDialog>();
+        var dlg = await Dialogs.ShowAsync<CreateUserDialog>("Add technician", parameters);
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: (string u, string p) }) return (u, p);
+        return ("", "");
+    }
+
+    private async Task<string> PromptPasswordAsync(string title)
+    {
+        var parameters = new DialogParameters<ResetPasswordDialog>();
+        var dlg = await Dialogs.ShowAsync<ResetPasswordDialog>(title, parameters);
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: string s }) return s;
+        return "";
+    }
+
+    private class Row
+    {
+        public string Id { get; set; } = "";
+        public string UserName { get; set; } = "";
+        public string Role { get; set; } = "";
+        public bool MustChangePassword { get; set; }
+    }
+}
