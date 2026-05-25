@@ -1,17 +1,78 @@
-<MudDialog>
+@* Reusable dialog for adding/editing a Contact. *@
+
+<MudDialog Class="fp-phone-dialog">
+    <TitleContent>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="fp-section-icon" style="background: rgba(14, 165, 164, 0.12); color: #0EA5A4;">
+                <MudIcon Icon="@Icons.Material.Filled.PersonAddAlt1" />
+            </span>
+            <div style="display: flex; flex-direction: column;">
+                <MudText Typo="Typo.h6" Style="line-height: 1.2;">
+                    @(Model.Id == 0 ? "Add contact" : "Edit contact")
+                </MudText>
+                <MudText Typo="Typo.caption" Style="color: #6B7280;">
+                    Pushed to every enabled phone on the next sync.
+                </MudText>
+            </div>
+        </div>
+    </TitleContent>
     <DialogContent>
         <MudForm @ref="_form">
-            <MudTextField @bind-Value="Model.DisplayName" Label="Display name" Required="true" />
-            <MudTextField @bind-Value="Model.OfficeNumber" Label="Office number" />
-            <MudTextField @bind-Value="Model.MobileNumber" Label="Mobile number" />
-            <MudTextField @bind-Value="Model.OtherNumber" Label="Other number" />
-            <MudTextField @bind-Value="Model.Group" Label="Group" />
-            <MudTextField @bind-Value="Model.Ring" Label="Ring" />
+
+            <MudText Typo="Typo.overline" Class="fp-dlg-section">Identity</MudText>
+            <MudTextField @bind-Value="Model.DisplayName" Label="Display name" Required="true"
+                          Placeholder="Jane Doe" Variant="Variant.Outlined"
+                          Margin="Margin.Dense" Class="mb-3"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Badge" />
+
+            <MudText Typo="Typo.overline" Class="fp-dlg-section">Phone numbers</MudText>
+            <MudGrid Spacing="2" Class="mb-2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Model.OfficeNumber" Label="Office"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Business" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Model.MobileNumber" Label="Mobile"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.PhoneIphone" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Model.OtherNumber" Label="Other"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Phone" />
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.overline" Class="fp-dlg-section">Categorisation</MudText>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Model.Group" Label="Group"
+                                  Placeholder="e.g. Staff" Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Folder" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Model.Ring" Label="Ring"
+                                  Placeholder="Auto" Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.MusicNote" />
+                </MudItem>
+            </MudGrid>
         </MudForm>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel">Cancel</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Ok">Save</MudButton>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.Save" OnClick="Ok">
+            Save
+        </MudButton>
     </DialogActions>
 </MudDialog>
 

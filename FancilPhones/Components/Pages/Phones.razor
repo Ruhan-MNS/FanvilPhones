@@ -14,7 +14,7 @@
         </div>
     </div>
     <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"               StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
         Add phone
     </MudButton>
 </MudStack>
@@ -38,8 +38,7 @@
         <MudTd>@context.Username</MudTd>
         <MudTd><code>@context.UploadPath</code></MudTd>
         <MudTd>
-            <MudSwitch T="bool" Value="context.Enabled"
-                       ValueChanged="@(v => ToggleEnabled(context, v))" Color="Color.Success" />
+            <MudSwitch T="bool" Value="context.Enabled" ValueChanged="@(v => ToggleEnabled(context, v))" Color="Color.Success" />
         </MudTd>
         <MudTd>
             @if (context.LastSyncedAt is null)

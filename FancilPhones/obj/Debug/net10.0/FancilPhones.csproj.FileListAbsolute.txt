@@ -204,4 +204,4 @@ C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\ref\Fan
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\FancilPhones.sourcelink.json
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\vjksotixyu-{0}-y57z50ydna-y57z50ydna.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\b6e1rsccct-{0}-y57z50ydna-y57z50ydna.gz
-C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\iryd23rk3z-{0}-59f6x60f89-59f6x60f89.gz
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\iryd23rk3z-{0}-terim9bwjj-terim9bwjj.gz

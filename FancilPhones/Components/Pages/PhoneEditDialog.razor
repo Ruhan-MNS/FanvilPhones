@@ -1,40 +1,90 @@
 @* Reusable dialog for adding/editing a Phone. *@
 
-<MudDialog>
+<MudDialog Class="fp-phone-dialog">
+    <TitleContent>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="fp-section-icon" style="background: rgba(79, 70, 229, 0.10); color: #4F46E5;">
+                <MudIcon Icon="@Icons.Material.Filled.Smartphone" />
+            </span>
+            <div style="display: flex; flex-direction: column;">
+                <MudText Typo="Typo.h6" Style="line-height: 1.2;">
+                    @(Model.Id == 0 ? "Add phone" : "Edit phone")
+                </MudText>
+                <MudText Typo="Typo.caption" Style="color: #6B7280;">
+                    Configure how FancilPhones reaches this handset.
+                </MudText>
+            </div>
+        </div>
+    </TitleContent>
     <DialogContent>
         <MudForm @ref="_form">
+
+            <MudText Typo="Typo.overline" Class="fp-dlg-section">Identity</MudText>
             <MudTextField @bind-Value="Model.Name" Label="Name" Required="true"
-                          Placeholder="Reception" />
-            <MudGrid>
+                          Placeholder="Reception" Variant="Variant.Outlined"
+                          Margin="Margin.Dense" Class="mb-3" />
+
+            <MudText Typo="Typo.overline" Class="fp-dlg-section">Network</MudText>
+            <MudGrid Spacing="2" Class="mb-2">
                 <MudItem xs="4">
-                    <MudSelect T="string" @bind-Value="Model.Scheme" Label="Scheme">
+                    <MudSelect T="string" @bind-Value="Model.Scheme" Label="Scheme"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
                         <MudSelectItem Value="@("http")">http</MudSelectItem>
                         <MudSelectItem Value="@("https")">https</MudSelectItem>
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="8">
-                    <MudTextField @bind-Value="Model.IpAddress" Label="IP address" Required="true" Placeholder="192.168.55.101" />
+                    <MudTextField @bind-Value="Model.IpAddress" Label="IP address" Required="true"
+                                  Placeholder="192.168.55.101" Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Lan" />
                 </MudItem>
             </MudGrid>
-            <MudGrid>
+
+            <MudText Typo="Typo.overline" Class="fp-dlg-section">Credentials</MudText>
+            <MudGrid Spacing="2" Class="mb-2">
                 <MudItem xs="6">
-                    <MudTextField @bind-Value="Model.Username" Label="Username" />
+                    <MudTextField @bind-Value="Model.Username" Label="Username"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Person" />
                 </MudItem>
                 <MudItem xs="6">
                     <MudTextField @bind-Value="Model.Password" Label="Password"
-                                  InputType="InputType.Password" />
+                                  InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                  OnAdornmentClick="@(() => _showPassword = !_showPassword)" />
                 </MudItem>
             </MudGrid>
+
+            <MudText Typo="Typo.overline" Class="fp-dlg-section">Upload endpoint</MudText>
             <MudTextField @bind-Value="Model.UploadPath" Label="Upload path"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
                           HelperText="Path the phone's web UI posts to when uploading contacts (capture via DevTools)." />
             <MudTextField @bind-Value="Model.UploadFieldName" Label="Upload field name"
-                          HelperText="Multipart form field name for the file (usually 'file')." />
-            <MudCheckBox T="bool" @bind-Value="Model.Enabled" Label="Enabled (included in 'Sync All')" />
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
+                          HelperText="Multipart form field name for the file (usually 'PHONEBOOK')." />
+
+            <div class="fp-dlg-toggle">
+                <div>
+                    <MudText Typo="Typo.body2"><strong>Enabled</strong></MudText>
+                    <MudText Typo="Typo.caption" Style="color: #6B7280;">
+                        Include this phone in "Sync All".
+                    </MudText>
+                </div>
+                <MudSwitch T="bool" @bind-Value="Model.Enabled" Color="Color.Primary" />
+            </div>
         </MudForm>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel">Cancel</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Ok">Save</MudButton>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.Save" OnClick="Ok">
+            Save
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -42,6 +92,7 @@
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public Phone Model { get; set; } = new();
     private MudForm? _form;
+    private bool _showPassword;
 
     private async Task Ok()
     {

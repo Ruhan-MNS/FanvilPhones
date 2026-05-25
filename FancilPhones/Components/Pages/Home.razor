@@ -6,7 +6,7 @@
 
 <div class="fp-hero mb-6">
     <h1>Welcome back</h1>
-    <p>Manage and sync phonebook contacts across every Fanvil IP phone on your network — one master list, pushed to the entire fleet in seconds.</p>
+    <p>Manage and sync phonebook contacts across every Fanvil IP phone on your network, one master list, pushed to the entire fleet in seconds.</p>
     <MudStack Row="true" Spacing="2">
         <MudButton Variant="Variant.Filled" Color="Color.Surface" Class="fp-hero-btn-primary"
                    StartIcon="@Icons.Material.Filled.CloudSync"
@@ -73,12 +73,115 @@
             </MudCardActions>
         </MudCard>
     </MudItem>
+    <MudItem xs="12" md="12" Class="d-flex">
+        <MudCard Elevation="0" Class="fp-card-surface pa-2 fp-card-equal" Style="width: 100%;">
+            <MudCardContent>
+                <div class="fp-section-header">
+                    <span class="fp-section-icon" style="background: rgba(16, 185, 129, 0.12); color: #047857;">
+                        <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" />
+                    </span>
+                    <MudText Typo="Typo.h6">Fleet health</MudText>
+                </div>
+
+                @{
+                    var total = _okCount + _failedCount + _neverCount + _disabledCount;
+                }
+                @if (total == 0)
+                {
+                    <MudText>No phones configured yet.</MudText>
+                }
+                else
+                {
+                    <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin: 12px 0 16px 0; background: #E5E7EB;">
+                        @if (_okCount > 0)
+                        {
+                            <div style="@($"width: {(_okCount * 100.0 / total):F2}%; background: #10B981;")" title="@($"{_okCount} OK")"></div>
+                        }
+                        @if (_failedCount > 0)
+                        {
+                            <div style="@($"width: {(_failedCount * 100.0 / total):F2}%; background: #EF4444;")" title="@($"{_failedCount} failed")"></div>
+                        }
+                        @if (_neverCount > 0)
+                        {
+                            <div style="@($"width: {(_neverCount * 100.0 / total):F2}%; background: #F59E0B;")" title="@($"{_neverCount} never synced")"></div>
+                        }
+                        @if (_disabledCount > 0)
+                        {
+                            <div style="@($"width: {(_disabledCount * 100.0 / total):F2}%; background: #9CA3AF;")" title="@($"{_disabledCount} disabled")"></div>
+                        }
+                    </div>
+
+                    <MudGrid Spacing="2">
+                        <MudItem xs="6" sm="3">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="width: 10px; height: 10px; border-radius: 50%; background: #10B981; display: inline-block;"></span>
+                                <MudText Typo="Typo.body2"><strong>@_okCount</strong> OK</MudText>
+                            </div>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="width: 10px; height: 10px; border-radius: 50%; background: #EF4444; display: inline-block;"></span>
+                                <MudText Typo="Typo.body2"><strong>@_failedCount</strong> Failed</MudText>
+                            </div>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="width: 10px; height: 10px; border-radius: 50%; background: #F59E0B; display: inline-block;"></span>
+                                <MudText Typo="Typo.body2"><strong>@_neverCount</strong> Never synced</MudText>
+                            </div>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="width: 10px; height: 10px; border-radius: 50%; background: #9CA3AF; display: inline-block;"></span>
+                                <MudText Typo="Typo.body2"><strong>@_disabledCount</strong> Disabled</MudText>
+                            </div>
+                        </MudItem>
+                    </MudGrid>
+
+                    @if (_failedPhones.Count > 0)
+                    {
+                        <MudDivider Class="my-4" />
+                        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="color: #B91C1C;">
+                            <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Small" Class="mr-1" />
+                            Failed phones
+                        </MudText>
+                        <MudList T="object" Dense="true" Class="pa-0">
+                            @foreach (var p in _failedPhones)
+                            {
+                                <MudListItem T="object" Class="px-2" OnClick="@(() => Nav.NavigateTo("phones"))">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;">
+                                        <div style="display: flex; flex-direction: column;">
+                                            <MudText Typo="Typo.body2"><strong>@p.Name</strong> <span style="color: #6B7280;">@p.IpAddress</span></MudText>
+                                            @if (!string.IsNullOrWhiteSpace(p.LastSyncMessage))
+                                            {
+                                                <MudText Typo="Typo.caption" Style="color: #B91C1C;">@p.LastSyncMessage</MudText>
+                                            }
+                                        </div>
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined">@p.LastSyncStatus</MudChip>
+                                    </div>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                }
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Href="sync" Variant="Variant.Filled" Color="Color.Tertiary"
+                           StartIcon="@Icons.Material.Filled.CloudSync">Open Sync</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
 </MudGrid>
 
 @code {
     private int _phoneCount;
     private int _contactCount;
     private string _lastSyncDisplay = "never";
+    private int _okCount;
+    private int _failedCount;
+    private int _neverCount;
+    private int _disabledCount;
+    private List<Phone> _failedPhones = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -87,6 +190,20 @@
             await using var db = await DbFactory.CreateDbContextAsync();
             _phoneCount = await db.Phones.CountAsync();
             _contactCount = await db.Contacts.CountAsync();
+
+            var phones = await db.Phones.ToListAsync();
+            foreach (var p in phones)
+            {
+                if (!p.Enabled) _disabledCount++;
+                else if (p.LastSyncedAt == null) _neverCount++;
+                else if (p.LastSyncStatus == "Success") _okCount++;
+                else
+                {
+                    _failedCount++;
+                    _failedPhones.Add(p);
+                }
+            }
+
             var last = await db.SyncRuns
                 .OrderByDescending(r => r.StartedAt)
                 .Select(r => (DateTime?)r.StartedAt)
