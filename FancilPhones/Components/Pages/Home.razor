@@ -1,45 +1,105 @@
 @page "/"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject NavigationManager Nav
 
 <PageTitle>FancilPhones</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">FancilPhones</MudText>
-<MudText Class="mb-4">Manage and sync phonebook contacts across all your Fanvil IP phones.</MudText>
+<div class="fp-hero mb-6">
+    <h1>Welcome back</h1>
+    <p>Manage and sync phonebook contacts across every Fanvil IP phone on your network — one master list, pushed to the entire fleet in seconds.</p>
+    <MudStack Row="true" Spacing="2">
+        <MudButton Variant="Variant.Filled" Color="Color.Surface" Class="fp-hero-btn-primary"
+                   StartIcon="@Icons.Material.Filled.CloudSync"
+                   OnClick="@(() => Nav.NavigateTo("sync"))">
+            Sync now
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Inherit"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="@(() => Nav.NavigateTo("phones"))">
+            Add phone
+        </MudButton>
+    </MudStack>
+</div>
 
 <MudGrid>
-    <MudItem xs="12" md="4">
-        <MudCard>
+    <MudItem xs="12" md="4" Class="d-flex">
+        <MudCard Elevation="0" Class="fp-card-surface pa-2 fp-card-equal">
             <MudCardContent>
-                <MudIcon Icon="@Icons.Material.Filled.Phone" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.h6" Class="mt-2">Phones</MudText>
+                <div class="fp-section-header">
+                    <span class="fp-section-icon" style="background: rgba(79, 70, 229, 0.10); color: #4F46E5;">
+                        <MudIcon Icon="@Icons.Material.Filled.Smartphone" />
+                    </span>
+                    <MudText Typo="Typo.h6">Phones</MudText>
+                </div>
                 <MudText>Add the IP, credentials and upload endpoint for each handset.</MudText>
+                <div class="fp-stat">@_phoneCount phone@(_phoneCount == 1 ? "" : "s") configured</div>
             </MudCardContent>
             <MudCardActions>
                 <MudButton Href="phones" Variant="Variant.Filled" Color="Color.Primary">Open</MudButton>
             </MudCardActions>
         </MudCard>
     </MudItem>
-    <MudItem xs="12" md="4">
-        <MudCard>
+    <MudItem xs="12" md="4" Class="d-flex">
+        <MudCard Elevation="0" Class="fp-card-surface pa-2 fp-card-equal">
             <MudCardContent>
-                <MudIcon Icon="@Icons.Material.Filled.Contacts" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.h6" Class="mt-2">Contacts</MudText>
+                <div class="fp-section-header">
+                    <span class="fp-section-icon" style="background: rgba(14, 165, 164, 0.12); color: #0EA5A4;">
+                        <MudIcon Icon="@Icons.Material.Filled.ContactPhone" />
+                    </span>
+                    <MudText Typo="Typo.h6">Contacts</MudText>
+                </div>
                 <MudText>The single master phonebook pushed to every phone.</MudText>
+                <div class="fp-stat">@_contactCount contact@(_contactCount == 1 ? "" : "s") in the list</div>
             </MudCardContent>
             <MudCardActions>
-                <MudButton Href="contacts" Variant="Variant.Filled" Color="Color.Primary">Open</MudButton>
+                <MudButton Href="contacts" Variant="Variant.Filled" Color="Color.Secondary">Open</MudButton>
             </MudCardActions>
         </MudCard>
     </MudItem>
-    <MudItem xs="12" md="4">
-        <MudCard>
+    <MudItem xs="12" md="4" Class="d-flex">
+        <MudCard Elevation="0" Class="fp-card-surface pa-2 fp-card-equal">
             <MudCardContent>
-                <MudIcon Icon="@Icons.Material.Filled.Sync" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.h6" Class="mt-2">Sync</MudText>
+                <div class="fp-section-header">
+                    <span class="fp-section-icon" style="background: rgba(245, 158, 11, 0.14); color: #B45309;">
+                        <MudIcon Icon="@Icons.Material.Filled.CloudSync" />
+                    </span>
+                    <MudText Typo="Typo.h6">Sync</MudText>
+                </div>
                 <MudText>Push the master list to all enabled phones at once.</MudText>
+                <div class="fp-stat">Last sync: @_lastSyncDisplay</div>
             </MudCardContent>
             <MudCardActions>
-                <MudButton Href="sync" Variant="Variant.Filled" Color="Color.Primary">Open</MudButton>
+                <MudButton Href="sync" Variant="Variant.Filled" Color="Color.Tertiary">Open</MudButton>
             </MudCardActions>
         </MudCard>
     </MudItem>
 </MudGrid>
+
+@code {
+    private int _phoneCount;
+    private int _contactCount;
+    private string _lastSyncDisplay = "never";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            _phoneCount = await db.Phones.CountAsync();
+            _contactCount = await db.Contacts.CountAsync();
+            var last = await db.SyncRuns
+                .OrderByDescending(r => r.StartedAt)
+                .Select(r => (DateTime?)r.StartedAt)
+                .FirstOrDefaultAsync();
+            if (last.HasValue)
+            {
+                var ago = DateTime.UtcNow - last.Value;
+                _lastSyncDisplay = ago.TotalMinutes < 1 ? "just now"
+                    : ago.TotalMinutes < 60 ? $"{(int)ago.TotalMinutes} min ago"
+                    : ago.TotalHours < 24 ? $"{(int)ago.TotalHours} hr ago"
+                    : last.Value.ToLocalTime().ToString("g");
+            }
+        }
+        catch { }
+    }
+}

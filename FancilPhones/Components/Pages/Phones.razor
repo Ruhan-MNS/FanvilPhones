@@ -6,16 +6,23 @@
 
 <PageTitle>Phones</PageTitle>
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudText Typo="Typo.h4">Phones</MudText>
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+    <div class="fp-section-header" style="margin-bottom: 0;">
+        <span class="fp-section-icon"><MudIcon Icon="@Icons.Material.Filled.Smartphone" /></span>
+        <div>
+            <MudText Typo="Typo.h4">Phones</MudText>
+        </div>
+    </div>
     <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-               StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"               StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
         Add phone
     </MudButton>
 </MudStack>
+<div class="fp-section-subtitle">Each Fanvil handset on your network — credentials, upload endpoint, and last sync status.</div>
 
-<MudTable Items="_phones" Dense="true" Hover="true" Bordered="true" Loading="_loading">
+<div class="fp-table-wrap">
+<MudTable Items="_phones" Dense="true" Hover="true" Bordered="false" Loading="_loading"
+          Elevation="0">
     <HeaderContent>
         <MudTh>Name</MudTh>
         <MudTh>IP</MudTh>
@@ -64,8 +71,9 @@
         <MudText>No phones yet. Click <b>Add phone</b> to start.</MudText>
     </NoRecordsContent>
 </MudTable>
+</div>
 
-<MudAlert Severity="Severity.Info" Class="mt-6">
+<MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-6">
     Defaults (<code>/pBookAdv.htm</code>, field <code>PHONEBOOK</code>) match Fanvil X-series
     phones and rarely need changing. Credentials default to <b>admin / admin</b>.
     Use <b>Probe</b> to verify a phone is reachable and the login works before syncing.
@@ -81,7 +89,7 @@
     {
         _loading = true;
         await using var db = await DbFactory.CreateDbContextAsync();
-        _phones = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+        _phones = await EntityFrameworkQueryableExtensions
             .ToListAsync(db.Phones.OrderBy(p => p.Name));
         _loading = false;
     }

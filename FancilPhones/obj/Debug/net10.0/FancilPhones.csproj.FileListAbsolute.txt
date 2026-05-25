@@ -143,7 +143,6 @@ C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\scopedc
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\tzxjg6is5z-{0}-6x2ajsl5c8-6x2ajsl5c8.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\0wz98yz2xy-{0}-jolev99wdd-jolev99wdd.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\o7k4cxtn0u-{0}-h82a7aihv0-h82a7aihv0.gz
-C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\iryd23rk3z-{0}-khy4lop6wu-khy4lop6wu.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\ehlldvhcxs-{0}-t1cqhe9u97-t1cqhe9u97.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\091m46yhks-{0}-c2jlpeoesf-c2jlpeoesf.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\7smtz7tx13-{0}-sejl45xvog-sejl45xvog.gz
@@ -191,8 +190,6 @@ C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compres
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\01x50t6llf-{0}-abdmv1u4y3-abdmv1u4y3.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\5qsd6zkcge-{0}-ej96puwv3k-ej96puwv3k.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\kuew9aqh52-{0}-cj5793hgrt-cj5793hgrt.gz
-C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\vjksotixyu-{0}-pc5z0ivs4i-pc5z0ivs4i.gz
-C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\b6e1rsccct-{0}-pc5z0ivs4i-pc5z0ivs4i.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\staticwebassets.build.json
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\staticwebassets.build.json.cache
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\staticwebassets.development.json
@@ -205,3 +202,6 @@ C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\FancilP
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\FancilPhones.genruntimeconfig.cache
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\ref\FancilPhones.dll
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\FancilPhones.sourcelink.json
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\vjksotixyu-{0}-y57z50ydna-y57z50ydna.gz
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\b6e1rsccct-{0}-y57z50ydna-y57z50ydna.gz
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\iryd23rk3z-{0}-59f6x60f89-59f6x60f89.gz

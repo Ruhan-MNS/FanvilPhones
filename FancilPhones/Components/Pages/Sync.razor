@@ -5,26 +5,33 @@
 
 <PageTitle>Sync</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Sync</MudText>
+<div class="fp-section-header">
+    <span class="fp-section-icon" style="background: rgba(245, 158, 11, 0.14); color: #B45309;">
+        <MudIcon Icon="@Icons.Material.Filled.CloudSync" />
+    </span>
+    <MudText Typo="Typo.h4">Sync</MudText>
+</div>
+<div class="fp-section-subtitle">Push the current master phonebook to every enabled handset.</div>
 
-<MudPaper Class="pa-4 mb-4">
+<MudPaper Elevation="0" Class="pa-5 mb-4 fp-card-surface">
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.CloudUpload"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"                   StartIcon="@Icons.Material.Filled.CloudUpload"
                    Disabled="_running" OnClick="RunAsync">
             @(_running ? "Syncing..." : "Sync all enabled phones")
         </MudButton>
-        <MudText>@_summary</MudText>
+        <MudText Class="mud-text-secondary">@_summary</MudText>
     </MudStack>
     @if (_running)
     {
-        <MudProgressLinear Indeterminate="true" Class="mt-4" />
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-4" Rounded="true" />
     }
 </MudPaper>
 
 @if (_results.Count > 0)
 {
-    <MudTable Items="_results" Dense="true" Bordered="true">
+    <MudText Typo="Typo.h6" Class="mt-2 mb-2">This run</MudText>
+    <div class="fp-table-wrap mb-4">
+    <MudTable Items="_results" Dense="true" Hover="true" Bordered="false" Elevation="0">
         <HeaderContent>
             <MudTh>Phone</MudTh>
             <MudTh>Status</MudTh>
@@ -43,10 +50,12 @@
             <MudTd>@context.Message</MudTd>
         </RowTemplate>
     </MudTable>
+    </div>
 }
 
 <MudText Typo="Typo.h6" Class="mt-6 mb-2">Recent sync history</MudText>
-<MudTable Items="_history" Dense="true" Bordered="true">
+<div class="fp-table-wrap">
+<MudTable Items="_history" Dense="true" Hover="true" Bordered="false" Elevation="0">
     <HeaderContent>
         <MudTh>Started</MudTh>
         <MudTh>Phone</MudTh>
@@ -57,13 +66,26 @@
     <RowTemplate>
         <MudTd>@context.StartedAt.ToLocalTime().ToString("g")</MudTd>
         <MudTd>@(context.Phone?.Name ?? "?")</MudTd>
-        <MudTd>@context.Status</MudTd>
+        <MudTd>
+            <MudChip T="string" Size="Size.Small" Color="@HistoryStatusColor(context.Status)">
+                @context.Status
+            </MudChip>
+        </MudTd>
         <MudTd>@context.ContactCount</MudTd>
         <MudTd>@context.Message</MudTd>
     </RowTemplate>
 </MudTable>
+</div>
 
 @code {
+    private static Color HistoryStatusColor(string? s) => s switch
+    {
+        "Success" => Color.Success,
+        "Failed" => Color.Warning,
+        "Error" => Color.Error,
+        _ => Color.Default
+    };
+
     private bool _running;
     private string _summary = "";
     private List<SyncResult> _results = new();

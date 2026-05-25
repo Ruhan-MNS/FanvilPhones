@@ -1,21 +1,43 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject IDbContextFactory<AppDbContext> DbFactory
+@implements IDisposable
 
-<MudThemeProvider />
+<MudThemeProvider Theme="_theme" IsDarkMode="false" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Primary">
-        <MudText Typo="Typo.h6">FancilPhones</MudText>
+    <MudAppBar Elevation="0" Class="fp-appbar" Dense="true">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+            <span class="fp-brand-mark">
+                <MudIcon Icon="@Icons.Material.Filled.Smartphone" Size="Size.Small" />
+            </span>
+            <MudStack Spacing="0">
+                <span class="fp-brand-title">FancilPhones</span>
+                <span class="fp-brand-sub">Fanvil phone manager</span>
+            </MudStack>
+        </MudStack>
+        <MudSpacer />
+        <MudChip T="string" Icon="@Icons.Material.Filled.Phone" Color="Color.Primary"
+                 Variant="Variant.Outlined" Size="Size.Small">
+            @_phoneCount phone@(_phoneCount == 1 ? "" : "s")
+        </MudChip>
+        <MudChip T="string" Icon="@Icons.Material.Filled.Contacts" Color="Color.Secondary"
+                 Variant="Variant.Outlined" Size="Size.Small" Class="ml-2">
+            @_contactCount contact@(_contactCount == 1 ? "" : "s")
+        </MudChip>
     </MudAppBar>
-    <MudDrawer Open="true" Variant="DrawerVariant.Mini" OpenMiniOnHover="true" Elevation="2">
+    <MudDrawer Open="true" Variant="DrawerVariant.Mini" OpenMiniOnHover="true" Elevation="0"
+               Class="fp-drawer">
         <NavMenu />
     </MudDrawer>
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
-            @Body
-        </MudContainer>
+        <div class="fp-page-bg">
+            <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
+                @Body
+            </MudContainer>
+        </div>
     </MudMainContent>
 </MudLayout>
 
@@ -24,3 +46,110 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private int _phoneCount;
+    private int _contactCount;
+    private System.Threading.Timer? _refreshTimer;
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#4F46E5",
+            PrimaryDarken = "#4338CA",
+            PrimaryLighten = "#EEF2FF",
+            Secondary = "#0EA5A4",
+            SecondaryDarken = "#0F766E",
+            Tertiary = "#F59E0B",
+            Success = "#16A34A",
+            Warning = "#F59E0B",
+            Error = "#DC2626",
+            Info = "#0EA5A4",
+            Background = "#F7F8FB",
+            Surface = "#FFFFFF",
+            AppbarBackground = "#FFFFFF",
+            AppbarText = "#111827",
+            DrawerBackground = "#FFFFFF",
+            DrawerText = "#111827",
+            DrawerIcon = "#4F46E5",
+            TextPrimary = "#111827",
+            TextSecondary = "#6B7280",
+            ActionDefault = "#6B7280",
+            Divider = "#E5E7EB",
+            LinesDefault = "#E5E7EB",
+            TableLines = "#E5E7EB",
+            TableHover = "rgba(79, 70, 229, 0.06)"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography
+            {
+                FontFamily = new[] { "Inter", "Roboto", "Helvetica Neue", "Helvetica", "Arial", "sans-serif" },
+                FontSize = "0.9rem",
+                FontWeight = "400",
+                LetterSpacing = "0.005em",
+                LineHeight = "1.5"
+            },
+            H4 = new H4Typography
+            {
+                FontFamily = new[] { "Inter", "Roboto", "sans-serif" },
+                FontWeight = "700",
+                FontSize = "1.6rem",
+                LetterSpacing = "-0.015em",
+                LineHeight = "1.25"
+            },
+            H5 = new H5Typography
+            {
+                FontFamily = new[] { "Inter", "Roboto", "sans-serif" },
+                FontWeight = "600",
+                FontSize = "1.25rem",
+                LetterSpacing = "-0.01em"
+            },
+            H6 = new H6Typography
+            {
+                FontFamily = new[] { "Inter", "Roboto", "sans-serif" },
+                FontWeight = "600",
+                FontSize = "1.05rem",
+                LetterSpacing = "-0.005em"
+            },
+            Button = new ButtonTypography
+            {
+                FontFamily = new[] { "Inter", "Roboto", "sans-serif" },
+                FontWeight = "500",
+                TextTransform = "none",
+                LetterSpacing = "0.01em"
+            }
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DefaultBorderRadius = "12px",
+            DrawerWidthLeft = "240px",
+            DrawerMiniWidthLeft = "64px",
+            AppbarHeight = "64px"
+        }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshCountsAsync();
+        _refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            try { await RefreshCountsAsync(); await InvokeAsync(StateHasChanged); }
+            catch { }
+        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    private async Task RefreshCountsAsync()
+    {
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            _phoneCount = await db.Phones.CountAsync();
+            _contactCount = await db.Contacts.CountAsync();
+        }
+        catch { }
+    }
+
+    public void Dispose() => _refreshTimer?.Dispose();
+}

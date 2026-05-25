@@ -1,19 +1,37 @@
+:root {
+    --fp-primary: #4F46E5;
+    --fp-primary-soft: rgba(79, 70, 229, 0.10);
+    --fp-secondary: #0EA5A4;
+    --fp-bg: #F7F8FB;
+    --fp-surface: #FFFFFF;
+    --fp-border: #E5E7EB;
+    --fp-text: #111827;
+    --fp-text-muted: #6B7280;
+    --fp-shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04), 0 1px 3px rgba(17, 24, 39, 0.06);
+    --fp-shadow-md: 0 4px 12px rgba(17, 24, 39, 0.06), 0 2px 4px rgba(17, 24, 39, 0.04);
+    --fp-shadow-lg: 0 12px 32px rgba(17, 24, 39, 0.10), 0 4px 8px rgba(17, 24, 39, 0.04);
+}
+
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Inter', 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: var(--fp-bg);
+    color: var(--fp-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 a, .btn-link {
-    color: #006bb7;
+    color: var(--fp-primary);
 }
 
 .btn-primary {
     color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    background-color: var(--fp-primary);
+    border-color: var(--fp-primary);
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem rgba(79, 70, 229, 0.45);
 }
 
 .content {
@@ -25,15 +43,15 @@ h1:focus {
 }
 
 .valid.modified:not([type=checkbox]) {
-    outline: 1px solid #26b050;
+    outline: 1px solid #16a34a;
 }
 
 .invalid {
-    outline: 1px solid #e50000;
+    outline: 1px solid #dc2626;
 }
 
 .validation-message {
-    color: #e50000;
+    color: #dc2626;
 }
 
 .blazor-error-boundary {
@@ -50,11 +68,175 @@ h1:focus {
     border-color: #929292;
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-    color: var(--bs-secondary-color);
-    text-align: end;
+/* ---- FancilPhones polish ---- */
+
+.fp-soft-shadow {
+    box-shadow: var(--fp-shadow-md) !important;
 }
 
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-    text-align: start;
+.fp-glass-panel {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.95) 0%, rgba(14, 165, 164, 0.92) 100%);
+    color: white;
+    border-radius: 16px;
+    box-shadow: var(--fp-shadow-lg);
+}
+
+.fp-page-bg {
+    background:
+        radial-gradient(circle at 0% 0%, rgba(79, 70, 229, 0.05), transparent 40%),
+        radial-gradient(circle at 100% 0%, rgba(14, 165, 164, 0.04), transparent 40%),
+        var(--fp-bg);
+    min-height: 100vh;
+}
+
+.fp-card-surface {
+    background: var(--fp-surface);
+    border: 1px solid var(--fp-border);
+    border-radius: 14px !important;
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.fp-card-surface:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--fp-shadow-md);
+    border-color: rgba(79, 70, 229, 0.35);
+}
+
+.fp-card-equal {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.fp-card-equal .mud-card-content {
+    flex: 1 1 auto;
+}
+
+.fp-section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.fp-section-header .fp-section-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: var(--fp-primary-soft);
+    color: var(--fp-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fp-section-subtitle {
+    color: var(--fp-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+}
+
+.fp-table-wrap {
+    background: var(--fp-surface);
+    border: 1px solid var(--fp-border);
+    border-radius: 14px;
+    padding: 8px;
+    box-shadow: var(--fp-shadow-sm);
+}
+
+.fp-table-wrap .mud-table {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Tighten MudBlazor defaults so cards feel less boxy */
+.mud-card,
+.mud-paper {
+    border-radius: 14px;
+}
+
+.mud-button-root {
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-weight: 500;
+}
+
+.mud-appbar.fp-appbar {
+    background-color: var(--fp-surface) !important;
+    color: var(--fp-text) !important;
+    border-bottom: 1px solid var(--fp-border);
+    backdrop-filter: saturate(180%) blur(8px);
+}
+
+.fp-brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--fp-primary), var(--fp-secondary));
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--fp-shadow-sm);
+}
+
+.fp-brand-title {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+}
+
+.fp-brand-sub {
+    font-size: 0.72rem;
+    color: var(--fp-text-muted);
+    margin-top: 2px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.fp-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 28px 32px;
+    border-radius: 18px;
+    color: white;
+    background:
+        radial-gradient(circle at 110% -20%, rgba(255,255,255,0.18), transparent 50%),
+        radial-gradient(circle at -10% 120%, rgba(14, 165, 164, 0.45), transparent 55%),
+        linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #0EA5A4 100%);
+    box-shadow: var(--fp-shadow-lg);
+}
+
+.fp-hero h1 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+    font-size: 1.9rem;
+}
+
+.fp-hero p {
+    margin: 6px 0 18px;
+    opacity: 0.92;
+    max-width: 640px;
+}
+
+.fp-hero .mud-button-root {
+    color: white;
+    border-color: rgba(255,255,255,0.6);
+}
+
+.fp-stat {
+    font-size: 0.85rem;
+    color: var(--fp-text-muted);
+    margin-top: 6px;
+    font-weight: 500;
+}
+
+.fp-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+    display: inline-block;
 }

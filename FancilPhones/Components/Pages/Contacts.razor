@@ -5,28 +5,38 @@
 
 <PageTitle>Contacts</PageTitle>
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudText Typo="Typo.h4">Contacts</MudText>
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+    <div class="fp-section-header" style="margin-bottom: 0;">
+        <span class="fp-section-icon" style="background: rgba(14, 165, 164, 0.12); color: #0EA5A4;">
+            <MudIcon Icon="@Icons.Material.Filled.ContactPhone" />
+        </span>
+        <div>
+            <MudText Typo="Typo.h4">Contacts</MudText>
+        </div>
+    </div>
     <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-               StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
         Add contact
     </MudButton>
-    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Upload"
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload"
                HtmlTag="label" for="csvUploadInput">
         Import CSV
     </MudButton>
     <InputFile id="csvUploadInput" OnChange="ImportCsvAsync" accept=".csv" style="display:none" />
-    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download"
                Href="api/phonebook.csv" Target="_blank">
         Preview CSV
     </MudButton>
 </MudStack>
+<div class="fp-section-subtitle">The master phonebook synced to every enabled phone.</div>
 
-<MudTextField @bind-Value="_search" Placeholder="Search..." Adornment="Adornment.Start"
-              AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" Class="mb-2" />
+<MudTextField @bind-Value="_search" Placeholder="Search contacts..." Adornment="Adornment.Start"
+              AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" Variant="Variant.Outlined"
+              Margin="Margin.Dense" Class="mb-3" />
 
-<MudTable Items="Filtered" Dense="true" Hover="true" Bordered="true" Loading="_loading">
+<div class="fp-table-wrap">
+<MudTable Items="Filtered" Dense="true" Hover="true" Bordered="false" Loading="_loading"
+          Elevation="0">
     <HeaderContent>
         <MudTh>Name</MudTh>
         <MudTh>Office</MudTh>
@@ -52,8 +62,9 @@
         <MudText>No contacts. Add one above to get started.</MudText>
     </NoRecordsContent>
 </MudTable>
+</div>
 
-<MudText Typo="Typo.body2" Class="mt-3">@_contacts.Count contact(s) total</MudText>
+<MudText Typo="Typo.body2" Class="mt-3 mud-text-secondary">@_contacts.Count contact(s) total</MudText>
 
 @code {
     private List<Contact> _contacts = new();
