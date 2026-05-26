@@ -1,0 +1,200 @@
+@* Bulk-discover Fanvil phones by scanning an IP range. *@
+@inject PhoneDiscoveryService Discovery
+@inject IDbContextFactory<AppDbContext> DbFactory
+@implements IDisposable
+
+<MudDialog Class="fp-phone-dialog">
+    <TitleContent>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="fp-section-icon" style="background: rgba(79, 70, 229, 0.10); color: #4F46E5;">
+                <MudIcon Icon="@Icons.Material.Filled.Radar" />
+            </span>
+            <div style="display: flex; flex-direction: column;">
+                <MudText Typo="Typo.h6" Style="line-height: 1.2;">Scan network</MudText>
+                <MudText Typo="Typo.caption" Style="color: #6B7280;">
+                    Discover Fanvil handsets on your subnet and add them in one go.
+                </MudText>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid Spacing="2" Class="mb-2">
+            <MudItem xs="8">
+                <MudTextField @bind-Value="_range" Label="IP range"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              HelperText="CIDR (192.168.55.0/24) or range (192.168.55.1-254)."
+                              Disabled="_scanning" />
+            </MudItem>
+            <MudItem xs="4" Style="display: flex; align-items: center;">
+                @if (!_scanning)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.PlayArrow" OnClick="StartScanAsync">
+                        Start scan
+                    </MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Stop" OnClick="CancelScan">
+                        Stop
+                    </MudButton>
+                }
+            </MudItem>
+        </MudGrid>
+
+        @if (_total > 0)
+        {
+            <MudProgressLinear Color="@(_scanning ? Color.Primary : Color.Success)"
+                               Value="@(_total == 0 ? 0 : 100.0 * _done / _total)"
+                               Class="mb-2" />
+            <MudText Typo="Typo.caption" Class="mb-2">
+                Scanned @_done / @_total &nbsp;·&nbsp;
+                Fanvil found: <strong>@_results.Count(r => r.IsFanvil)</strong>
+                (new: @_results.Count(r => r.IsFanvil && !r.AlreadyKnown))
+            </MudText>
+        }
+
+        <div style="max-height: 320px; overflow: auto;">
+            <MudTable Items="_results.Where(r => r.IsFanvil)" Dense="true" Hover="true" Bordered="false" Elevation="0">
+                <HeaderContent>
+                    <MudTh Style="width: 40px;">Add</MudTh>
+                    <MudTh>IP</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Name</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>
+                        <MudCheckBox T="bool" Value="@_selected.Contains(context.Ip)"
+                                     ValueChanged="@(v => ToggleSelect(context, v))"
+                                     Disabled="@context.AlreadyKnown" />
+                    </MudTd>
+                    <MudTd>@context.Ip</MudTd>
+                    <MudTd>
+                        @if (context.AlreadyKnown)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default">Already added</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success">Fanvil</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd>
+                        @if (context.AlreadyKnown)
+                        {
+                            <MudText Typo="Typo.body2" Style="color: #6B7280;">—</MudText>
+                        }
+                        else
+                        {
+                            <MudTextField T="string" Value="@GetName(context.Ip)"
+                                          ValueChanged="@(v => SetName(context.Ip, v))"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        }
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2" Style="color: #6B7280;">
+                        @(_scanning ? "Scanning..." : (_total == 0 ? "No scan yet." : "No Fanvil phones found."))
+                    </MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Close</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.AddCircle"
+                   Disabled="@(_selected.Count == 0 || _scanning)"
+                   OnClick="AddSelected">
+            Add selected (@_selected.Count)
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _range = "192.168.55.0/24";
+    private bool _scanning;
+    private int _total;
+    private int _done;
+    private readonly List<DiscoveredPhone> _results = new();
+    private readonly HashSet<string> _selected = new();
+    private readonly Dictionary<string, string> _names = new();
+    private CancellationTokenSource? _cts;
+
+    private string GetName(string ip) => _names.TryGetValue(ip, out var n) ? n : ip;
+    private void SetName(string ip, string value) => _names[ip] = value;
+
+    private void ToggleSelect(DiscoveredPhone p, bool selected)
+    {
+        if (p.AlreadyKnown) return;
+        if (selected) _selected.Add(p.Ip);
+        else _selected.Remove(p.Ip);
+    }
+
+    private async Task StartScanAsync()
+    {
+        _results.Clear();
+        _selected.Clear();
+        _names.Clear();
+        _done = 0;
+        _total = PhoneDiscoveryService.EnumerateIps(_range).Count();
+        if (_total == 0) return;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var known = new HashSet<string>(
+            await db.Phones.Select(p => p.IpAddress).ToListAsync(),
+            StringComparer.OrdinalIgnoreCase);
+
+        _scanning = true;
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            await foreach (var result in Discovery.ScanAsync(_range, known, ct: _cts.Token))
+            {
+                _done++;
+                _results.Add(result);
+                if (result.IsFanvil && !result.AlreadyKnown)
+                {
+                    _selected.Add(result.Ip);
+                    _names[result.Ip] = result.Ip;
+                }
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            _scanning = false;
+            _cts?.Dispose();
+            _cts = null;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelScan() => _cts?.Cancel();
+
+    private void AddSelected()
+    {
+        var picks = _results
+            .Where(r => r.IsFanvil && !r.AlreadyKnown && _selected.Contains(r.Ip))
+            .Select(r => new Phone
+            {
+                Name = (_names.TryGetValue(r.Ip, out var n) && !string.IsNullOrWhiteSpace(n)) ? n.Trim() : r.Ip,
+                IpAddress = r.Ip,
+            })
+            .ToList();
+        MudDialog.Close(DialogResult.Ok(picks));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    public void Dispose()
+    {
+        try { _cts?.Cancel(); } catch { }
+        _cts?.Dispose();
+    }
+}

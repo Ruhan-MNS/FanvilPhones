@@ -15,13 +15,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="340ae946-e78f-44e1-9494-9cde8929d477" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/FancilPhones/Properties/launchSettings.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Properties/launchSettings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/Phones.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/Phones.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Program.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.dll" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.exe" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.exe" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.pdb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/fancilphones.db" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfo.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfoInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.GeneratedMSBuildEditorConfig.editorconfig" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.GeneratedMSBuildEditorConfig.editorconfig" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.csproj.CoreCompileInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.csproj.CoreCompileInputs.cache" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.dll" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.pdb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.sourcelink.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.sourcelink.json" afterDir="false" />
@@ -30,6 +33,9 @@
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/refint/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/refint/FancilPhones.dll" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmcshtml.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmcshtml.dswa.cache.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmrazor.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmrazor.dswa.cache.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rpswa.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rpswa.dswa.cache.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/rider.project.model.nuget.info" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/rider.project.model.nuget.info" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/rider.project.restore.info" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/rider.project.restore.info" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -216,6 +222,7 @@
       <workItem from="1779705960701" duration="12449000" />
       <workItem from="1779773809602" duration="2544000" />
       <workItem from="1779787664522" duration="1038000" />
+      <workItem from="1779799246424" duration="975000" />
     </task>
     <task id="LOCAL-00001" summary="Add initial setup for the FancilPhones project&#10;&#10;Includes:&#10;&#10;- Configured .NET Core 10.0 compatibility and setup Assembly Attributes.&#10;- Added app configuration files (`appsettings.json`, `appsettings.Development.json`).&#10;- Implemented AppDbContext with EF Core entities and relationships.&#10;- Added shared Razor imports (`_Imports.razor`).&#10;- Integrated MudBlazor theming and basic app layout (`App.razor`).&#10;- Added Bootstrap 5.3.3 bundle and custom CSS styles for UI enhancements.">
       <option name="closed" value="true" />
@@ -273,7 +280,15 @@
       <option name="project" value="LOCAL" />
       <updated>1779774763871</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="Update project configurations and metadata&#10;&#10;- Updated launch settings to change application URL to `http://0.0.0.0:80`.&#10;- Updated source link and assembly informational version to reflect new commit hash.&#10;- Adjusted autogenerated files for alignment with recent changes.">
+      <option name="closed" value="true" />
+      <created>1779799262445</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1779799262445</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -301,7 +316,8 @@
     <MESSAGE value="Add fleet health status UI and backend logic&#10;&#10;- Introduced a fleet health section on the homepage with visual indicators for phone status (OK, Failed, Never Synced, Disabled).  &#10;- Implemented progress bar and detailed status breakdown with counts and failed phone details.  &#10;- Updated backend logic to calculate fleet health data during initialization." />
     <MESSAGE value="Implement user management UI and password management logic&#10;&#10;- Added pages for user management (`Users.razor`) with support for adding technicians, resetting passwords, and user status display.&#10;- Created dialogs for creating users (`CreateUserDialog`) and resetting passwords (`ResetPasswordDialog`).&#10;- Built a `ChangePassword` page for users to update their passwords.&#10;- Introduced `AppUser` class extending `IdentityUser` with `MustChangePassword` support.&#10;- Integrated `Login` and `RedirectToLogin` components for authentication workflows.&#10;- Setup `EmptyLayout` for minimalist page layouts.&#10;- Updated project dependencies to include ASP.NET Core Identity." />
     <MESSAGE value="Add &quot;Never synced&quot; status section on homepage, Excel export for contacts, and handle IP conflicts during phone setup&#10;&#10;- Added visual section for &quot;Never synced&quot; phones, including details and navigation.&#10;- Implemented Excel export endpoint for contacts and integrated UI button.&#10;- Added unique IP conflict handling for phone add/edit operations, with validation and error messages.&#10;- Updated project dependencies to include ClosedXML for Excel generation." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add &quot;Never synced&quot; status section on homepage, Excel export for contacts, and handle IP conflicts during phone setup&#10;&#10;- Added visual section for &quot;Never synced&quot; phones, including details and navigation.&#10;- Implemented Excel export endpoint for contacts and integrated UI button.&#10;- Added unique IP conflict handling for phone add/edit operations, with validation and error messages.&#10;- Updated project dependencies to include ClosedXML for Excel generation." />
+    <MESSAGE value="Update project configurations and metadata&#10;&#10;- Updated launch settings to change application URL to `http://0.0.0.0:80`.&#10;- Updated source link and assembly informational version to reflect new commit hash.&#10;- Adjusted autogenerated files for alignment with recent changes." />
+    <option name="LAST_COMMIT_MESSAGE" value="Update project configurations and metadata&#10;&#10;- Updated launch settings to change application URL to `http://0.0.0.0:80`.&#10;- Updated source link and assembly informational version to reflect new commit hash.&#10;- Adjusted autogenerated files for alignment with recent changes." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

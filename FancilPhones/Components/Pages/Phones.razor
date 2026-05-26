@@ -15,7 +15,20 @@
         </div>
     </div>
     <MudSpacer />
+    <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.TableView"
+               Href="api/phones.xlsx" Target="_blank" Class="me-2">
+        Export Excel
+    </MudButton>
     <AuthorizeView Roles="Admin">
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload"
+                   HtmlTag="label" for="phonesXlsxUploadInput" Class="me-2">
+            Import Excel
+        </MudButton>
+        <InputFile id="phonesXlsxUploadInput" OnChange="ImportXlsxAsync" accept=".xlsx" style="display:none" />
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Radar" OnClick="ScanAsync" Class="me-2">
+            Scan network
+        </MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
             Add phone
         </MudButton>
@@ -146,6 +159,119 @@
                 Snackbar.Add("Could not save phone: " + ex.Message, Severity.Error);
             }
         }
+    }
+
+    private async Task ImportXlsxAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+        try
+        {
+            using var ms = new MemoryStream();
+            await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
+            ms.Position = 0;
+
+            var parsed = PhonesXlsx.Parse(ms);
+            if (parsed.Count == 0)
+            {
+                Snackbar.Add("No phones found in that file.", Severity.Warning);
+                return;
+            }
+
+            var mode = await Dialogs.ShowMessageBoxAsync(new MessageBoxOptions
+            {
+                Title = "Import phones",
+                Message = $"Found {parsed.Count} phones in the file. " +
+                          "Merge updates existing rows by IP and adds new ones. " +
+                          "Replace deletes all current phones first.",
+                YesText = "Merge",
+                NoText = "Replace all",
+                CancelText = "Cancel",
+            });
+            if (mode is null) return;
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var added = 0;
+            var updated = 0;
+
+            if (mode == false)
+            {
+                db.Phones.RemoveRange(db.Phones);
+                await db.SaveChangesAsync();
+            }
+
+            var existing = await db.Phones.ToListAsync();
+            var byIp = existing.ToDictionary(p => p.IpAddress, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var p in parsed)
+            {
+                if (byIp.TryGetValue(p.IpAddress, out var tracked))
+                {
+                    tracked.Name = p.Name;
+                    tracked.Scheme = p.Scheme;
+                    tracked.Username = p.Username;
+                    tracked.Password = p.Password;
+                    tracked.UploadPath = p.UploadPath;
+                    tracked.UploadFieldName = p.UploadFieldName;
+                    tracked.Enabled = p.Enabled;
+                    updated++;
+                }
+                else
+                {
+                    db.Phones.Add(p);
+                    byIp[p.IpAddress] = p;
+                    added++;
+                }
+            }
+            await db.SaveChangesAsync();
+
+            Snackbar.Add($"Imported: {added} added, {updated} updated.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Import failed: " + ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task ScanAsync()
+    {
+        var dlg = await Dialogs.ShowAsync<ScanNetworkDialog>("Scan network",
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is not { Canceled: false, Data: List<Phone> picks } || picks.Count == 0)
+            return;
+
+        var added = 0;
+        var skipped = 0;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        foreach (var p in picks)
+        {
+            try
+            {
+                db.Phones.Add(p);
+                await db.SaveChangesAsync();
+                added++;
+            }
+            catch (DbUpdateException ex) when (IsUniqueIpViolation(ex))
+            {
+                skipped++;
+                db.Entry(p).State = EntityState.Detached;
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Could not add {p.IpAddress}: {ex.Message}", Severity.Error);
+                db.Entry(p).State = EntityState.Detached;
+            }
+        }
+
+        if (added > 0)
+            Snackbar.Add($"Added {added} phone{(added == 1 ? "" : "s")}" +
+                         (skipped > 0 ? $" ({skipped} already existed)" : ""), Severity.Success);
+        else if (skipped > 0)
+            Snackbar.Add($"All {skipped} selected phones already existed.", Severity.Info);
+
+        await LoadAsync();
     }
 
     private async Task EditAsync(Phone phone)
