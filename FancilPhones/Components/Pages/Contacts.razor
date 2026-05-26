@@ -30,6 +30,10 @@
                Href="api/phonebook.csv" Target="_blank">
         Preview CSV
     </MudButton>
+    <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.TableView"
+               Href="api/phonebook.xlsx" Target="_blank">
+        Export Excel
+    </MudButton>
 </MudStack>
 <div class="fp-section-subtitle">The master phonebook synced to every enabled phone.</div>
 
@@ -90,7 +94,7 @@
     {
         _loading = true;
         await using var db = await DbFactory.CreateDbContextAsync();
-        _contacts = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+        _contacts = await EntityFrameworkQueryableExtensions
             .ToListAsync(db.Contacts.OrderBy(c => c.DisplayName));
         _loading = false;
     }

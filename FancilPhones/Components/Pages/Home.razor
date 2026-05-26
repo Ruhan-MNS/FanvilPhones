@@ -164,6 +164,29 @@
                             }
                         </MudList>
                     }
+
+                    @if (_neverPhones.Count > 0)
+                    {
+                        <MudDivider Class="my-4" />
+                        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="color: #B45309;">
+                            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Size="Size.Small" Class="mr-1" />
+                            Never synced
+                        </MudText>
+                        <MudList T="object" Dense="true" Class="pa-0">
+                            @foreach (var p in _neverPhones)
+                            {
+                                <MudListItem T="object" Class="px-2" OnClick="@(() => Nav.NavigateTo("sync"))">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;">
+                                        <div style="display: flex; flex-direction: column;">
+                                            <MudText Typo="Typo.body2"><strong>@p.Name</strong> <span style="color: #6B7280;">@p.IpAddress</span></MudText>
+                                            <MudText Typo="Typo.caption" Style="color: #6B7280;">Hasn't received a phonebook push yet.</MudText>
+                                        </div>
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Pending</MudChip>
+                                    </div>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
                 }
             </MudCardContent>
             <MudCardActions>
@@ -183,6 +206,7 @@
     private int _neverCount;
     private int _disabledCount;
     private List<Phone> _failedPhones = new();
+    private List<Phone> _neverPhones = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -196,7 +220,11 @@
             foreach (var p in phones)
             {
                 if (!p.Enabled) _disabledCount++;
-                else if (p.LastSyncedAt == null) _neverCount++;
+                else if (p.LastSyncedAt == null)
+                {
+                    _neverCount++;
+                    _neverPhones.Add(p);
+                }
                 else if (p.LastSyncStatus == "Success") _okCount++;
                 else
                 {

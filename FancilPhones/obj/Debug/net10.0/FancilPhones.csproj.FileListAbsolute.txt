@@ -206,3 +206,11 @@ C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compres
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\b6e1rsccct-{0}-y57z50ydna-y57z50ydna.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\iryd23rk3z-{0}-ramkin80ag-ramkin80ag.gz
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\ClosedXML.dll
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\ClosedXML.Parser.dll
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\DocumentFormat.OpenXml.dll
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\DocumentFormat.OpenXml.Framework.dll
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\ExcelNumberFormat.dll
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\RBush.dll
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\SixLabors.Fonts.dll
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\System.IO.Packaging.dll

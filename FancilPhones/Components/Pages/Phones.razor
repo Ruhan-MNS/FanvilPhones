@@ -21,7 +21,7 @@
         </MudButton>
     </AuthorizeView>
 </MudStack>
-<div class="fp-section-subtitle">Each Fanvil handset on your network — credentials, upload endpoint, and last sync status.</div>
+<div class="fp-section-subtitle">Each Fanvil handset on your network - credentials, upload endpoint, and last sync status.</div>
 
 <div class="fp-table-wrap">
 <MudTable Items="_phones" Dense="true" Hover="true" Bordered="false" Loading="_loading"
@@ -129,11 +129,22 @@
         var res = await dlg.Result;
         if (res is { Canceled: false, Data: Phone p })
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            db.Phones.Add(p);
-            await db.SaveChangesAsync();
-            Snackbar.Add($"Added {p.Name}", Severity.Success);
-            await LoadAsync();
+            try
+            {
+                await using var db = await DbFactory.CreateDbContextAsync();
+                db.Phones.Add(p);
+                await db.SaveChangesAsync();
+                Snackbar.Add($"Added {p.Name}", Severity.Success);
+                await LoadAsync();
+            }
+            catch (DbUpdateException ex) when (IsUniqueIpViolation(ex))
+            {
+                Snackbar.Add($"A phone with IP {p.IpAddress} already exists.", Severity.Error);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add("Could not save phone: " + ex.Message, Severity.Error);
+            }
         }
     }
 
@@ -151,16 +162,27 @@
         var res = await dlg.Result;
         if (res is { Canceled: false, Data: Phone p })
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            var tracked = await db.Phones.FindAsync(p.Id);
-            if (tracked is null) return;
-            tracked.Name = p.Name; tracked.IpAddress = p.IpAddress;
-            tracked.Username = p.Username; tracked.Password = p.Password;
-            tracked.Scheme = p.Scheme; tracked.UploadPath = p.UploadPath;
-            tracked.UploadFieldName = p.UploadFieldName;
-            await db.SaveChangesAsync();
-            Snackbar.Add("Saved", Severity.Success);
-            await LoadAsync();
+            try
+            {
+                await using var db = await DbFactory.CreateDbContextAsync();
+                var tracked = await db.Phones.FindAsync(p.Id);
+                if (tracked is null) return;
+                tracked.Name = p.Name; tracked.IpAddress = p.IpAddress;
+                tracked.Username = p.Username; tracked.Password = p.Password;
+                tracked.Scheme = p.Scheme; tracked.UploadPath = p.UploadPath;
+                tracked.UploadFieldName = p.UploadFieldName;
+                await db.SaveChangesAsync();
+                Snackbar.Add("Saved", Severity.Success);
+                await LoadAsync();
+            }
+            catch (DbUpdateException ex) when (IsUniqueIpViolation(ex))
+            {
+                Snackbar.Add($"Another phone with IP {p.IpAddress} already exists.", Severity.Error);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add("Could not save phone: " + ex.Message, Severity.Error);
+            }
         }
     }
 
@@ -174,6 +196,14 @@
         db.Phones.Remove(phone);
         await db.SaveChangesAsync();
         await LoadAsync();
+    }
+
+    private static bool IsUniqueIpViolation(DbUpdateException ex)
+    {
+        // SQLite reports unique violations via SqliteException with the constraint name in the message.
+        var msg = ex.InnerException?.Message ?? ex.Message;
+        return msg.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase)
+               && msg.Contains("IpAddress", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task ProbeAsync(Phone phone)
