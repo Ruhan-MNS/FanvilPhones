@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FancilPhones")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2a00032af68771694688e8be1ade5b189f778bd1")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bebb4b40142e0d40ab1b2270b331d89cca05ea2d")]
 [assembly: System.Reflection.AssemblyProductAttribute("FancilPhones")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FancilPhones")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
