@@ -68,6 +68,40 @@
                           Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
                           HelperText="Multipart form field name for the file (usually 'PHONEBOOK')." />
 
+            <MudText Typo="Typo.overline" Class="fp-dlg-section">SIP line (optional push)</MudText>
+            <MudGrid Spacing="2" Class="mb-2">
+                <MudItem xs="8">
+                    <MudTextField @bind-Value="Model.SipDisplayName" Label="SIP display name"
+                                  Placeholder="e.g. Ruhan Slater" Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  HelperText="Pushed to the phone's Display Name field." />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudNumericField T="int" @bind-Value="Model.SipLineIndex" Label="Line"
+                                     Min="1" Max="16" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                     HelperText="Line 1 only." />
+                </MudItem>
+            </MudGrid>
+            <MudGrid Spacing="2" Class="mb-3">
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Model.SipExtension" Label="SIP extension / phone number"
+                                  Placeholder="e.g. 144" Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  HelperText="Pushed to both Username and Authentication User. Leave blank with display name to push only the name." />
+                </MudItem>
+                <MudItem xs="12">
+                    <div class="fp-dlg-toggle">
+                        <div>
+                            <MudText Typo="Typo.body2"><strong>Registration enabled</strong></MudText>
+                            <MudText Typo="Typo.caption" Style="color: #6B7280;">
+                                Push the "Activate" checkbox on the phone's line settings as on.
+                            </MudText>
+                        </div>
+                        <MudSwitch T="bool" @bind-Value="Model.SipRegistrationEnabled" Color="Color.Success" />
+                    </div>
+                </MudItem>
+            </MudGrid>
+
             <div class="fp-dlg-toggle">
                 <div>
                     <MudText Typo="Typo.body2"><strong>Enabled</strong></MudText>

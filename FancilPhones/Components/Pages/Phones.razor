@@ -85,6 +85,13 @@
             <AuthorizeView Roles="Admin" Context="auth">
                 <MudIconButton Icon="@Icons.Material.Filled.Sync" Size="Size.Small"
                                OnClick="@(() => SyncOneAsync(context))" aria-label="Sync this phone" />
+                <MudTooltip Text="@PushTooltip(context)">
+                    <MudIconButton Icon="@Icons.Material.Filled.Badge" Size="Size.Small"
+                                   OnClick="@(() => PushDisplayNameAsync(context))"
+                                   Disabled="@(string.IsNullOrWhiteSpace(context.SipDisplayName)
+                                               && string.IsNullOrWhiteSpace(context.SipExtension))"
+                                   aria-label="Push SIP line settings" />
+                </MudTooltip>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
                                OnClick="@(() => EditAsync(context))" aria-label="Edit" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
@@ -214,6 +221,10 @@
                     tracked.UploadPath = p.UploadPath;
                     tracked.UploadFieldName = p.UploadFieldName;
                     tracked.Enabled = p.Enabled;
+                    tracked.SipDisplayName = p.SipDisplayName;
+                    tracked.SipLineIndex = p.SipLineIndex;
+                    tracked.SipExtension = p.SipExtension;
+                    tracked.SipRegistrationEnabled = p.SipRegistrationEnabled;
                     updated++;
                 }
                 else
@@ -281,7 +292,10 @@
             Id = phone.Id, Name = phone.Name, IpAddress = phone.IpAddress,
             Username = phone.Username, Password = phone.Password, Scheme = phone.Scheme,
             UploadPath = phone.UploadPath, UploadFieldName = phone.UploadFieldName,
-            Enabled = phone.Enabled
+            Enabled = phone.Enabled,
+            SipDisplayName = phone.SipDisplayName, SipLineIndex = phone.SipLineIndex,
+            SipExtension = phone.SipExtension,
+            SipRegistrationEnabled = phone.SipRegistrationEnabled,
         };
         var parameters = new DialogParameters<PhoneEditDialog> { { x => x.Model, copy } };
         var dlg = await Dialogs.ShowAsync<PhoneEditDialog>("Edit phone", parameters);
@@ -297,6 +311,10 @@
                 tracked.Username = p.Username; tracked.Password = p.Password;
                 tracked.Scheme = p.Scheme; tracked.UploadPath = p.UploadPath;
                 tracked.UploadFieldName = p.UploadFieldName;
+                tracked.SipDisplayName = p.SipDisplayName;
+                tracked.SipLineIndex = p.SipLineIndex;
+                tracked.SipExtension = p.SipExtension;
+                tracked.SipRegistrationEnabled = p.SipRegistrationEnabled;
                 await db.SaveChangesAsync();
                 Snackbar.Add("Saved", Severity.Success);
                 await LoadAsync();
@@ -337,6 +355,46 @@
         Snackbar.Add($"Probing {phone.IpAddress}...", Severity.Info);
         var (ok, status, msg) = await SyncSvc.ProbeAsync(phone);
         Snackbar.Add($"{phone.Name}: {msg}", ok ? Severity.Success : Severity.Error);
+    }
+
+    private static string PushTooltip(Phone p)
+    {
+        var hasName = !string.IsNullOrWhiteSpace(p.SipDisplayName);
+        var hasExt = !string.IsNullOrWhiteSpace(p.SipExtension);
+        if (!hasName && !hasExt)
+            return "No SIP display name or extension set";
+        var parts = new List<string>();
+        if (hasName) parts.Add($"display name '{p.SipDisplayName}'");
+        if (hasExt) parts.Add($"username '{p.SipExtension}'");
+        return $"Push {string.Join(" + ", parts)} to line {p.SipLineIndex}";
+    }
+
+    private async Task PushDisplayNameAsync(Phone phone)
+    {
+        var hasName = !string.IsNullOrWhiteSpace(phone.SipDisplayName);
+        var hasExt = !string.IsNullOrWhiteSpace(phone.SipExtension);
+        if (!hasName && !hasExt)
+        {
+            Snackbar.Add($"{phone.Name}: no SIP display name or extension configured. Edit the phone to set one.",
+                Severity.Warning);
+            return;
+        }
+
+        var parts = new List<string>();
+        if (hasName) parts.Add($"display name = '{phone.SipDisplayName}'");
+        if (hasExt) parts.Add($"username = '{phone.SipExtension}'");
+        var what = string.Join(", ", parts);
+
+        var ok = await Dialogs.ShowMessageBoxAsync("Push SIP line settings",
+            $"Apply {what} to line {phone.SipLineIndex} of {phone.Name} ({phone.IpAddress})?\n\n" +
+            "This modifies the phone's SIP line settings.",
+            yesText: "Push", cancelText: "Cancel");
+        if (ok != true) return;
+
+        Snackbar.Add($"Pushing SIP line settings to {phone.Name}...", Severity.Info);
+        var (success, message) = await SyncSvc.PushSipDisplayNameAsync(phone.Id);
+        Snackbar.Add($"{phone.Name}: {message}", success ? Severity.Success : Severity.Error);
+        await LoadAsync();
     }
 
     private async Task SyncOneAsync(Phone phone)

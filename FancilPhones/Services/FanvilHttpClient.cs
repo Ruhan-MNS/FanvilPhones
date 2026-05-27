@@ -43,14 +43,15 @@ public sealed class FanvilHttpClient : IDisposable
     }
 
     public Task<FanvilResponse> GetAsync(string path, CancellationToken ct = default)
-        => SendAsync("GET", path, null, null, ct);
+    {
+        return SendAsync("GET", path, null, null, ct);
+    }
 
     /// <summary>
     /// Performs the Fanvil nonce/MD5 login. On success the session 'auth' cookie
     /// is held for subsequent calls. Returns true on success.
     /// </summary>
-    public async Task<(bool ok, string message)> LoginAsync(
-        string username, string password, CancellationToken ct = default)
+    public async Task<(bool ok, string message)> LoginAsync(string username, string password, CancellationToken ct = default)
     {
         // The phone's nonce endpoint is flaky (it intermittently returns an empty
         // body), so retry the whole login a few times on a fresh connection.
@@ -74,8 +75,7 @@ public sealed class FanvilHttpClient : IDisposable
             var nonce = nonceResp.Body.Trim();
             if (nonce.Length is < 8 or > 64)
             {
-                lastMessage = $"Unexpected nonce response (HTTP {nonceResp.StatusCode}, " +
-                              $"body {nonce.Length} chars). RAW: {nonceResp.RawDump}";
+                lastMessage = $"Unexpected nonce response (HTTP {nonceResp.StatusCode}, " + $"body {nonce.Length} chars). RAW: {nonceResp.RawDump}";
                 continue; // retry
             }
 
@@ -113,8 +113,7 @@ public sealed class FanvilHttpClient : IDisposable
     {
         try
         {
-            await PostFormAsync("/title.htm",
-                new Dictionary<string, string> { ["DefaultLogout"] = "Logout" }, ct);
+            await PostFormAsync("/title.htm", new Dictionary<string, string> { ["DefaultLogout"] = "Logout" }, ct);
         }
         catch { /* best-effort */ }
         finally
@@ -136,8 +135,7 @@ public sealed class FanvilHttpClient : IDisposable
             ["DefaultDeleteAll"] = "Delete All",
         }, ct);
 
-    public Task<FanvilResponse> PostFormAsync(
-        string path, IReadOnlyDictionary<string, string> fields, CancellationToken ct = default)
+    public Task<FanvilResponse> PostFormAsync(string path, IReadOnlyDictionary<string, string> fields, CancellationToken ct = default)
     {
         // application/x-www-form-urlencoded encodes spaces as '+' (not %20).
         var body = string.Join("&", fields.Select(kv =>
@@ -147,8 +145,7 @@ public sealed class FanvilHttpClient : IDisposable
     }
 
     /// <summary>POST a single file as multipart/form-data under the given field name.</summary>
-    public Task<FanvilResponse> PostFileAsync(string path, string fieldName, string fileName,
-        byte[] fileBytes, string fileContentType, CancellationToken ct = default)
+    public Task<FanvilResponse> PostFileAsync(string path, string fieldName, string fileName, byte[] fileBytes, string fileContentType, CancellationToken ct = default)
     {
         var boundary = "----FancilPhones" + Guid.NewGuid().ToString("N");
         var pre = new StringBuilder();
@@ -187,8 +184,7 @@ public sealed class FanvilHttpClient : IDisposable
         _stream = s;
     }
 
-    private async Task<FanvilResponse> SendAsync(string method, string path,
-        string? contentType, byte[]? body, CancellationToken ct)
+    private async Task<FanvilResponse> SendAsync(string method, string path, string? contentType, byte[]? body, CancellationToken ct)
     {
         // One reconnect retry: a kept-alive connection may have been closed by the
         // server between requests.
@@ -206,8 +202,7 @@ public sealed class FanvilHttpClient : IDisposable
         }
     }
 
-    private async Task<FanvilResponse> SendOnceAsync(string method, string path,
-        string? contentType, byte[]? body, CancellationToken ct)
+    private async Task<FanvilResponse> SendOnceAsync(string method, string path, string? contentType, byte[]? body, CancellationToken ct)
     {
         var stream = _stream!;
 
@@ -217,7 +212,11 @@ public sealed class FanvilHttpClient : IDisposable
         head.Append("User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) FancilPhones/1.0\r\n");
         head.Append("Accept: */*\r\n");
         head.Append("Accept-Encoding: identity\r\n");
-        head.Append("Referer: http://").Append(_host).Append("/\r\n");
+        // Send Referer matching the path we're hitting; some Fanvil firmwares
+        // silently reject form POSTs whose Referer doesn't match the form page
+        // (e.g. /lines.htm needs Referer: .../lines.htm, not .../).
+        var refererPath = path == "/" ? "/" : path.Split('?')[0];
+        head.Append("Referer: http://").Append(_host).Append(refererPath).Append("\r\n");
         if (_cookies.Count > 0)
         {
             head.Append("Cookie: ");

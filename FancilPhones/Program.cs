@@ -64,6 +64,21 @@ using (var scope = app.Services.CreateScope())
     await using var db = await dbf.CreateDbContextAsync();
     await db.Database.EnsureCreatedAsync();
 
+    // Additive columns on existing DBs (project uses EnsureCreated, no migrations).
+    // Each ALTER is idempotent — ignore "duplicate column" on re-runs.
+    foreach (var sql in new[]
+             {
+                 "ALTER TABLE Phones ADD COLUMN SipDisplayName TEXT NULL",
+                 "ALTER TABLE Phones ADD COLUMN SipLineIndex INTEGER NOT NULL DEFAULT 1",
+                 "ALTER TABLE Phones ADD COLUMN SipExtension TEXT NULL",
+                 "ALTER TABLE Phones ADD COLUMN SipRegistrationEnabled INTEGER NOT NULL DEFAULT 1",
+                 "ALTER TABLE SyncRuns ADD COLUMN Action TEXT NOT NULL DEFAULT 'Sync'",
+             })
+    {
+        try { await db.Database.ExecuteSqlRawAsync(sql); }
+        catch { /* column already exists */ }
+    }
+
     var rm = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     foreach (var role in new[] { "Admin", "Technician" })
         if (!await rm.RoleExistsAsync(role))
@@ -160,7 +175,8 @@ app.MapGet("/api/phones.xlsx", async (IDbContextFactory<AppDbContext> dbf) =>
     string[] headers =
     {
         "Name", "IP", "Scheme", "Username", "Password",
-        "UploadPath", "UploadFieldName", "Enabled"
+        "UploadPath", "UploadFieldName", "Enabled",
+        "SipDisplayName", "SipLineIndex", "SipExtension", "SipRegistrationEnabled"
     };
     for (int i = 0; i < headers.Length; i++)
         ws.Cell(1, i + 1).Value = headers[i];
@@ -182,6 +198,10 @@ app.MapGet("/api/phones.xlsx", async (IDbContextFactory<AppDbContext> dbf) =>
         ws.Cell(row, 6).Value = p.UploadPath;
         ws.Cell(row, 7).Value = p.UploadFieldName;
         ws.Cell(row, 8).Value = p.Enabled;
+        ws.Cell(row, 9).Value = p.SipDisplayName ?? "";
+        ws.Cell(row, 10).Value = p.SipLineIndex;
+        ws.Cell(row, 11).Value = p.SipExtension ?? "";
+        ws.Cell(row, 12).Value = p.SipRegistrationEnabled;
         row++;
     }
 

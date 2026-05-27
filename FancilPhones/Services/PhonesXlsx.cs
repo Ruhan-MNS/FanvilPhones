@@ -38,6 +38,10 @@ public static class PhonesXlsx
         var pathCol = Col("UploadPath", "Upload Path");
         var fieldCol = Col("UploadFieldName", "Upload Field Name");
         var enabledCol = Col("Enabled");
+        var sipNameCol = Col("SipDisplayName", "SIP Display Name");
+        var sipLineCol = Col("SipLineIndex", "SIP Line", "Line");
+        var sipExtCol = Col("SipExtension", "SIP Extension", "Extension");
+        var sipRegCol = Col("SipRegistrationEnabled", "Registration Enabled", "Activate");
 
         var phones = new List<Phone>();
         foreach (var row in ws.RowsUsed().Skip(1))
@@ -86,6 +90,39 @@ public static class PhonesXlsx
                 {
                     var s = cell.GetString().Trim().ToLowerInvariant();
                     p.Enabled = s is "true" or "1" or "yes" or "y" or "enabled";
+                }
+            }
+
+            if (sipNameCol is int snc)
+            {
+                var v = row.Cell(snc).GetString().Trim();
+                if (!string.IsNullOrEmpty(v)) p.SipDisplayName = v;
+            }
+            if (sipLineCol is int slc)
+            {
+                var cell = row.Cell(slc);
+                if (cell.DataType == XLDataType.Number)
+                    p.SipLineIndex = (int)Math.Max(1, Math.Round(cell.GetDouble()));
+                else if (int.TryParse(cell.GetString().Trim(), out var n) && n >= 1)
+                    p.SipLineIndex = n;
+            }
+            if (sipExtCol is int sec)
+            {
+                var v = row.Cell(sec).GetString().Trim();
+                if (!string.IsNullOrEmpty(v)) p.SipExtension = v;
+            }
+            if (sipRegCol is int src)
+            {
+                var cell = row.Cell(src);
+                if (cell.DataType == XLDataType.Boolean)
+                    p.SipRegistrationEnabled = cell.GetBoolean();
+                else
+                {
+                    var s = cell.GetString().Trim().ToLowerInvariant();
+                    if (s is "true" or "1" or "yes" or "y" or "enabled" or "on")
+                        p.SipRegistrationEnabled = true;
+                    else if (s is "false" or "0" or "no" or "n" or "disabled" or "off")
+                        p.SipRegistrationEnabled = false;
                 }
             }
 

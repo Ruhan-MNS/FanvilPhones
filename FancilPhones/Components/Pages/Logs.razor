@@ -1,0 +1,144 @@
+@page "/logs"
+@attribute [Authorize]
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+<PageTitle>Logs</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+    <div class="fp-section-header" style="margin-bottom: 0;">
+        <span class="fp-section-icon" style="background: rgba(245, 158, 11, 0.12); color: #B45309;">
+            <MudIcon Icon="@Icons.Material.Filled.Receipt" />
+        </span>
+        <div>
+            <MudText Typo="Typo.h4">Logs</MudText>
+        </div>
+    </div>
+    <MudSpacer />
+    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh"
+               OnClick="LoadAsync">Refresh</MudButton>
+</MudStack>
+<div class="fp-section-subtitle">Recent activity per phone — syncs, pushes, probes. Newest first.</div>
+
+<MudStack Row="true" Spacing="2" Class="mb-3" AlignItems="AlignItems.Center">
+    <MudSelect T="string" @bind-Value="_actionFilter" Label="Action" Variant="Variant.Outlined"
+               Margin="Margin.Dense" Style="max-width: 180px;">
+        <MudSelectItem Value="@("All")">All actions</MudSelectItem>
+        <MudSelectItem Value="@("Sync")">Sync</MudSelectItem>
+        <MudSelectItem Value="@("Push")">Push</MudSelectItem>
+        <MudSelectItem Value="@("Probe")">Probe</MudSelectItem>
+    </MudSelect>
+    <MudSelect T="string" @bind-Value="_statusFilter" Label="Status" Variant="Variant.Outlined"
+               Margin="Margin.Dense" Style="max-width: 180px;">
+        <MudSelectItem Value="@("All")">All statuses</MudSelectItem>
+        <MudSelectItem Value="@("Success")">Success</MudSelectItem>
+        <MudSelectItem Value="@("Failed")">Failed</MudSelectItem>
+        <MudSelectItem Value="@("Error")">Error</MudSelectItem>
+        <MudSelectItem Value="@("Running")">Running</MudSelectItem>
+    </MudSelect>
+    <MudTextField @bind-Value="_search" Placeholder="Filter by phone or message..."
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                  Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                  Style="max-width: 320px;" />
+    <MudSpacer />
+    <MudText Typo="Typo.caption" Style="color: #6B7280;">@Filtered.Count() of @_runs.Count</MudText>
+</MudStack>
+
+<div class="fp-table-wrap">
+<MudTable Items="Filtered" Dense="true" Hover="true" Bordered="false" Loading="_loading"
+          Elevation="0" FixedHeader="true" Height="calc(100vh - 280px)">
+    <HeaderContent>
+        <MudTh>When</MudTh>
+        <MudTh>Phone</MudTh>
+        <MudTh>IP</MudTh>
+        <MudTh>Action</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>HTTP</MudTh>
+        <MudTh>Duration</MudTh>
+        <MudTh>Message</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>
+            <MudTooltip Text="@context.StartedAt.ToLocalTime().ToString("F")">
+                @context.StartedAt.ToLocalTime().ToString("g")
+            </MudTooltip>
+        </MudTd>
+        <MudTd>@(context.Phone?.Name ?? "(deleted)")</MudTd>
+        <MudTd><code>@(context.Phone?.IpAddress ?? "-")</code></MudTd>
+        <MudTd>
+            <MudChip T="string" Size="Size.Small" Color="@ActionColor(context.Action)">
+                @context.Action
+            </MudChip>
+        </MudTd>
+        <MudTd>
+            <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">
+                @context.Status
+            </MudChip>
+        </MudTd>
+        <MudTd>@(context.HttpStatusCode?.ToString() ?? "-")</MudTd>
+        <MudTd>@FormatDuration(context.StartedAt, context.FinishedAt)</MudTd>
+        <MudTd Style="max-width: 480px;">
+            <MudText Typo="Typo.body2" Style="white-space: normal; word-break: break-word;">
+                @(context.Message ?? "")
+            </MudText>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>No log entries yet.</MudText>
+    </NoRecordsContent>
+</MudTable>
+</div>
+
+@code {
+    private List<SyncRun> _runs = new();
+    private bool _loading = true;
+    private string _actionFilter = "All";
+    private string _statusFilter = "All";
+    private string _search = "";
+
+    private IEnumerable<SyncRun> Filtered =>
+        _runs.Where(r =>
+            (_actionFilter == "All" || r.Action == _actionFilter)
+            && (_statusFilter == "All" || r.Status == _statusFilter)
+            && (string.IsNullOrWhiteSpace(_search)
+                || (r.Phone?.Name?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (r.Phone?.IpAddress?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (r.Message?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _runs = await db.SyncRuns
+            .Include(r => r.Phone)
+            .OrderByDescending(r => r.StartedAt)
+            .Take(500)
+            .ToListAsync();
+        _loading = false;
+    }
+
+    private static Color StatusColor(string s) => s switch
+    {
+        "Success" => Color.Success,
+        "Failed" => Color.Warning,
+        "Error" => Color.Error,
+        "Running" => Color.Info,
+        _ => Color.Default,
+    };
+
+    private static Color ActionColor(string a) => a switch
+    {
+        "Sync" => Color.Primary,
+        "Push" => Color.Secondary,
+        "Probe" => Color.Tertiary,
+        _ => Color.Default,
+    };
+
+    private static string FormatDuration(DateTime started, DateTime? finished)
+    {
+        if (finished is null) return "...";
+        var ms = (finished.Value - started).TotalMilliseconds;
+        return ms < 1000 ? $"{ms:0} ms" : $"{ms / 1000:0.0} s";
+    }
+}

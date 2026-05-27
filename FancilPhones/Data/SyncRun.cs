@@ -15,6 +15,11 @@ public class SyncRun
     [MaxLength(32)]
     public string Status { get; set; } = "Pending";
 
+    /// <summary>What kind of action this row represents: "Sync" (phonebook
+    /// upload), "Push" (SIP line settings push), "Probe" (reachability test).</summary>
+    [MaxLength(16)]
+    public string Action { get; set; } = "Sync";
+
     public int? HttpStatusCode { get; set; }
 
     public string? Message { get; set; }

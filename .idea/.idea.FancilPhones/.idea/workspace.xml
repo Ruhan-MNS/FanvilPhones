@@ -15,16 +15,25 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="340ae946-e78f-44e1-9494-9cde8929d477" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.FancilPhones/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.FancilPhones/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Layout/NavMenu.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Layout/NavMenu.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/PhoneEditDialog.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/PhoneEditDialog.razor" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/Phones.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/Phones.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Data/Phone.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Data/Phone.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Data/SyncRun.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Data/SyncRun.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Services/FanvilHttpClient.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Services/FanvilHttpClient.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Services/PhoneSyncService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Services/PhoneSyncService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Services/PhonesXlsx.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Services/PhonesXlsx.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.dll" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.exe" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.exe" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.pdb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/fancilphones.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db-shm" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/fancilphones.db-shm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db-wal" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/fancilphones.db-wal" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfo.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfoInputs.cache" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.GeneratedMSBuildEditorConfig.editorconfig" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.GeneratedMSBuildEditorConfig.editorconfig" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.csproj.CoreCompileInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.csproj.CoreCompileInputs.cache" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.dll" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.pdb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.sourcelink.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.sourcelink.json" afterDir="false" />
@@ -46,7 +55,7 @@
     <option name="firstShow" value="false" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="16" />
+    <option name="cachedIndexableFilesCount" value="17" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="Git.Settings">
@@ -75,61 +84,61 @@
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0000000000000637" />
-      <entry key="MS500" value="1.0050329195721404" />
-      <entry key="S2" value="1.9913181709973224" />
-      <entry key="S5" value="4.509812559115428" />
-      <entry key="S10" value="6.820451903266832" />
-      <entry key="S30" value="9.681736632029786" />
-      <entry key="S60" value="10.732061335871036" />
-      <entry key="M2" value="11.33486892834978" />
-      <entry key="M5" value="11.725878016774026" />
-      <entry key="M10" value="11.861540827670149" />
-      <entry key="M15" value="11.907379079280398" />
-      <entry key="M30" value="11.953531096603612" />
-      <entry key="H1" value="11.976725741058765" />
-      <entry key="H2" value="11.988352894029353" />
-      <entry key="H4" value="11.994173949795421" />
-      <entry key="D1" value="11.999028644533556" />
-      <entry key="W1" value="11.999861226429552" />
+      <entry key="MS100" value="4.0776860609780956E-4" />
+      <entry key="MS500" value="0.23558536460326313" />
+      <entry key="S2" value="1.4728288175172701" />
+      <entry key="S5" value="3.980500861900995" />
+      <entry key="S10" value="6.602465060439236" />
+      <entry key="S30" value="10.081887304345178" />
+      <entry key="S60" value="11.396045372568128" />
+      <entry key="M2" value="12.15646223163294" />
+      <entry key="M5" value="12.651811633654159" />
+      <entry key="M10" value="12.824038117540368" />
+      <entry key="M15" value="12.882271474273566" />
+      <entry key="M30" value="12.94092402368734" />
+      <entry key="H1" value="12.97040881680099" />
+      <entry key="H2" value="12.985191076124805" />
+      <entry key="H4" value="12.992592200792792" />
+      <entry key="D1" value="12.998764902932063" />
+      <entry key="W1" value="12.999823546197065" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="0.0" />
-      <entry key="MS500" value="0.0" />
-      <entry key="S2" value="0.0" />
-      <entry key="S5" value="0.0" />
-      <entry key="S10" value="0.0" />
-      <entry key="S30" value="0.0" />
-      <entry key="S60" value="0.0" />
-      <entry key="M2" value="0.0" />
-      <entry key="M5" value="0.0" />
-      <entry key="M10" value="0.0" />
-      <entry key="M15" value="0.0" />
-      <entry key="M30" value="0.0" />
-      <entry key="H1" value="0.0" />
-      <entry key="H2" value="0.0" />
-      <entry key="H4" value="0.0" />
-      <entry key="D1" value="0.0" />
-      <entry key="W1" value="0.0" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0" />
+      <entry key="S5" value="1.0" />
+      <entry key="S10" value="1.0" />
+      <entry key="S30" value="1.0" />
+      <entry key="S60" value="1.0" />
+      <entry key="M2" value="1.0" />
+      <entry key="M5" value="1.0" />
+      <entry key="M10" value="1.0" />
+      <entry key="M15" value="1.0" />
+      <entry key="M30" value="1.0" />
+      <entry key="H1" value="1.0" />
+      <entry key="H2" value="1.0" />
+      <entry key="H4" value="1.0" />
+      <entry key="D1" value="1.0" />
+      <entry key="W1" value="1.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9265880618904307" />
-      <entry key="MS500" value="0.9894392514183422" />
-      <entry key="S2" value="1.8954572613261529" />
-      <entry key="S5" value="4.334723823818489" />
-      <entry key="S10" value="6.660133556588872" />
-      <entry key="S30" value="9.59305314358808" />
-      <entry key="S60" value="10.680389839585354" />
-      <entry key="M2" value="11.30682453331137" />
-      <entry key="M5" value="11.714071206268846" />
-      <entry key="M10" value="11.8555337922751" />
-      <entry key="M15" value="11.903350934968314" />
-      <entry key="M30" value="11.951505189020425" />
-      <entry key="H1" value="11.975709807882424" />
-      <entry key="H2" value="11.987844180011129" />
-      <entry key="H4" value="11.99391940560469" />
-      <entry key="D1" value="11.998986194476757" />
-      <entry key="W1" value="11.999855161498013" />
+      <entry key="MS100" value="0.006301909614534635" />
+      <entry key="MS500" value="0.4137680790464623" />
+      <entry key="S2" value="1.9335225261422688" />
+      <entry key="S5" value="4.600264970634293" />
+      <entry key="S10" value="7.327114364357916" />
+      <entry key="S30" value="10.948091584773948" />
+      <entry key="S60" value="12.320338680529034" />
+      <entry key="M2" value="13.115944921813924" />
+      <entry key="M5" value="13.634892564248071" />
+      <entry key="M10" value="13.815453137104228" />
+      <entry key="M15" value="13.876519749801018" />
+      <entry key="M30" value="13.938033824799353" />
+      <entry key="H1" value="13.968960107703772" />
+      <entry key="H2" value="13.984465815953623" />
+      <entry key="H4" value="13.992229343898957" />
+      <entry key="D1" value="13.998704395247705" />
+      <entry key="W1" value="13.999814901469412" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -222,7 +231,10 @@
       <workItem from="1779705960701" duration="12449000" />
       <workItem from="1779773809602" duration="2544000" />
       <workItem from="1779787664522" duration="1038000" />
-      <workItem from="1779799246424" duration="975000" />
+      <workItem from="1779799246424" duration="6012000" />
+      <workItem from="1779860075549" duration="4000" />
+      <workItem from="1779868383888" duration="689000" />
+      <workItem from="1779869712387" duration="12352000" />
     </task>
     <task id="LOCAL-00001" summary="Add initial setup for the FancilPhones project&#10;&#10;Includes:&#10;&#10;- Configured .NET Core 10.0 compatibility and setup Assembly Attributes.&#10;- Added app configuration files (`appsettings.json`, `appsettings.Development.json`).&#10;- Implemented AppDbContext with EF Core entities and relationships.&#10;- Added shared Razor imports (`_Imports.razor`).&#10;- Integrated MudBlazor theming and basic app layout (`App.razor`).&#10;- Added Bootstrap 5.3.3 bundle and custom CSS styles for UI enhancements.">
       <option name="closed" value="true" />
@@ -288,7 +300,15 @@
       <option name="project" value="LOCAL" />
       <updated>1779799262445</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="Add network scan feature, XLSX import for phones, and advanced discovery dialog&#10;&#10;- Implemented `PhoneDiscoveryService` for scanning IP ranges and detecting Fanvil devices.&#10;- Added `PhonesXlsx` parser to handle phone imports from XLSX files.&#10;- Introduced `ScanNetworkDialog` component for bulk discovery and addition of devices via UI.&#10;- Updated dependencies to include ClosedXML for XLSX support.">
+      <option name="closed" value="true" />
+      <created>1779800234839</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1779800234839</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -317,7 +337,8 @@
     <MESSAGE value="Implement user management UI and password management logic&#10;&#10;- Added pages for user management (`Users.razor`) with support for adding technicians, resetting passwords, and user status display.&#10;- Created dialogs for creating users (`CreateUserDialog`) and resetting passwords (`ResetPasswordDialog`).&#10;- Built a `ChangePassword` page for users to update their passwords.&#10;- Introduced `AppUser` class extending `IdentityUser` with `MustChangePassword` support.&#10;- Integrated `Login` and `RedirectToLogin` components for authentication workflows.&#10;- Setup `EmptyLayout` for minimalist page layouts.&#10;- Updated project dependencies to include ASP.NET Core Identity." />
     <MESSAGE value="Add &quot;Never synced&quot; status section on homepage, Excel export for contacts, and handle IP conflicts during phone setup&#10;&#10;- Added visual section for &quot;Never synced&quot; phones, including details and navigation.&#10;- Implemented Excel export endpoint for contacts and integrated UI button.&#10;- Added unique IP conflict handling for phone add/edit operations, with validation and error messages.&#10;- Updated project dependencies to include ClosedXML for Excel generation." />
     <MESSAGE value="Update project configurations and metadata&#10;&#10;- Updated launch settings to change application URL to `http://0.0.0.0:80`.&#10;- Updated source link and assembly informational version to reflect new commit hash.&#10;- Adjusted autogenerated files for alignment with recent changes." />
-    <option name="LAST_COMMIT_MESSAGE" value="Update project configurations and metadata&#10;&#10;- Updated launch settings to change application URL to `http://0.0.0.0:80`.&#10;- Updated source link and assembly informational version to reflect new commit hash.&#10;- Adjusted autogenerated files for alignment with recent changes." />
+    <MESSAGE value="Add network scan feature, XLSX import for phones, and advanced discovery dialog&#10;&#10;- Implemented `PhoneDiscoveryService` for scanning IP ranges and detecting Fanvil devices.&#10;- Added `PhonesXlsx` parser to handle phone imports from XLSX files.&#10;- Introduced `ScanNetworkDialog` component for bulk discovery and addition of devices via UI.&#10;- Updated dependencies to include ClosedXML for XLSX support." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add network scan feature, XLSX import for phones, and advanced discovery dialog&#10;&#10;- Implemented `PhoneDiscoveryService` for scanning IP ranges and detecting Fanvil devices.&#10;- Added `PhonesXlsx` parser to handle phone imports from XLSX files.&#10;- Introduced `ScanNetworkDialog` component for bulk discovery and addition of devices via UI.&#10;- Updated dependencies to include ClosedXML for XLSX support." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
