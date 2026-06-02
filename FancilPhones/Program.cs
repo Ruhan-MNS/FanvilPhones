@@ -65,19 +65,29 @@ using (var scope = app.Services.CreateScope())
     await db.Database.EnsureCreatedAsync();
 
     // Additive columns on existing DBs (project uses EnsureCreated, no migrations).
-    // Each ALTER is idempotent — ignore "duplicate column" on re-runs.
-    foreach (var sql in new[]
-             {
-                 "ALTER TABLE Phones ADD COLUMN SipDisplayName TEXT NULL",
-                 "ALTER TABLE Phones ADD COLUMN SipLineIndex INTEGER NOT NULL DEFAULT 1",
-                 "ALTER TABLE Phones ADD COLUMN SipExtension TEXT NULL",
-                 "ALTER TABLE Phones ADD COLUMN SipRegistrationEnabled INTEGER NOT NULL DEFAULT 1",
-                 "ALTER TABLE SyncRuns ADD COLUMN Action TEXT NOT NULL DEFAULT 'Sync'",
-             })
+    // Check first via PRAGMA so re-runs don't log a failed ALTER on every startup.
+    async Task AddColumnIfMissing(string table, string column, string definition)
     {
-        try { await db.Database.ExecuteSqlRawAsync(sql); }
-        catch { /* column already exists */ }
+        var conn = db.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info({table})";
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+                return;
+        }
+        await reader.CloseAsync();
+        await db.Database.ExecuteSqlRawAsync($"ALTER TABLE {table} ADD COLUMN {column} {definition}");
     }
+
+    await AddColumnIfMissing("Phones",   "SipDisplayName",          "TEXT NULL");
+    await AddColumnIfMissing("Phones",   "SipLineIndex",            "INTEGER NOT NULL DEFAULT 1");
+    await AddColumnIfMissing("Phones",   "SipExtension",            "TEXT NULL");
+    await AddColumnIfMissing("Phones",   "SipRegistrationEnabled",  "INTEGER NOT NULL DEFAULT 1");
+    await AddColumnIfMissing("SyncRuns", "Action",                  "TEXT NOT NULL DEFAULT 'Sync'");
 
     var rm = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     foreach (var role in new[] { "Admin", "Technician" })

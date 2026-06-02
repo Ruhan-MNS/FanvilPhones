@@ -18,30 +18,32 @@
         </div>
     </TitleContent>
     <DialogContent>
-        <MudGrid Spacing="2" Class="mb-2">
-            <MudItem xs="8">
+        <div style="display: flex; align-items: flex-start; gap: 12px;" class="mb-2">
+            <div style="flex: 1 1 auto;">
                 <MudTextField @bind-Value="_range" Label="IP range"
                               Variant="Variant.Outlined" Margin="Margin.Dense"
                               HelperText="CIDR (192.168.55.0/24) or range (192.168.55.1-254)."
                               Disabled="_scanning" />
-            </MudItem>
-            <MudItem xs="4" Style="display: flex; align-items: center;">
+            </div>
+            <div style="flex: 0 0 180px;">
                 @if (!_scanning)
                 {
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-                               StartIcon="@Icons.Material.Filled.PlayArrow" OnClick="StartScanAsync">
+                               StartIcon="@Icons.Material.Filled.PlayArrow" OnClick="StartScanAsync"
+                               Style="height: 40px;">
                         Start scan
                     </MudButton>
                 }
                 else
                 {
                     <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true"
-                               StartIcon="@Icons.Material.Filled.Stop" OnClick="CancelScan">
+                               StartIcon="@Icons.Material.Filled.Stop" OnClick="CancelScan"
+                               Style="height: 40px;">
                         Stop
                     </MudButton>
                 }
-            </MudItem>
-        </MudGrid>
+            </div>
+        </div>
 
         @if (_total > 0)
         {

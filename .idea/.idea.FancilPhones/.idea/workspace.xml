@@ -16,12 +16,15 @@
   <component name="ChangeListManager">
     <list default="true" id="340ae946-e78f-44e1-9494-9cde8929d477" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.FancilPhones/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.FancilPhones/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/Login.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/Login.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/ScanNetworkDialog.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/ScanNetworkDialog.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Program.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.dll" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.exe" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.exe" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.pdb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/fancilphones.db" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db-shm" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/fancilphones.db-shm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db-wal" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/fancilphones.db-wal" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db-shm" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db-wal" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfo.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfoInputs.cache" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.dll" afterDir="false" />
@@ -32,7 +35,7 @@
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/refint/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/refint/FancilPhones.dll" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmcshtml.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmcshtml.dswa.cache.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmrazor.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmrazor.dswa.cache.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/rider.project.model.nuget.info" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/rider.project.model.nuget.info" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rpswa.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rpswa.dswa.cache.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -72,23 +75,23 @@
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.000000067994816" />
-      <entry key="MS500" value="1.036854893508163" />
-      <entry key="S2" value="1.4381509827819199" />
-      <entry key="S5" value="1.718868603166412" />
-      <entry key="S10" value="1.8478611933367466" />
-      <entry key="S30" value="1.9464730507860075" />
-      <entry key="S60" value="1.9728684653055661" />
-      <entry key="M2" value="1.986340947799272" />
-      <entry key="M5" value="1.9945138261970703" />
-      <entry key="M10" value="1.9972533292980195" />
-      <entry key="M15" value="1.9982453085849352" />
-      <entry key="M30" value="2.0308014746473297" />
-      <entry key="H1" value="2.641672415123198" />
-      <entry key="H2" value="4.889008325948675" />
-      <entry key="H4" value="8.128513355492025" />
-      <entry key="D1" value="13.46865814466772" />
-      <entry key="W1" value="14.769313280484168" />
+      <entry key="MS100" value="1.0567199510639849" />
+      <entry key="MS500" value="1.5840703300938976" />
+      <entry key="S2" value="2.2459232014519843" />
+      <entry key="S5" value="2.6229957971622175" />
+      <entry key="S10" value="2.7955880366158077" />
+      <entry key="S30" value="2.927942962376517" />
+      <entry key="S60" value="2.963455324756721" />
+      <entry key="M2" value="2.9815965709462215" />
+      <entry key="M5" value="2.9926068999144686" />
+      <entry key="M10" value="2.996298328236439" />
+      <entry key="M15" value="2.9976082742220163" />
+      <entry key="M30" value="3.030477742260569" />
+      <entry key="H1" value="3.641461850720108" />
+      <entry key="H2" value="5.8888134736973425" />
+      <entry key="H4" value="9.128351372242738" />
+      <entry key="D1" value="14.468613410880417" />
+      <entry key="W1" value="15.769306272804856" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -96,37 +99,37 @@
       <entry key="S2" value="0.0" />
       <entry key="S5" value="0.0" />
       <entry key="S10" value="0.0" />
-      <entry key="S30" value="2.2928535836059653E-157" />
-      <entry key="S60" value="4.788375072616979E-79" />
-      <entry key="M2" value="6.9198085758328446E-40" />
-      <entry key="M5" value="2.1678919477095995E-16" />
-      <entry key="M10" value="1.4723762928373983E-8" />
-      <entry key="M15" value="6.00729847742849E-6" />
-      <entry key="M30" value="0.002450979085473495" />
-      <entry key="H1" value="0.04950736395197683" />
-      <entry key="H2" value="0.22250250324878781" />
-      <entry key="H4" value="0.4717017100337753" />
-      <entry key="D1" value="0.882289766126819" />
-      <entry key="W1" value="0.9822684103296571" />
+      <entry key="S30" value="2.271026012144301E-157" />
+      <entry key="S60" value="4.7655283150394786E-79" />
+      <entry key="M2" value="6.903280607826599E-40" />
+      <entry key="M5" value="2.165819257072598E-16" />
+      <entry key="M10" value="1.4716722655104292E-8" />
+      <entry key="M15" value="6.005383369437497E-6" />
+      <entry key="M30" value="0.0024505883720930158" />
+      <entry key="H1" value="0.049503417781937196" />
+      <entry key="H2" value="0.22249363537399713" />
+      <entry key="H4" value="0.47169231006451356" />
+      <entry key="D1" value="0.8822868357560045" />
+      <entry key="W1" value="0.9822679442672283" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="3.060040754932919E-7" />
-      <entry key="MS500" value="0.056278053081059015" />
-      <entry key="S2" value="0.7561840460351191" />
-      <entry key="S5" value="1.3450652734213033" />
-      <entry key="S10" value="1.6380409998552279" />
-      <entry key="S30" value="1.870695425526059" />
-      <entry key="S60" value="1.934197801864567" />
-      <entry key="M2" value="1.966806009739163" />
-      <entry key="M5" value="1.9866514048636936" />
-      <entry key="M10" value="1.9933140133961489" />
-      <entry key="M15" value="1.9956232532065434" />
-      <entry key="M30" value="2.03193045111002" />
-      <entry key="H1" value="2.690450371558819" />
-      <entry key="H2" value="5.111020557513828" />
-      <entry key="H4" value="8.59987944141444" />
-      <entry key="D1" value="14.350867112868801" />
-      <entry key="W1" value="15.751569283234918" />
+      <entry key="MS100" value="0.05671996456385755" />
+      <entry key="MS500" value="0.5950115826203953" />
+      <entry key="S2" value="1.5214469657020513" />
+      <entry key="S5" value="2.2142652881218297" />
+      <entry key="S10" value="2.563414869321751" />
+      <entry key="S30" value="2.8433668991895464" />
+      <entry key="S60" value="2.920197873946014" />
+      <entry key="M2" value="2.959719791345643" />
+      <entry key="M5" value="2.983795909962581" />
+      <entry key="M10" value="2.991882738745856" />
+      <entry key="M15" value="2.994668257870158" />
+      <entry key="M30" value="3.031447127607607" />
+      <entry key="H1" value="3.690156210376997" />
+      <entry key="H2" value="6.110777001758922" />
+      <entry key="H4" value="9.599688137101257" />
+      <entry key="D1" value="15.350816127654316" />
+      <entry key="W1" value="16.75156133502343" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -223,7 +226,10 @@
       <workItem from="1779860075549" duration="4000" />
       <workItem from="1779868383888" duration="689000" />
       <workItem from="1779869712387" duration="14817000" />
-      <workItem from="1779889767997" duration="1241000" />
+      <workItem from="1779889767997" duration="1259000" />
+      <workItem from="1779946664991" duration="2732000" />
+      <workItem from="1779964491163" duration="1797000" />
+      <workItem from="1780388828586" duration="8230000" />
     </task>
     <task id="LOCAL-00001" summary="Add initial setup for the FancilPhones project&#10;&#10;Includes:&#10;&#10;- Configured .NET Core 10.0 compatibility and setup Assembly Attributes.&#10;- Added app configuration files (`appsettings.json`, `appsettings.Development.json`).&#10;- Implemented AppDbContext with EF Core entities and relationships.&#10;- Added shared Razor imports (`_Imports.razor`).&#10;- Integrated MudBlazor theming and basic app layout (`App.razor`).&#10;- Added Bootstrap 5.3.3 bundle and custom CSS styles for UI enhancements.">
       <option name="closed" value="true" />
@@ -305,7 +311,15 @@
       <option name="project" value="LOCAL" />
       <updated>1779886883425</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="Update autogenerated files and metadata  &#10;&#10;- Updated source link and assembly informational version to reflect new commit hash.&#10;- Adjusted Rider project settings, including workspace configuration and autogenerated data for alignment with recent changes.">
+      <option name="closed" value="true" />
+      <created>1779892139142</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1779892139142</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -336,7 +350,8 @@
     <MESSAGE value="Update project configurations and metadata&#10;&#10;- Updated launch settings to change application URL to `http://0.0.0.0:80`.&#10;- Updated source link and assembly informational version to reflect new commit hash.&#10;- Adjusted autogenerated files for alignment with recent changes." />
     <MESSAGE value="Add network scan feature, XLSX import for phones, and advanced discovery dialog&#10;&#10;- Implemented `PhoneDiscoveryService` for scanning IP ranges and detecting Fanvil devices.&#10;- Added `PhonesXlsx` parser to handle phone imports from XLSX files.&#10;- Introduced `ScanNetworkDialog` component for bulk discovery and addition of devices via UI.&#10;- Updated dependencies to include ClosedXML for XLSX support." />
     <MESSAGE value="Add logs page UI and implement logging for phone actions (Sync, Push, Probe)&#10;&#10;- Added a new `Logs.razor` page under `Pages` to display recent phone activity (e.g., syncs, pushes, probes) with filters for action, status, and search.&#10;- Updated `PhoneSyncService` to log actions such as &quot;Sync,&quot; &quot;Push,&quot; and &quot;Probe&quot; into the database and track their status, duration, and HTTP response codes.&#10;- Introduced a `PushSipDisplayNameAsync` method for SIP login configuration, logging, and diagnostics.&#10;- Improved `FanvilHttpClient` by refining request logging, adding retries for nonce failures, and resolving form POST referer issues." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add logs page UI and implement logging for phone actions (Sync, Push, Probe)&#10;&#10;- Added a new `Logs.razor` page under `Pages` to display recent phone activity (e.g., syncs, pushes, probes) with filters for action, status, and search.&#10;- Updated `PhoneSyncService` to log actions such as &quot;Sync,&quot; &quot;Push,&quot; and &quot;Probe&quot; into the database and track their status, duration, and HTTP response codes.&#10;- Introduced a `PushSipDisplayNameAsync` method for SIP login configuration, logging, and diagnostics.&#10;- Improved `FanvilHttpClient` by refining request logging, adding retries for nonce failures, and resolving form POST referer issues." />
+    <MESSAGE value="Update autogenerated files and metadata  &#10;&#10;- Updated source link and assembly informational version to reflect new commit hash.&#10;- Adjusted Rider project settings, including workspace configuration and autogenerated data for alignment with recent changes." />
+    <option name="LAST_COMMIT_MESSAGE" value="Update autogenerated files and metadata  &#10;&#10;- Updated source link and assembly informational version to reflect new commit hash.&#10;- Adjusted Rider project settings, including workspace configuration and autogenerated data for alignment with recent changes." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
