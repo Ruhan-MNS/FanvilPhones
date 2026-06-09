@@ -35,7 +35,7 @@ main[b-hkgg7q6ik2] {
 }
 
     #blazor-error-ui .reload[b-hkgg7q6ik2] {
-        color: #4F46E5;
+        color: #E2231A;
         margin-left: 0.5rem;
     }
 
@@ -71,18 +71,18 @@ main[b-hkgg7q6ik2] {
 }
 
 [b-mwi2klmzx5] .mud-nav-link:hover {
-    background-color: rgba(79, 70, 229, 0.06) !important;
-    color: #4F46E5 !important;
+    background-color: rgba(226, 35, 26, 0.06) !important;
+    color: #E2231A !important;
 }
 
 [b-mwi2klmzx5] .mud-nav-link.active {
-    background-color: rgba(79, 70, 229, 0.10) !important;
-    color: #4F46E5 !important;
+    background-color: rgba(226, 35, 26, 0.10) !important;
+    color: #E2231A !important;
     font-weight: 600;
 }
 
 [b-mwi2klmzx5] .mud-nav-link.active .mud-nav-link-icon {
-    color: #4F46E5 !important;
+    color: #E2231A !important;
 }
 
 [b-mwi2klmzx5] .mud-nav-link-icon {

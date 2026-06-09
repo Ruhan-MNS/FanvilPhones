@@ -143,7 +143,7 @@ app.MapGet("/api/phonebook.xlsx", async (IDbContextFactory<AppDbContext> dbf) =>
 
     var header = ws.Range(1, 1, 1, headers.Length);
     header.Style.Font.Bold = true;
-    header.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#4F46E5");
+    header.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#E2231A");
     header.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
     header.Style.Alignment.Horizontal = ClosedXML.Excel.XLAlignmentHorizontalValues.Left;
 
@@ -193,7 +193,7 @@ app.MapGet("/api/phones.xlsx", async (IDbContextFactory<AppDbContext> dbf) =>
 
     var header = ws.Range(1, 1, 1, headers.Length);
     header.Style.Font.Bold = true;
-    header.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#4F46E5");
+    header.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#E2231A");
     header.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
     header.Style.Alignment.Horizontal = ClosedXML.Excel.XLAlignmentHorizontalValues.Left;
 

@@ -8,7 +8,7 @@
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
     <div class="fp-section-header" style="margin-bottom: 0;">
-        <span class="fp-section-icon" style="background: rgba(79, 70, 229, 0.10); color: #4F46E5;">
+        <span class="fp-section-icon" style="background: rgba(226, 35, 26, 0.10); color: #E2231A;">
             <MudIcon Icon="@Icons.Material.Filled.People" />
         </span>
         <div>
@@ -69,7 +69,7 @@
 </div>
 
 @code {
-    private List<Row> _rows = new();
+    private List<Row> _rows = new List<Row>();
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

@@ -16,26 +16,55 @@
   <component name="ChangeListManager">
     <list default="true" id="340ae946-e78f-44e1-9494-9cde8929d477" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.FancilPhones/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.FancilPhones/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/App.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/App.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Layout/MainLayout.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Layout/MainLayout.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Layout/MainLayout.razor.css" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Layout/MainLayout.razor.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Layout/NavMenu.razor.css" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Layout/NavMenu.razor.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/ChangePassword.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/ChangePassword.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/ContactEditDialog.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/ContactEditDialog.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/Contacts.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/Contacts.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/CreateUserDialog.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/CreateUserDialog.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/Home.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/Home.razor" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/Login.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/Login.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/PhoneEditDialog.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/PhoneEditDialog.razor" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/ScanNetworkDialog.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/ScanNetworkDialog.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Components/Pages/Users.razor" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Components/Pages/Users.razor" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/Services/PhoneSyncService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/Services/PhoneSyncService.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.dll" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.exe" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.exe" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.staticwebassets.endpoints.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.staticwebassets.endpoints.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.staticwebassets.runtime.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/bin/Debug/net10.0/FancilPhones.staticwebassets.runtime.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/fancilphones.db" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db-shm" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/FancilPhones/fancilphones.db-wal" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfo.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.AssemblyInfoInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.csproj.FileListAbsolute.txt" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.csproj.FileListAbsolute.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.dll" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.pdb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.sourcelink.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/FancilPhones.sourcelink.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/apphost.exe" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/apphost.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/compressed/b6e1rsccct-{0}-y57z50ydna-y57z50ydna.gz" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/compressed/iryd23rk3z-{0}-ramkin80ag-ramkin80ag.gz" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/compressed/vjksotixyu-{0}-y57z50ydna-y57z50ydna.gz" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rbcswa.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rbcswa.dswa.cache.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/ref/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/ref/FancilPhones.dll" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/refint/FancilPhones.dll" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/refint/FancilPhones.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjimswa.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjimswa.dswa.cache.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmcshtml.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmcshtml.dswa.cache.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmrazor.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rjsmrazor.dswa.cache.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rpswa.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/rpswa.dswa.cache.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/scopedcss/Components/Layout/MainLayout.razor.rz.scp.css" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/scopedcss/Components/Layout/MainLayout.razor.rz.scp.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/scopedcss/Components/Layout/NavMenu.razor.rz.scp.css" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/scopedcss/Components/Layout/NavMenu.razor.rz.scp.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/scopedcss/bundle/FancilPhones.styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/scopedcss/bundle/FancilPhones.styles.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/scopedcss/projectbundle/FancilPhones.bundle.scp.css" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/scopedcss/projectbundle/FancilPhones.bundle.scp.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/staticwebassets.build.endpoints.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/staticwebassets.build.endpoints.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/staticwebassets.build.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/staticwebassets.build.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/staticwebassets.build.json.cache" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/staticwebassets.build.json.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/staticwebassets.development.json" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/Debug/net10.0/staticwebassets.development.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/rider.project.model.nuget.info" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/rider.project.model.nuget.info" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/obj/rider.project.restore.info" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/obj/rider.project.restore.info" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FancilPhones/wwwroot/app.css" beforeDir="false" afterPath="$PROJECT_DIR$/FancilPhones/wwwroot/app.css" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,23 +104,23 @@
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0567199510639849" />
-      <entry key="MS500" value="1.5840703300938976" />
-      <entry key="S2" value="2.2459232014519843" />
-      <entry key="S5" value="2.6229957971622175" />
-      <entry key="S10" value="2.7955880366158077" />
-      <entry key="S30" value="2.927942962376517" />
-      <entry key="S60" value="2.963455324756721" />
-      <entry key="M2" value="2.9815965709462215" />
-      <entry key="M5" value="2.9926068999144686" />
-      <entry key="M10" value="2.996298328236439" />
-      <entry key="M15" value="2.9976082742220163" />
-      <entry key="M30" value="3.030477742260569" />
-      <entry key="H1" value="3.641461850720108" />
-      <entry key="H2" value="5.8888134736973425" />
-      <entry key="H4" value="9.128351372242738" />
-      <entry key="D1" value="14.468613410880417" />
-      <entry key="W1" value="15.769306272804856" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0" />
+      <entry key="S5" value="1.0000001774037954" />
+      <entry key="S10" value="1.0009388020846095" />
+      <entry key="S30" value="1.2860940503835863" />
+      <entry key="S60" value="2.1959059338818623" />
+      <entry key="M2" value="3.445247482360242" />
+      <entry key="M5" value="4.755852710992711" />
+      <entry key="M10" value="5.33350063202618" />
+      <entry key="M15" value="5.545229947620069" />
+      <entry key="M30" value="5.797399040981473" />
+      <entry key="H1" value="6.509196143745854" />
+      <entry key="H2" value="8.795750877789317" />
+      <entry key="H4" value="12.06249843817288" />
+      <entry key="D1" value="17.452327133166094" />
+      <entry key="W1" value="18.76679475429999" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -99,37 +128,37 @@
       <entry key="S2" value="0.0" />
       <entry key="S5" value="0.0" />
       <entry key="S10" value="0.0" />
-      <entry key="S30" value="2.271026012144301E-157" />
-      <entry key="S60" value="4.7655283150394786E-79" />
-      <entry key="M2" value="6.903280607826599E-40" />
-      <entry key="M5" value="2.165819257072598E-16" />
-      <entry key="M10" value="1.4716722655104292E-8" />
-      <entry key="M15" value="6.005383369437497E-6" />
-      <entry key="M30" value="0.0024505883720930158" />
-      <entry key="H1" value="0.049503417781937196" />
-      <entry key="H2" value="0.22249363537399713" />
-      <entry key="H4" value="0.47169231006451356" />
-      <entry key="D1" value="0.8822868357560045" />
-      <entry key="W1" value="0.9822679442672283" />
+      <entry key="S30" value="1.3125196230530258E-158" />
+      <entry key="S60" value="1.1456524879094123E-79" />
+      <entry key="M2" value="3.384748864996356E-40" />
+      <entry key="M5" value="1.6285855628097572E-16" />
+      <entry key="M10" value="1.2761604769031825E-8" />
+      <entry key="M15" value="5.460975064591729E-6" />
+      <entry key="M30" value="0.002336872924356763" />
+      <entry key="H1" value="0.04834121351762658" />
+      <entry key="H2" value="0.2198663537643415" />
+      <entry key="H4" value="0.46889908697324373" />
+      <entry key="D1" value="0.8814139055740365" />
+      <entry key="W1" value="0.9821290495052727" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.05671996456385755" />
-      <entry key="MS500" value="0.5950115826203953" />
-      <entry key="S2" value="1.5214469657020513" />
-      <entry key="S5" value="2.2142652881218297" />
-      <entry key="S10" value="2.563414869321751" />
-      <entry key="S30" value="2.8433668991895464" />
-      <entry key="S60" value="2.920197873946014" />
-      <entry key="M2" value="2.959719791345643" />
-      <entry key="M5" value="2.983795909962581" />
-      <entry key="M10" value="2.991882738745856" />
-      <entry key="M15" value="2.994668257870158" />
-      <entry key="M30" value="3.031447127607607" />
-      <entry key="H1" value="3.690156210376997" />
-      <entry key="H2" value="6.110777001758922" />
-      <entry key="H4" value="9.599688137101257" />
-      <entry key="D1" value="15.350816127654316" />
-      <entry key="W1" value="16.75156133502343" />
+      <entry key="MS100" value="8.933843293462558E-10" />
+      <entry key="MS500" value="0.015495573917785823" />
+      <entry key="S2" value="0.35281896085217307" />
+      <entry key="S5" value="0.6592055755559396" />
+      <entry key="S10" value="0.8128028965039926" />
+      <entry key="S30" value="1.2135419949536808" />
+      <entry key="S60" value="2.1501982878466213" />
+      <entry key="M2" value="3.4161080989981656" />
+      <entry key="M5" value="4.741570744747417" />
+      <entry key="M10" value="5.325781153094922" />
+      <entry key="M15" value="5.539947723770936" />
+      <entry key="M30" value="5.797011213480293" />
+      <entry key="H1" value="6.556089147118801" />
+      <entry key="H2" value="9.014763794471564" />
+      <entry key="H4" value="12.530879160529368" />
+      <entry key="D1" value="18.33362949734857" />
+      <entry key="W1" value="19.748906993755554" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -229,7 +258,11 @@
       <workItem from="1779889767997" duration="1259000" />
       <workItem from="1779946664991" duration="2732000" />
       <workItem from="1779964491163" duration="1797000" />
-      <workItem from="1780388828586" duration="8230000" />
+      <workItem from="1780388828586" duration="15463000" />
+      <workItem from="1780465033643" duration="11393000" />
+      <workItem from="1780988510822" duration="95000" />
+      <workItem from="1780988726975" duration="130000" />
+      <workItem from="1780994692181" duration="541000" />
     </task>
     <task id="LOCAL-00001" summary="Add initial setup for the FancilPhones project&#10;&#10;Includes:&#10;&#10;- Configured .NET Core 10.0 compatibility and setup Assembly Attributes.&#10;- Added app configuration files (`appsettings.json`, `appsettings.Development.json`).&#10;- Implemented AppDbContext with EF Core entities and relationships.&#10;- Added shared Razor imports (`_Imports.razor`).&#10;- Integrated MudBlazor theming and basic app layout (`App.razor`).&#10;- Added Bootstrap 5.3.3 bundle and custom CSS styles for UI enhancements.">
       <option name="closed" value="true" />
@@ -319,7 +352,15 @@
       <option name="project" value="LOCAL" />
       <updated>1779892139142</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="Refactor network scan UI and improve database column updates&#10;&#10;- Redesigned `ScanNetworkDialog` layout for better alignment and spacing.&#10;- Replaced redundant Grid components with flexbox-based layout.&#10;- Enhanced database schema update logic by adding dynamic column checking via `PRAGMA` to avoid redundant `ALTER` operations.">
+      <option name="closed" value="true" />
+      <created>1780397672470</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1780397672470</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -351,7 +392,8 @@
     <MESSAGE value="Add network scan feature, XLSX import for phones, and advanced discovery dialog&#10;&#10;- Implemented `PhoneDiscoveryService` for scanning IP ranges and detecting Fanvil devices.&#10;- Added `PhonesXlsx` parser to handle phone imports from XLSX files.&#10;- Introduced `ScanNetworkDialog` component for bulk discovery and addition of devices via UI.&#10;- Updated dependencies to include ClosedXML for XLSX support." />
     <MESSAGE value="Add logs page UI and implement logging for phone actions (Sync, Push, Probe)&#10;&#10;- Added a new `Logs.razor` page under `Pages` to display recent phone activity (e.g., syncs, pushes, probes) with filters for action, status, and search.&#10;- Updated `PhoneSyncService` to log actions such as &quot;Sync,&quot; &quot;Push,&quot; and &quot;Probe&quot; into the database and track their status, duration, and HTTP response codes.&#10;- Introduced a `PushSipDisplayNameAsync` method for SIP login configuration, logging, and diagnostics.&#10;- Improved `FanvilHttpClient` by refining request logging, adding retries for nonce failures, and resolving form POST referer issues." />
     <MESSAGE value="Update autogenerated files and metadata  &#10;&#10;- Updated source link and assembly informational version to reflect new commit hash.&#10;- Adjusted Rider project settings, including workspace configuration and autogenerated data for alignment with recent changes." />
-    <option name="LAST_COMMIT_MESSAGE" value="Update autogenerated files and metadata  &#10;&#10;- Updated source link and assembly informational version to reflect new commit hash.&#10;- Adjusted Rider project settings, including workspace configuration and autogenerated data for alignment with recent changes." />
+    <MESSAGE value="Refactor network scan UI and improve database column updates&#10;&#10;- Redesigned `ScanNetworkDialog` layout for better alignment and spacing.&#10;- Replaced redundant Grid components with flexbox-based layout.&#10;- Enhanced database schema update logic by adding dynamic column checking via `PRAGMA` to avoid redundant `ALTER` operations." />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactor network scan UI and improve database column updates&#10;&#10;- Redesigned `ScanNetworkDialog` layout for better alignment and spacing.&#10;- Replaced redundant Grid components with flexbox-based layout.&#10;- Enhanced database schema update logic by adding dynamic column checking via `PRAGMA` to avoid redundant `ALTER` operations." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

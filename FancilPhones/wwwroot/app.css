@@ -1,7 +1,7 @@
 :root {
-    --fp-primary: #4F46E5;
-    --fp-primary-soft: rgba(79, 70, 229, 0.10);
-    --fp-secondary: #0EA5A4;
+    --fp-primary: #E2231A;
+    --fp-primary-soft: rgba(226, 35, 26, 0.10);
+    --fp-secondary: #2B2B2B;
     --fp-bg: #F7F8FB;
     --fp-surface: #FFFFFF;
     --fp-border: #E5E7EB;
@@ -31,7 +31,7 @@ a, .btn-link {
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem rgba(79, 70, 229, 0.45);
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem rgba(226, 35, 26, 0.45);
 }
 
 .content {
@@ -75,7 +75,7 @@ h1:focus {
 }
 
 .fp-glass-panel {
-    background: linear-gradient(135deg, rgba(79, 70, 229, 0.95) 0%, rgba(14, 165, 164, 0.92) 100%);
+    background: linear-gradient(135deg, rgba(226, 35, 26, 0.95) 0%, rgba(43, 43, 43, 0.92) 100%);
     color: white;
     border-radius: 16px;
     box-shadow: var(--fp-shadow-lg);
@@ -83,8 +83,8 @@ h1:focus {
 
 .fp-page-bg {
     background:
-        radial-gradient(circle at 0% 0%, rgba(79, 70, 229, 0.05), transparent 40%),
-        radial-gradient(circle at 100% 0%, rgba(14, 165, 164, 0.04), transparent 40%),
+        radial-gradient(circle at 0% 0%, rgba(226, 35, 26, 0.05), transparent 40%),
+        radial-gradient(circle at 100% 0%, rgba(43, 43, 43, 0.04), transparent 40%),
         var(--fp-bg);
     min-height: 100vh;
 }
@@ -103,7 +103,7 @@ h1:focus {
 .fp-card-surface.fp-card-surface:hover {
     transform: translateY(-4px);
     box-shadow: var(--fp-shadow-md);
-    border-color: rgba(79, 70, 229, 0.35);
+    border-color: rgba(226, 35, 26, 0.35);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -181,15 +181,18 @@ h1:focus {
 }
 
 .fp-brand-mark {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, var(--fp-primary), var(--fp-secondary));
-    color: white;
+    width: 40px;
+    height: 40px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: var(--fp-shadow-sm);
+    flex-shrink: 0;
+}
+
+.fp-brand-mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
 
 .fp-brand-title {
@@ -214,8 +217,8 @@ h1:focus {
     color: white;
     background:
         radial-gradient(circle at 110% -20%, rgba(255,255,255,0.18), transparent 50%),
-        radial-gradient(circle at -10% 120%, rgba(14, 165, 164, 0.45), transparent 55%),
-        linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #0EA5A4 100%);
+        radial-gradient(circle at -10% 120%, rgba(43, 43, 43, 0.45), transparent 55%),
+        linear-gradient(135deg, #E2231A 0%, #B01810 50%, #2B2B2B 100%);
     box-shadow: var(--fp-shadow-lg);
 }
 
@@ -306,8 +309,8 @@ h1:focus {
 .fp-empty-layout {
     min-height: 100vh;
     background:
-        radial-gradient(circle at 20% 0%, rgba(79, 70, 229, 0.10), transparent 50%),
-        radial-gradient(circle at 90% 100%, rgba(14, 165, 164, 0.12), transparent 55%),
+        radial-gradient(circle at 20% 0%, rgba(226, 35, 26, 0.10), transparent 50%),
+        radial-gradient(circle at 90% 100%, rgba(43, 43, 43, 0.12), transparent 55%),
         var(--fp-bg);
     display: flex;
     align-items: center;
@@ -378,14 +381,14 @@ h1:focus {
 .fp-login-input:focus {
     outline: none;
     border-color: var(--fp-primary);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    box-shadow: 0 0 0 3px rgba(226, 35, 26, 0.15);
 }
 
 .fp-login-btn {
     margin-top: 18px;
     width: 100%;
     padding: 12px;
-    background: linear-gradient(135deg, var(--fp-primary), #6366F1);
+    background: linear-gradient(135deg, var(--fp-primary), #B01810);
     color: white;
     font-weight: 600;
     font-size: 0.95rem;

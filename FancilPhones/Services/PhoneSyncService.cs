@@ -125,8 +125,7 @@ public class PhoneSyncService
     /// display-name field (plus the line selector / ReturnPage hidden fields)
     /// and explicitly skip anything matching <c>passwd</c>/<c>password</c>.
     /// </summary>
-    public async Task<(bool ok, string message)> PushSipDisplayNameAsync(
-        int phoneId, CancellationToken ct = default)
+    public async Task<(bool ok, string message)> PushSipDisplayNameAsync(int phoneId, CancellationToken ct = default)
     {
         await using var db = await _dbf.CreateDbContextAsync(ct);
         var phone = await db.Phones.FindAsync(new object?[] { phoneId }, ct);

@@ -202,10 +202,7 @@ C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\FancilP
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\FancilPhones.genruntimeconfig.cache
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\ref\FancilPhones.dll
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\FancilPhones.sourcelink.json
-C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\vjksotixyu-{0}-y57z50ydna-y57z50ydna.gz
-C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\b6e1rsccct-{0}-y57z50ydna-y57z50ydna.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
-C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\iryd23rk3z-{0}-ramkin80ag-ramkin80ag.gz
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\ClosedXML.dll
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\ClosedXML.Parser.dll
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\DocumentFormat.OpenXml.dll
@@ -214,3 +211,7 @@ C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\ExcelNu
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\RBush.dll
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\SixLabors.Fonts.dll
 C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\bin\Debug\net10.0\System.IO.Packaging.dll
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\vjksotixyu-{0}-48c83fsnkt-48c83fsnkt.gz
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\b6e1rsccct-{0}-48c83fsnkt-48c83fsnkt.gz
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\iryd23rk3z-{0}-uwyocdjntv-uwyocdjntv.gz
+C:\Users\ruhan\RiderProjects\FancilPhones\FancilPhones\obj\Debug\net10.0\compressed\tlh3h3liwq-{0}-i7lnut0ut8-i7lnut0ut8.gz
