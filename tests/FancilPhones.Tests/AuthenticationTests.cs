@@ -77,6 +77,26 @@ public sealed class AuthenticationTests
         }
     }
 
+    [Theory]
+    [InlineData("employee@multinetsystems.co.za", "employee@multinetsystems.co.za", "E")]
+    [InlineData(null, "EMP001", "E")]
+    public async Task HeaderDisplaysSharedAccountEmailWithUsernameFallback(string? email, string expectedLabel, string expectedInitial)
+    {
+        await using var app = new PhoneWebApp();
+        await app.InitializeAsync(email: email);
+        using var client = app.CreateClient(Options);
+        Assert.Equal(HttpStatusCode.Redirect, (await LoginAsync(client, "EMP001", "/")).StatusCode);
+
+        var html = await client.GetStringAsync("/");
+        var account = Regex.Match(html, "<a class=\"account-link\"[^>]*>.*?</a>", RegexOptions.Singleline);
+        Assert.True(account.Success);
+        Assert.Contains($"<strong>{expectedLabel}</strong>", account.Value);
+        Assert.Contains($"title=\"{expectedLabel}\"", account.Value);
+        Assert.Contains($"aria-label=\"Manage account for {expectedLabel}\"", account.Value);
+        Assert.Contains($"aria-hidden=\"true\">{expectedInitial}</span>", account.Value);
+        if (email is not null) Assert.DoesNotContain("EMP001", account.Value);
+    }
+
     [Fact]
     public async Task TwoFactorAccountsRequireSecondFactorAndAcceptRecoveryCode()
     {
@@ -212,14 +232,14 @@ public sealed class AuthenticationTests
             });
         }
 
-        public async Task<string?> InitializeAsync(string? role = null, bool twoFactor = false)
+        public async Task<string?> InitializeAsync(string? role = null, bool twoFactor = false, string? email = null)
         {
             using var scope = Services.CreateScope();
             await scope.ServiceProvider.GetRequiredService<AuthDbContext>().Database.EnsureCreatedAsync();
             await using var db = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext();
             await db.Database.EnsureCreatedAsync();
             var manager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-            var user = new AppUser { UserName = "EMP001", LockoutEnabled = true };
+            var user = new AppUser { UserName = "EMP001", Email = email, LockoutEnabled = true };
             Assert.True((await manager.CreateAsync(user, "ValidPass123!")).Succeeded);
             if (role is not null)
             {

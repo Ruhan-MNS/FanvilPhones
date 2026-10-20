@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @implements IDisposable
+@using System.Security.Claims
 @inject NavigationManager Navigation
 @inject UiFeedback Feedback
 
@@ -13,8 +14,9 @@
         </div>
         <div class="workspace-location"><span>Voice workspace</span><strong>@_location</strong></div>
         <AuthorizeView Context="auth"><Authorized>
+            @{ var accountLabel = GetAccountLabel(auth.User); }
             <div class="account-area">
-                <a class="account-link" href="/account/change-password"><span class="account-avatar">@(auth.User.Identity?.Name?.FirstOrDefault().ToString().ToUpperInvariant() ?? "U")</span><span class="account-copy"><strong>@auth.User.Identity?.Name</strong><small>@(auth.User.IsInRole("BI-ADMIN") || auth.User.IsInRole("IT_ADMIN") ? "Administrator" : "Viewer")</small></span></a>
+                <a class="account-link" href="/account/change-password" title="@accountLabel" aria-label="Manage account for @accountLabel"><span class="account-avatar" aria-hidden="true">@accountLabel[..1].ToUpperInvariant()</span><span class="account-copy"><strong>@accountLabel</strong><small>@(auth.User.IsInRole("BI-ADMIN") || auth.User.IsInRole("IT_ADMIN") ? "Administrator" : "Viewer")</small></span></a>
                 <form method="post" action="/auth/logout"><AntiforgeryToken /><button type="submit" class="button button--quiet" title="Sign out"><RadzenIcon Icon="logout" aria-hidden="true" /><span>Sign out</span></button></form>
             </div>
         </Authorized></AuthorizeView>
@@ -27,6 +29,14 @@
 <div id="blazor-error-ui" data-nosnippet>Connection interrupted. <a href="." class="reload">Reload workspace</a><button type="button" class="dismiss" aria-label="Dismiss error">×</button></div>
 
 @code {
+    private static string GetAccountLabel(ClaimsPrincipal user)
+    {
+        // Identity includes the shared ASP_AUTH email in the authenticated principal.
+        var email = user.FindFirstValue(ClaimTypes.Email);
+        if (!string.IsNullOrWhiteSpace(email)) return email.Trim();
+        return string.IsNullOrWhiteSpace(user.Identity?.Name) ? "Account" : user.Identity.Name.Trim();
+    }
+
     private bool _collapsed;
     private bool _mobileOpen;
     private string _location = "Overview";

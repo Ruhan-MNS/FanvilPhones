@@ -422,6 +422,7 @@ button:disabled,input:disabled,select:disabled,.is-disabled {
     max-width: 260px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .account-copy small {
