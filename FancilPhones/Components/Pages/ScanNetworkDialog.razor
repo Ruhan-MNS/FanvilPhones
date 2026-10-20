@@ -1,3 +1,4 @@
+@inject ILogger<ScanNetworkDialog> Logger
 @implements IDisposable
 @inject IPhoneDiscoveryService Discovery
 @inject IPhoneDirectory Directory
@@ -69,8 +70,8 @@
                 if (!_disposed) StateHasChanged();
             }
         }
-        catch (OperationCanceledException) { }
-        catch { _error = "The scan could not be completed. Check the range and try again."; }
+        catch (OperationCanceledException) when (_cts?.IsCancellationRequested == true) { }
+        catch (Exception ex) { Logger.LogError(ex, "Network discovery could not complete."); _error = "The scan could not be completed. Check the range and try again."; }
         finally
         {
             _scanning = false;

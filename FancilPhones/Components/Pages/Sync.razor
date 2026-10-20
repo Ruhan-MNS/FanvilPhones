@@ -1,3 +1,4 @@
+@inject ILogger<Sync> Logger
 @page "/sync"
 @attribute [Authorize]
 @inject IPhoneDirectory Directory
@@ -23,7 +24,7 @@
     private List<SyncRun> _history = [];
     private List<SyncResult> _results = [];
     protected override Task OnInitializedAsync() => LoadAsync();
-    private async Task LoadAsync() { _loading = true; _error = null; try { _contactCount = (await Directory.GetSummaryAsync()).ContactCount; _enabledCount = (await Directory.GetPhonesAsync()).Count(p => p.Enabled); _history = (await Directory.GetHistoryAsync(500)).Where(r => r.Action == "Sync").Take(50).ToList(); _page = 1; } catch { _error = "Delivery status could not be loaded. Please try again."; } finally { _loading = false; } }
+    private async Task LoadAsync() { _loading = true; _error = null; try { _contactCount = (await Directory.GetSummaryAsync()).ContactCount; _enabledCount = (await Directory.GetPhonesAsync()).Count(p => p.Enabled); _history = (await Directory.GetHistoryAsync(500)).Where(r => r.Action == "Sync").Take(50).ToList(); _page = 1; } catch (Exception ex) { Logger.LogError(ex, "Failed to load phonebook delivery status."); _error = "Delivery status could not be loaded. Please try again."; } finally { _loading = false; } }
     private async Task RunAsync()
     {
         if (_running || _confirming) return;
@@ -32,7 +33,7 @@
         finally { _confirming = false; }
         _running = true; _results.Clear();
         try { _results = (await SyncSvc.SyncAllAsync()).ToList(); var success = _results.Count(r => r.Success); _summary = $"{success} of {_results.Count} phones received the phonebook successfully."; Feedback.Notify(_summary, success == _results.Count ? "success" : "warning"); }
-        catch { Feedback.Notify("The fleet sync could not be completed. Review the activity log before retrying.", "danger"); }
+        catch (Exception ex) { Logger.LogError(ex, "Fleet synchronization could not complete."); Feedback.Notify("The fleet sync could not be completed. Review the activity log before retrying.", "danger"); }
         finally { _running = false; await LoadAsync(); }
     }
 }

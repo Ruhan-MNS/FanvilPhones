@@ -1,3 +1,4 @@
+@inject ILogger<Logs> Logger
 @page "/logs"
 @attribute [Authorize]
 @inject IPhoneDirectory Directory
@@ -23,5 +24,5 @@
     private void ResetPage() => _page = 1;
     private void ClearFilters() { _action = _status = "All"; _search = ""; ResetPage(); }
     protected override Task OnInitializedAsync() => LoadAsync();
-    private async Task LoadAsync() { _loading = true; _error = null; try { _runs = await Directory.GetHistoryAsync(500); ResetPage(); } catch { _error = "Activity could not be loaded. Please try again."; } finally { _loading = false; } }
+    private async Task LoadAsync() { _loading = true; _error = null; try { _runs = await Directory.GetHistoryAsync(500); ResetPage(); } catch (Exception ex) { Logger.LogError(ex, "Failed to load handset activity history."); _error = "Activity could not be loaded. Please try again."; } finally { _loading = false; } }
 }

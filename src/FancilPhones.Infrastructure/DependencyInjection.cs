@@ -33,7 +33,7 @@ public static class DependencyInjection
     {
         var value = configuration.GetConnectionString(name);
         if (string.IsNullOrWhiteSpace(value))
-            throw new InvalidOperationException($"Connection string '{name}' is required. Configure user secrets or ConnectionStrings__{name}.");
+            throw new InvalidOperationException($"Connection string '{name}' is required. Configure ConnectionStrings:{name} in appsettings.json or ConnectionStrings__{name} in the host environment.");
         var connection = new SqlConnectionStringBuilder(value);
         if (string.IsNullOrWhiteSpace(connection.InitialCatalog))
             throw new InvalidOperationException($"Connection string '{name}' must specify a database.");

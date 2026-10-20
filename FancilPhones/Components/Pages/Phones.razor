@@ -1,3 +1,4 @@
+@inject ILogger<Phones> Logger
 @page "/phones"
 @attribute [Authorize]
 @inject IPhoneDirectory Directory
@@ -47,11 +48,11 @@
     private void ResetPage() => _page = 1;
     private void SetFilter(string filter) { _filter = filter; ResetPage(); }
     protected override Task OnInitializedAsync() => LoadAsync();
-    private async Task LoadAsync() { _loading = true; _error = null; try { _phones = await Directory.GetPhonesAsync(); } catch { _error = "Phones could not be loaded. Please try again."; } finally { _loading = false; } }
+    private async Task LoadAsync() { _loading = true; _error = null; try { _phones = await Directory.GetPhonesAsync(); } catch (Exception ex) { Logger.LogError(ex, "Failed to load the phone fleet."); _error = "Phones could not be loaded. Please try again."; } finally { _loading = false; } }
     private void Edit(Phone p) => _editing = new Phone { Id = p.Id, Name = p.Name, IpAddress = p.IpAddress, Scheme = p.Scheme, Username = p.Username, Password = p.Password, UploadPath = p.UploadPath, UploadFieldName = p.UploadFieldName, Enabled = p.Enabled, SipDisplayName = p.SipDisplayName, SipLineIndex = p.SipLineIndex, SipExtension = p.SipExtension, SipRegistrationEnabled = p.SipRegistrationEnabled };
     private async Task SavedAsync() { _editing = null; await LoadAsync(); }
-    private async Task RunAsync(Func<Task> operation)
-    { if (_busy) return; _busy = true; try { await operation(); } catch (Exception) { Feedback.Notify("The action could not be completed. Check the connection and try again.", "danger"); } finally { _busy = false; } }
+    private async Task RunAsync(Func<Task> operation, [System.Runtime.CompilerServices.CallerMemberName] string operationName = "")
+    { if (_busy) return; _busy = true; try { await operation(); } catch (Exception ex) { Logger.LogError(ex, "Phone operation {Operation} failed.", operationName); Feedback.Notify("The action could not be completed. Check the connection and try again.", "danger"); } finally { _busy = false; } }
     private Task ToggleAsync(Phone p, bool enabled) => RunAsync(async () => { await Directory.SetPhoneEnabledAsync(p.Id, enabled); p.Enabled = enabled; Feedback.Notify($"{p.Name} is now {(enabled ? "enabled" : "disabled")} for fleet sync.", "success"); });
     private Task DeleteAsync(Phone p) => RunAsync(async () => { if (!await Feedback.ConfirmAsync("Delete phone", $"Remove {p.Name} ({p.IpAddress}) and its activity history? This cannot be undone.", "Delete phone", true)) return; await Directory.DeletePhoneAsync(p.Id); Feedback.Notify($"Removed {p.Name}.", "success"); await LoadAsync(); });
     private Task ProbeAsync(Phone p) => RunAsync(async () => { Feedback.Notify($"Probing {p.Name}…"); var (ok, _, message) = await SyncSvc.ProbeAsync(p); Feedback.Notify($"{p.Name}: {message}", ok ? "success" : "danger"); });

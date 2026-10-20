@@ -90,13 +90,18 @@ if (migrateOnly || importIndex >= 0 || builder.Configuration.GetValue("Database:
     var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     await using var db = await factory.CreateDbContextAsync();
     // Only the FancilPhones schema is migrated. Never migrate/seed the shared auth store.
-    await db.Database.MigrateAsync();
-    if (importIndex >= 0)
+    try
     {
-        var result = await scope.ServiceProvider.GetRequiredService<LegacyPhoneDataImporter>()
-            .ImportAsync(args[importIndex + 1]);
-        app.Logger.LogInformation("Imported {Phones} phones, {Contacts} contacts, and {Logs} log entries.",
-            result.Phones, result.Contacts, result.Logs);
+        app.Logger.LogInformation("Checking phone store migrations for schema {Schema}.", AppDbContext.Schema);
+        await db.Database.MigrateAsync();
+        app.Logger.LogInformation("Phone store migrations completed.");
+        if (importIndex >= 0)
+            await scope.ServiceProvider.GetRequiredService<LegacyPhoneDataImporter>().ImportAsync(args[importIndex + 1]);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogCritical(ex, "Phone store initialization failed; application startup cannot continue.");
+        throw;
     }
 }
 if (migrateOnly || importIndex >= 0) return;
@@ -117,6 +122,8 @@ app.MapStaticAssets();
 app.MapPhoneExportEndpoints();
 app.MapPhoneAccountEndpoints();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+app.Lifetime.ApplicationStarted.Register(() => app.Logger.LogInformation("Fanvil Phones started in {Environment}.", app.Environment.EnvironmentName));
+app.Lifetime.ApplicationStopping.Register(() => app.Logger.LogInformation("Fanvil Phones is stopping."));
 app.Run();
 
 public partial class Program;

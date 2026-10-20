@@ -28,8 +28,13 @@ public class PhoneSyncService : IPhoneSyncService
         var contacts = await db.Contacts.OrderBy(c => c.DisplayName).ToListAsync(ct);
         var csv = PhonebookCsv.Build(contacts);
 
+        using var scope = _log.BeginScope("FleetSyncId:{FleetSyncId}", Guid.NewGuid());
+        _log.LogInformation("Fleet synchronization started for {PhoneCount} phones with {ContactCount} contacts.", phones.Count, contacts.Count);
         var tasks = phones.Select(p => PushAsync(p, contacts.Count, csv, ct)).ToList();
-        return await Task.WhenAll(tasks);
+        var results = await Task.WhenAll(tasks);
+        _log.LogInformation("Fleet synchronization completed. Successful: {SuccessCount}; failed: {FailureCount}.",
+            results.Count(r => r.Success), results.Count(r => !r.Success));
+        return results;
     }
 
     public async Task<SyncResult> SyncOneAsync(int phoneId, CancellationToken ct = default)
@@ -37,7 +42,11 @@ public class PhoneSyncService : IPhoneSyncService
         await _access.RequireAdministratorAsync();
         await using var db = await _dbf.CreateDbContextAsync(ct);
         var phone = await db.Phones.FindAsync(new object?[] { phoneId }, ct);
-        if (phone is null) return new SyncResult(phoneId, "?", false, null, "Phone not found");
+        if (phone is null)
+        {
+            _log.LogWarning("Synchronization skipped: phone {PhoneId} no longer exists.", phoneId);
+            return new SyncResult(phoneId, "?", false, null, "Phone not found");
+        }
         var contacts = await db.Contacts.OrderBy(c => c.DisplayName).ToListAsync(ct);
         var csv = PhonebookCsv.Build(contacts);
         return await PushAsync(phone, contacts.Count, csv, ct);
@@ -56,6 +65,8 @@ public class PhoneSyncService : IPhoneSyncService
         };
         db.SyncRuns.Add(run);
         await db.SaveChangesAsync(ct);
+        using var scope = BeginRunScope(run);
+        _log.LogInformation("Phonebook synchronization started with {ContactCount} contacts.", contactCount);
 
         try
         {
@@ -99,11 +110,18 @@ public class PhoneSyncService : IPhoneSyncService
             db.Phones.Update(phone);
             await db.SaveChangesAsync(ct);
 
+            _log.Log(ok ? LogLevel.Information : LogLevel.Warning,
+                "Phonebook synchronization finished with {Status}; HTTP {HttpStatus}.", run.Status, resp.StatusCode);
             return new SyncResult(phone.Id, phone.Name, ok, resp.StatusCode, msg);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            _log.LogInformation("Phonebook synchronization canceled.");
+            throw;
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "Sync failed for {Phone} ({Ip})", phone.Name, phone.IpAddress);
+            _log.LogWarning(ex, "Phonebook synchronization failed.");
             run.FinishedAt = DateTime.UtcNow;
             run.Status = "Error";
             run.Message = ex.Message;
@@ -135,7 +153,11 @@ public class PhoneSyncService : IPhoneSyncService
         await _access.RequireAdministratorAsync();
         await using var db = await _dbf.CreateDbContextAsync(ct);
         var phone = await db.Phones.FindAsync(new object?[] { phoneId }, ct);
-        if (phone is null) return (false, "Phone not found");
+        if (phone is null)
+        {
+            _log.LogWarning("SIP push skipped: phone {PhoneId} no longer exists.", phoneId);
+            return (false, "Phone not found");
+        }
 
         var displayName = phone.SipDisplayName?.Trim();
         var extension = phone.SipExtension?.Trim();
@@ -151,6 +173,8 @@ public class PhoneSyncService : IPhoneSyncService
         };
         db.SyncRuns.Add(run);
         await db.SaveChangesAsync(ct);
+        using var scope = BeginRunScope(run);
+        _log.LogInformation("SIP settings push started.");
 
         // Multi-line support not yet implemented; line selector reverse-engineering
         // is a follow-up. Clamp to line 1 and surface this in the message.
@@ -166,7 +190,10 @@ public class PhoneSyncService : IPhoneSyncService
 
             var login = await client.LoginAsync(phone.Username, phone.Password, ct);
             if (!login.ok)
+            {
+                _log.LogWarning("SIP settings push stopped: handset authentication failed.");
                 return (false, login.message);
+            }
 
             try
             {
@@ -191,11 +218,11 @@ public class PhoneSyncService : IPhoneSyncService
                     }
                 }
                 if (sipFormFields is null || sipFormFields.Count == 0)
+                {
+                    _log.LogWarning("SIP settings push stopped: the handset response did not contain the expected form.");
                     return (false, "Could not locate the SIP form on the phone " +
                                    "(no <form> contains SIP_DisPlayName_R). Aborted.");
-
-                var currentName = sipFormFields.First(f => f.Name == "SIP_DisPlayName_R").Value;
-                var currentExt = sipFormFields.FirstOrDefault(f => f.Name == "SIP_PhoneNum_R")?.Value ?? "";
+                }
 
                 // The /lines.htm form is populated by JavaScript (the static HTML
                 // has empty `value` attributes; real values arrive via the page's
@@ -235,24 +262,12 @@ public class PhoneSyncService : IPhoneSyncService
                 if (phone.SipRegistrationEnabled)
                     post["SIP_EnableSipReg_RW"] = "ON";
 
-                _log.LogInformation(
-                    "PushSipLine: phone {Phone} ({Ip}) — name='{Cn}'->'{Tn}', ext='{Ce}'->'{Te}', POSTing {Count} fields.",
-                    phone.Name, phone.IpAddress,
-                    currentName, displayName ?? "(unchanged)",
-                    currentExt, extension ?? "(unchanged)",
-                    post.Count);
-                // Dump the full POST body so it can be diffed against the browser's
-                // Apply payload. Length-prefixed because some lines are long.
-                var encodedBody = string.Join("&", post.Select(kv =>
-                    $"{Uri.EscapeDataString(kv.Key).Replace("%20", "+")}=" +
-                    $"{Uri.EscapeDataString(kv.Value).Replace("%20", "+")}"));
-                _log.LogInformation("PushSipLine POST body ({Len} bytes): {Body}",
-                    encodedBody.Length, encodedBody);
+                _log.LogDebug("Submitting {FieldCount} SIP configuration fields for line {LineIndex}.", post.Count, lineIdx);
 
                 var resp = await client.PostFormAsync("/lines.htm", post, ct);
                 var body = resp.Body ?? "";
-                _log.LogInformation("PushSipLine POST response (HTTP {Status}, {Len} bytes): {Snippet}",
-                    resp.StatusCode, body.Length, Truncate(body, 500));
+                _log.LogDebug("SIP configuration response: HTTP {HttpStatus}, {ResponseLength} characters.",
+                    resp.StatusCode, body.Length);
 
                 var bouncedToLogin = body.Contains("logonButton", StringComparison.OrdinalIgnoreCase)
                                      || body.Contains("USER_PASSWORD_ERROR", StringComparison.OrdinalIgnoreCase);
@@ -274,6 +289,8 @@ public class PhoneSyncService : IPhoneSyncService
                     run.Message = fail;
                     db.Phones.Update(phone);
                     await db.SaveChangesAsync(ct);
+                    _log.LogWarning("SIP settings push rejected. HTTP {HttpStatus}; login required: {LoginRequired}; invalid value: {InvalidValue}.",
+                        resp.StatusCode, bouncedToLogin, invalidValue);
                     return (false, fail);
                 }
 
@@ -333,6 +350,9 @@ public class PhoneSyncService : IPhoneSyncService
                 db.Phones.Update(phone);
                 await db.SaveChangesAsync(ct);
 
+                _log.Log(ok ? LogLevel.Information : LogLevel.Warning,
+                    "SIP settings push finished with {Status}; HTTP {HttpStatus}; verification available: {Verified}.",
+                    run.Status, resp.StatusCode, foundForm);
                 return (ok, msg);
             }
             finally
@@ -340,10 +360,14 @@ public class PhoneSyncService : IPhoneSyncService
                 await client.LogoutAsync(ct);
             }
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            _log.LogInformation("SIP settings push canceled.");
+            throw;
+        }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "Push display name failed for {Phone} ({Ip})",
-                phone.Name, phone.IpAddress);
+            _log.LogWarning(ex, "SIP settings push failed.");
             phone.LastSyncedAt = DateTime.UtcNow;
             phone.LastSyncStatus = "Error";
             phone.LastSyncMessage = ex.Message;
@@ -501,6 +525,8 @@ public class PhoneSyncService : IPhoneSyncService
         };
         db.SyncRuns.Add(run);
         await db.SaveChangesAsync(ct);
+        using var scope = BeginRunScope(run);
+        _log.LogDebug("Handset connection probe started.");
 
         try
         {
@@ -516,17 +542,31 @@ public class PhoneSyncService : IPhoneSyncService
             run.Message = resultMsg;
             await db.SaveChangesAsync(ct);
 
+            _log.Log(ok ? LogLevel.Information : LogLevel.Warning, "Handset connection probe finished with {Status}.", run.Status);
             return (ok, ok ? 200 : 401, resultMsg);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            _log.LogInformation("Handset connection probe canceled.");
+            throw;
         }
         catch (Exception ex)
         {
+            _log.LogWarning(ex, "Handset connection probe failed.");
             run.FinishedAt = DateTime.UtcNow;
             run.Status = "Error";
             run.Message = ex.Message;
-            try { await db.SaveChangesAsync(ct); } catch { /* best effort */ }
+            try { await db.SaveChangesAsync(ct); }
+            catch (Exception saveException)
+            {
+                _log.LogError(saveException, "Failed to persist the handset probe failure.");
+            }
             return (false, null, ex.Message);
         }
     }
+
+    private IDisposable? BeginRunScope(SyncRun run) => _log.BeginScope(
+        "PhoneId:{PhoneId} SyncRunId:{SyncRunId} Operation:{Operation}", run.PhoneId, run.Id, run.Action);
 
     private static string Truncate(string s, int max) =>
         string.IsNullOrEmpty(s) ? "" : (s.Length <= max ? s : s[..max] + "...");

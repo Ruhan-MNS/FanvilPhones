@@ -7,17 +7,19 @@ public static class PhoneExportEndpoints
     public static void MapPhoneExportEndpoints(this IEndpointRouteBuilder endpoints)
     {
         // CSV preview — requires a signed-in employee.
-        endpoints.MapGet("/api/phonebook.csv", async (IPhoneDirectory directory) =>
+        endpoints.MapGet("/api/phonebook.csv", async (IPhoneDirectory directory, ILoggerFactory loggerFactory, CancellationToken ct) =>
         {
-            var contacts = await directory.GetContactsAsync();
+            var contacts = await directory.GetContactsAsync(ct);
             var bytes = PhonebookCsv.Build(contacts);
+            loggerFactory.CreateLogger(typeof(PhoneExportEndpoints).FullName!)
+                .LogInformation("Phonebook CSV export generated with {ContactCount} contacts.", contacts.Count);
             return Results.File(bytes, "text/csv", "phonebook.csv");
         }).RequireAuthorization();
 
         // XLSX export — same data, formatted as an Excel workbook.
-        endpoints.MapGet("/api/phonebook.xlsx", async (IPhoneDirectory directory) =>
+        endpoints.MapGet("/api/phonebook.xlsx", async (IPhoneDirectory directory, ILoggerFactory loggerFactory, CancellationToken ct) =>
         {
-            var contacts = await directory.GetContactsAsync();
+            var contacts = await directory.GetContactsAsync(ct);
 
             using var wb = new ClosedXML.Excel.XLWorkbook();
             var ws = wb.Worksheets.Add("Contacts");
@@ -52,6 +54,8 @@ public static class PhoneExportEndpoints
 
             using var ms = new MemoryStream();
             wb.SaveAs(ms);
+            loggerFactory.CreateLogger(typeof(PhoneExportEndpoints).FullName!)
+                .LogInformation("Phonebook Excel export generated with {ContactCount} contacts.", contacts.Count);
             var fileName = $"phonebook-{DateTime.Now:yyyyMMdd-HHmm}.xlsx";
             return Results.File(ms.ToArray(),
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -59,9 +63,9 @@ public static class PhoneExportEndpoints
         }).RequireAuthorization();
 
         // Phones XLSX export — backup/restore the fleet config.
-        endpoints.MapGet("/api/phones.xlsx", async (IPhoneDirectory directory) =>
+        endpoints.MapGet("/api/phones.xlsx", async (IPhoneDirectory directory, ILoggerFactory loggerFactory, CancellationToken ct) =>
         {
-            var phones = await directory.GetPhonesAsync();
+            var phones = await directory.GetPhonesAsync(ct);
 
             using var wb = new ClosedXML.Excel.XLWorkbook();
             var ws = wb.Worksheets.Add("Phones");
@@ -105,6 +109,8 @@ public static class PhoneExportEndpoints
 
             using var ms = new MemoryStream();
             wb.SaveAs(ms);
+            loggerFactory.CreateLogger(typeof(PhoneExportEndpoints).FullName!)
+                .LogInformation("Fleet Excel export generated with {PhoneCount} phones.", phones.Count);
             var fileName = $"phones-{DateTime.Now:yyyyMMdd-HHmm}.xlsx";
             return Results.File(ms.ToArray(),
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

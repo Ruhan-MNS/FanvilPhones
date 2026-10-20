@@ -1,14 +1,16 @@
 using FancilPhones.Infrastructure.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace FancilPhones.Infrastructure.Services;
 
 /// <summary>Explicit, one-time import into an empty phone store. Never imports Identity data.</summary>
-public sealed class LegacyPhoneDataImporter(IDbContextFactory<AppDbContext> factory)
+public sealed class LegacyPhoneDataImporter(IDbContextFactory<AppDbContext> factory, ILogger<LegacyPhoneDataImporter> logger)
 {
     public async Task<(int Phones, int Contacts, int Logs)> ImportAsync(string path, CancellationToken ct = default)
     {
+        logger.LogInformation("Legacy phone store import started.");
         var source = new SqliteConnectionStringBuilder
         {
             DataSource = Path.GetFullPath(path), Mode = SqliteOpenMode.ReadOnly
@@ -31,6 +33,8 @@ public sealed class LegacyPhoneDataImporter(IDbContextFactory<AppDbContext> fact
         await InsertAsync(db, "Contacts", contacts, ct);
         await InsertAsync(db, "SyncRuns", logs, ct);
         await transaction.CommitAsync(ct);
+        logger.LogInformation("Legacy import committed with {PhoneCount} phones, {ContactCount} contacts, and {HistoryCount} activity entries.",
+            phones.Count, contacts.Count, logs.Count);
         return (phones.Count, contacts.Count, logs.Count);
     }
 

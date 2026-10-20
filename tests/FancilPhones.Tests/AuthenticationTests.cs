@@ -13,11 +13,34 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace FancilPhones.Tests;
 
 public sealed class AuthenticationTests
 {
+    [Fact]
+    public async Task HandledPageFailuresAreLoggedWithoutExposingDiagnosticsToTheEmployee()
+    {
+        await using var app = new PhoneWebApp();
+        await app.InitializeAsync();
+        using var client = app.CreateClient(Options);
+        await LoginAsync(client, "EMP001", "/");
+        using (var scope = app.Services.CreateScope())
+        {
+            await using var db = await scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
+            await db.Database.ExecuteSqlRawAsync("DROP TABLE Contacts");
+        }
+
+        var html = await client.GetStringAsync("/");
+        Assert.Contains("The fleet could not be loaded. Please try again.", html);
+        Assert.DoesNotContain("no such table", html);
+        Assert.Contains(app.Logs.Entries, entry => entry.Category == "FancilPhones.Components.Pages.Home"
+            && entry.Level == LogLevel.Error && entry.Exception is SqliteException);
+        Assert.DoesNotContain(app.Logs.Entries.Where(entry => entry.Category.StartsWith("FancilPhones.")),
+            entry => entry.Message.Contains("ValidPass123!"));
+    }
+
     [Theory]
     [InlineData("/phones", true)]
     [InlineData("/", true)]
@@ -198,6 +221,7 @@ public sealed class AuthenticationTests
 
     private sealed class PhoneWebApp : WebApplicationFactory<Program>
     {
+        public RecordingLoggerProvider Logs { get; } = new();
         private readonly SqliteConnection auth = new("Data Source=:memory:");
         private readonly SqliteConnection phones = new("Data Source=:memory:");
 
@@ -226,6 +250,7 @@ public sealed class AuthenticationTests
             }));
             builder.ConfigureTestServices(services =>
             {
+                services.AddLogging(logging => logging.AddProvider(Logs));
                 ReplaceFactory<AuthDbContext>(services, auth);
                 ReplaceFactory<AppDbContext>(services, phones);
                 services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);

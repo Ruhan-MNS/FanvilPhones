@@ -1,3 +1,4 @@
+@inject ILogger<Contacts> Logger
 @page "/contacts"
 @attribute [Authorize]
 @inject IPhoneDirectory Directory
@@ -29,14 +30,14 @@ else if (Filtered.Count == 0) { <tr><td colspan="7" class="empty-cell"><RadzenIc
     private IEnumerable<Contact> Paged => Filtered.Skip((Math.Clamp(_page, 1, Math.Max(1, (int)Math.Ceiling((double)Filtered.Count / _pageSize))) - 1) * _pageSize).Take(_pageSize);
     private void ResetPage() => _page = 1;
     protected override Task OnInitializedAsync() => LoadAsync();
-    private async Task LoadAsync() { _loading = true; _error = null; try { _contacts = await Directory.GetContactsAsync(); } catch { _error = "The phonebook could not be loaded. Please try again."; } finally { _loading = false; } }
+    private async Task LoadAsync() { _loading = true; _error = null; try { _contacts = await Directory.GetContactsAsync(); } catch (Exception ex) { Logger.LogError(ex, "Failed to load the shared phonebook."); _error = "The phonebook could not be loaded. Please try again."; } finally { _loading = false; } }
     private void Edit(Contact c) => _editing = new Contact { Id = c.Id, DisplayName = c.DisplayName, OfficeNumber = c.OfficeNumber, MobileNumber = c.MobileNumber, OtherNumber = c.OtherNumber, Group = c.Group, Ring = c.Ring };
     private async Task SavedAsync() { _editing = null; await LoadAsync(); }
     private async Task DeleteAsync(Contact contact)
     {
         if (_busy) return; _busy = true;
         try { if (!await Feedback.ConfirmAsync("Delete contact", $"Remove {contact.DisplayName} from the master directory? This change reaches handsets on their next sync.", "Delete contact", true)) return; await Directory.DeleteContactAsync(contact.Id); Feedback.Notify($"Removed {contact.DisplayName}.", "success"); await LoadAsync(); }
-        catch { Feedback.Notify("The contact could not be deleted. Please try again.", "danger"); }
+        catch (Exception ex) { Logger.LogError(ex, "Failed to delete contact {ContactId}.", contact.Id); Feedback.Notify("The contact could not be deleted. Please try again.", "danger"); }
         finally { _busy = false; }
     }
     private async Task ImportAsync(InputFileChangeEventArgs args)
@@ -47,7 +48,7 @@ else if (Filtered.Count == 0) { <tr><td colspan="7" class="empty-cell"><RadzenIc
             if (contacts.Count == 0) { Feedback.Notify("No contacts were found in this CSV.", "warning"); return; }
             if (!await Feedback.ConfirmAsync("Replace phonebook", $"Replace the entire master directory with {contacts.Count} contacts from {args.File.Name}? Existing contacts will be removed.", "Replace phonebook", true)) return;
             await Directory.ReplaceContactsAsync(contacts); Feedback.Notify($"Imported {contacts.Count} contacts.", "success"); _group = ""; ResetPage(); await LoadAsync();
-        } catch { Feedback.Notify("The CSV could not be imported. Check the file format and try again.", "danger"); }
+        } catch (Exception ex) { Logger.LogError(ex, "Failed to import the shared phonebook CSV."); Feedback.Notify("The CSV could not be imported. Check the file format and try again.", "danger"); }
         finally { _busy = false; }
     }
 }

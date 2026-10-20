@@ -1,3 +1,4 @@
+@inject ILogger<Home> Logger
 @page "/"
 @attribute [Authorize]
 @inject IPhoneDirectory Directory
@@ -68,7 +69,7 @@
     {
         _loading = true; _error = null;
         try { var summary = await Directory.GetSummaryAsync(); _contactCount = summary.ContactCount; _lastActivity = summary.LastActivity; _phones = await Directory.GetPhonesAsync(); _history = await Directory.GetHistoryAsync(5); _updatedAt = DateTime.Now; }
-        catch (Exception) { _error = "The fleet could not be loaded. Please try again."; }
+        catch (Exception ex) { Logger.LogError(ex, "Failed to load the fleet overview."); _error = "The fleet could not be loaded. Please try again."; }
         finally { _loading = false; }
     }
 }

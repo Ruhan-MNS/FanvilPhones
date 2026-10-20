@@ -12,7 +12,8 @@ namespace FancilPhones.Authentication
     internal sealed class IdentityRevalidatingAuthenticationStateProvider(
             ILoggerFactory loggerFactory,
             IServiceScopeFactory scopeFactory,
-            IOptions<IdentityOptions> options)
+            IOptions<IdentityOptions> options,
+            ILogger<IdentityRevalidatingAuthenticationStateProvider> logger)
         : RevalidatingServerAuthenticationStateProvider(loggerFactory)
     {
         protected override TimeSpan RevalidationInterval => TimeSpan.FromMinutes(30);
@@ -31,6 +32,7 @@ namespace FancilPhones.Authentication
             var user = await userManager.GetUserAsync(principal);
             if (user is null)
             {
+                logger.LogInformation("Connected session invalidated: the shared account no longer exists.");
                 return false;
             }
             else if (!userManager.SupportsUserSecurityStamp)
@@ -41,6 +43,8 @@ namespace FancilPhones.Authentication
             {
                 var principalStamp = principal.FindFirstValue(options.Value.ClaimsIdentity.SecurityStampClaimType);
                 var userStamp = await userManager.GetSecurityStampAsync(user);
+                if (principalStamp != userStamp)
+                    logger.LogInformation("Connected session invalidated: the shared security stamp has changed.");
                 return principalStamp == userStamp;
             }
         }

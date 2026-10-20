@@ -24,7 +24,7 @@ namespace FancilPhones.Authentication
                 [FromServices] ILoggerFactory loggerFactory,
                 [FromServices] IAntiforgery antiforgery) =>
             {
-                var logger = loggerFactory.CreateLogger("AccountLogin");
+                var logger = loggerFactory.CreateLogger(typeof(IdentityComponentsEndpointRouteBuilderExtensions).FullName!);
                 if (!await ValidateAntiforgeryAsync(context, antiforgery, logger)) return Results.BadRequest();
                 var form = await context.Request.ReadFormAsync();
                 var userName = form["Username"].ToString().Trim();
@@ -80,7 +80,7 @@ namespace FancilPhones.Authentication
                 [FromServices] ILoggerFactory loggerFactory,
                 [FromServices] IAntiforgery antiforgery) =>
             {
-                var logger = loggerFactory.CreateLogger("AccountLogin");
+                var logger = loggerFactory.CreateLogger(typeof(IdentityComponentsEndpointRouteBuilderExtensions).FullName!);
                 if (!await ValidateAntiforgeryAsync(context, antiforgery, logger)) return Results.BadRequest();
                 var form = await context.Request.ReadFormAsync();
                 var returnUrl = form["ReturnUrl"].ToString();
@@ -126,7 +126,7 @@ namespace FancilPhones.Authentication
                 [FromServices] ILoggerFactory loggerFactory,
                 [FromServices] IAntiforgery antiforgery) =>
             {
-                var logger = loggerFactory.CreateLogger("AccountLogin");
+                var logger = loggerFactory.CreateLogger(typeof(IdentityComponentsEndpointRouteBuilderExtensions).FullName!);
                 if (!await ValidateAntiforgeryAsync(context, antiforgery, logger)) return Results.BadRequest();
                 var form = await context.Request.ReadFormAsync();
                 var returnUrl = form["ReturnUrl"].ToString();
@@ -166,7 +166,7 @@ namespace FancilPhones.Authentication
                 [FromServices] ILoggerFactory loggerFactory,
                 [FromServices] IAntiforgery antiforgery) =>
             {
-                var logger = loggerFactory.CreateLogger("AccountLogin");
+                var logger = loggerFactory.CreateLogger(typeof(IdentityComponentsEndpointRouteBuilderExtensions).FullName!);
                 if (!await ValidateAntiforgeryAsync(context, antiforgery, logger)) return Results.BadRequest();
                 var form = await context.Request.ReadFormAsync();
                 var returnUrl = form["ReturnUrl"].ToString();

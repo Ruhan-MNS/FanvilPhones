@@ -1,3 +1,4 @@
+@inject ILogger<ContactEditDialog> Logger
 @inject IPhoneDirectory Directory
 @inject UiFeedback Feedback
 <AppDialog Open="true" Title="@(Model.Id == 0 ? "Add contact" : "Edit contact")" Description="This contact will be included in the next phonebook delivery." Busy="@_busy" OnClose="OnCancel">
@@ -20,5 +21,5 @@
     [Parameter] public EventCallback OnCancel { get; set; }
     private bool _busy;
     private string? _error;
-    private async Task SaveAsync() { if (_busy) return; _busy = true; _error = null; try { await Directory.SaveContactAsync(Model); Feedback.Notify($"Saved {Model.DisplayName}.", "success"); await OnSaved.InvokeAsync(); } catch { _error = "The contact could not be saved. Check the details and try again."; } finally { _busy = false; } }
+    private async Task SaveAsync() { if (_busy) return; _busy = true; _error = null; try { await Directory.SaveContactAsync(Model); Feedback.Notify($"Saved {Model.DisplayName}.", "success"); await OnSaved.InvokeAsync(); } catch (Exception ex) { Logger.LogError(ex, "Failed to save contact {ContactId}.", Model.Id); _error = "The contact could not be saved. Check the details and try again."; } finally { _busy = false; } }
 }

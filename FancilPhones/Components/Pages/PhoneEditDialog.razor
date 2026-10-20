@@ -1,3 +1,4 @@
+@inject ILogger<PhoneEditDialog> Logger
 @inject IPhoneDirectory Directory
 @inject UiFeedback Feedback
 <AppDialog Open="true" Title="@(Model.Id == 0 ? "Add phone" : "Edit phone")" Description="Configure how this workspace connects to the handset." Busy="@_busy" OnClose="OnCancel">
@@ -38,7 +39,7 @@
         _busy = true; _error = null;
         try { await Directory.SavePhoneAsync(Model); Feedback.Notify($"Saved {Model.Name}.", "success"); await OnSaved.InvokeAsync(); }
         catch (DuplicatePhoneException ex) { _error = ex.Message; }
-        catch { _error = "The phone could not be saved. Check its details and try again."; }
+        catch (Exception ex) { Logger.LogError(ex, "Failed to save phone {PhoneId}.", Model.Id); _error = "The phone could not be saved. Check its details and try again."; }
         finally { _busy = false; }
     }
 }

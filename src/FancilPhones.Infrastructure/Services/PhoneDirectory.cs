@@ -3,10 +3,11 @@ using FancilPhones.Domain;
 using FancilPhones.Infrastructure.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace FancilPhones.Infrastructure.Services;
 
-public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUserAccess access) : IPhoneDirectory
+public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUserAccess access, ILogger<PhoneDirectory> logger) : IPhoneDirectory
 {
     public async Task<List<Phone>> GetPhonesAsync(CancellationToken ct = default)
     {
@@ -48,6 +49,7 @@ public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUse
         if (phone.Id == 0) db.Phones.Add(target);
         await SavePhoneChangesAsync(db, phone.IpAddress, ct);
         phone.Id = target.Id;
+        logger.LogInformation("Phone settings saved for {PhoneId}.", phone.Id);
     }
 
     public async Task SetPhoneEnabledAsync(int id, bool enabled, CancellationToken ct = default)
@@ -57,6 +59,7 @@ public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUse
         var phone = await db.Phones.FindAsync([id], ct) ?? throw new InvalidOperationException("Phone no longer exists.");
         phone.Enabled = enabled;
         await db.SaveChangesAsync(ct);
+        logger.LogInformation("Phone {PhoneId} fleet synchronization enabled: {Enabled}.", id, enabled);
     }
 
     public async Task DeletePhoneAsync(int id, CancellationToken ct = default)
@@ -67,6 +70,7 @@ public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUse
         if (phone is null) return;
         db.Phones.Remove(phone);
         await db.SaveChangesAsync(ct);
+        logger.LogInformation("Phone {PhoneId} and its activity history deleted.", id);
     }
 
     public async Task<PhoneImportResult> ImportPhonesAsync(IReadOnlyList<Phone> phones, bool replace, CancellationToken ct = default)
@@ -96,6 +100,7 @@ public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUse
         }
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
+        logger.LogInformation("Phone import committed. Replace: {Replace}; added: {AddedCount}; updated: {UpdatedCount}.", replace, added, updated);
         return new(added, updated);
     }
 
@@ -115,6 +120,7 @@ public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUse
         if (contact.Id == 0) db.Contacts.Add(target);
         await db.SaveChangesAsync(ct);
         contact.Id = target.Id;
+        logger.LogInformation("Contact {ContactId} saved.", contact.Id);
     }
 
     public async Task DeleteContactAsync(int id, CancellationToken ct = default)
@@ -125,6 +131,7 @@ public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUse
         if (contact is null) return;
         db.Contacts.Remove(contact);
         await db.SaveChangesAsync(ct);
+        logger.LogInformation("Contact {ContactId} deleted.", id);
     }
 
     public async Task ReplaceContactsAsync(IReadOnlyList<Contact> contacts, CancellationToken ct = default)
@@ -137,6 +144,7 @@ public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUse
         db.Contacts.AddRange(contacts);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
+        logger.LogInformation("Phonebook replacement committed with {ContactCount} contacts.", contacts.Count);
     }
 
     private static void CopyPhoneSettings(Phone source, Phone target)

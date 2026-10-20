@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
 using FancilPhones.Application;
+using Microsoft.Extensions.Logging;
 
 namespace FancilPhones.Infrastructure.Services;
 
@@ -12,7 +13,7 @@ namespace FancilPhones.Infrastructure.Services;
 /// raw-socket probe (a Fanvil's embedded "Rapid Logic" server returns a login
 /// page containing "logonButton" and exposes a hex nonce at /key==nonce).
 /// </summary>
-public sealed class PhoneDiscoveryService(IUserAccess access) : IPhoneDiscoveryService
+public sealed class PhoneDiscoveryService(IUserAccess access, ILogger<PhoneDiscoveryService> logger) : IPhoneDiscoveryService
 {
     /// <summary>
     /// Probe one host: TCP-connect port 80, then check for the Fanvil login page
@@ -37,6 +38,7 @@ public sealed class PhoneDiscoveryService(IUserAccess access) : IPhoneDiscoveryS
             connectCts.CancelAfter(tcpTimeout);
             await tcp.ConnectAsync(ip, 80, connectCts.Token);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch
         {
             return new DiscoveredPhone(ip, false, alreadyKnown, "No HTTP on port 80");
@@ -74,6 +76,7 @@ public sealed class PhoneDiscoveryService(IUserAccess access) : IPhoneDiscoveryS
             {
                 loginResp = await http.GetAsync("/login.htm", reqCts2.Token);
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch
             {
                 // login.htm probe failed — fall through with whatever we have from root.
@@ -96,8 +99,10 @@ public sealed class PhoneDiscoveryService(IUserAccess access) : IPhoneDiscoveryS
             return new DiscoveredPhone(ip, false, alreadyKnown,
                 $"HTTP {rootResp.StatusCode}, no Fanvil signature. {snippet}");
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
+            logger.LogDebug(ex, "Handset discovery probe failed for {IpAddress}.", ip);
             return new DiscoveredPhone(ip, false, alreadyKnown, $"Probe error: {ex.Message}");
         }
     }
@@ -147,6 +152,10 @@ public sealed class PhoneDiscoveryService(IUserAccess access) : IPhoneDiscoveryS
 
         var sem = new SemaphoreSlim(maxConcurrency);
         var ips = PhoneNetworkRange.EnumerateIps(cidrOrRange).ToList();
+        using var scope = logger.BeginScope("DiscoveryId:{DiscoveryId}", Guid.NewGuid());
+        logger.LogInformation("Network discovery started for {AddressCount} addresses with concurrency {Concurrency}.", ips.Count, maxConcurrency);
+        var checkedCount = 0;
+        var detectedCount = 0;
 
         _ = Task.Run(async () =>
         {
@@ -167,6 +176,7 @@ public sealed class PhoneDiscoveryService(IUserAccess access) : IPhoneDiscoveryS
                         catch (OperationCanceledException) { }
                         catch (Exception ex)
                         {
+                            logger.LogWarning(ex, "Network discovery worker failed for {IpAddress}.", ip);
                             try { await channel.Writer.WriteAsync(
                                 new DiscoveredPhone(ip, false, knownIps.Contains(ip),
                                     $"Probe error: {ex.Message}"), ct); }
@@ -177,14 +187,32 @@ public sealed class PhoneDiscoveryService(IUserAccess access) : IPhoneDiscoveryS
                 }
                 await Task.WhenAll(tasks);
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Network discovery failed while scheduling probes.");
+                channel.Writer.TryComplete(ex);
+            }
             finally
             {
                 channel.Writer.TryComplete();
             }
         }, ct);
 
-        await foreach (var item in channel.Reader.ReadAllAsync(ct))
-            yield return item;
+        try
+        {
+            await foreach (var item in channel.Reader.ReadAllAsync(ct))
+            {
+                checkedCount++;
+                if (item.IsFanvil) detectedCount++;
+                yield return item;
+            }
+            logger.LogInformation("Network discovery completed. Checked: {CheckedCount}; detected: {DetectedCount}.", checkedCount, detectedCount);
+        }
+        finally
+        {
+            if (ct.IsCancellationRequested)
+                logger.LogInformation("Network discovery canceled after {CheckedCount} addresses; detected: {DetectedCount}.", checkedCount, detectedCount);
+        }
     }
 }

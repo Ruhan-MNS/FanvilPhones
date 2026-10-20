@@ -75,7 +75,8 @@ public sealed class FanvilHttpClient : IDisposable
             var nonce = nonceResp.Body.Trim();
             if (nonce.Length is < 8 or > 64)
             {
-                lastMessage = $"Unexpected nonce response (HTTP {nonceResp.StatusCode}, " + $"body {nonce.Length} chars). RAW: {nonceResp.RawDump}";
+                // Never propagate raw headers/cookies into diagnostics or operation history.
+                lastMessage = $"Unexpected nonce response (HTTP {nonceResp.StatusCode}, body {nonce.Length} chars).";
                 continue; // retry
             }
 
