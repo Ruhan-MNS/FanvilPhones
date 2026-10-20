@@ -11,7 +11,7 @@
         {
             <div class="fp-login-error" role="alert">Invalid authenticator code. Try again.</div>
         }
-        <form method="post" action="/auth/two-factor" class="fp-login-form">
+        <form data-loading-label="Verifying code…" method="post" action="/auth/two-factor" class="fp-login-form">
             <AntiforgeryToken />
             <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
             <input type="hidden" name="RememberMe" value="@RememberMe" />

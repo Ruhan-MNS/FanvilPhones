@@ -24,7 +24,7 @@
                 <label class="check-row field--wide"><InputCheckbox @bind-Value="Model.SipRegistrationEnabled" /><span><strong>Enable SIP registration</strong><small>Activate the line when these settings are pushed.</small></span></label>
             </div></fieldset>
         </div>
-        <footer class="dialog-footer"><button type="button" class="button" disabled="@_busy" @onclick="OnCancel">Cancel</button><button type="submit" class="button button--primary" disabled="@_busy"><RadzenIcon Icon="save" aria-hidden="true" />@(_busy ? "Saving…" : "Save phone")</button></footer>
+        <footer class="dialog-footer"><button type="button" class="button" disabled="@_busy" @onclick="OnCancel">Cancel</button><AsyncButton Type="submit" Class="button button--primary" Text="Save phone" BusyText="Saving…" Icon="save" Busy="_busy" /></footer>
     </EditForm>
 </AppDialog>
 @code {
@@ -38,7 +38,7 @@
     {
         if (_busy || IsDisposed) return;
         if (Model.SipLineIndex is < 1 or > 16) { _error = "Choose a SIP line between 1 and 16."; return; }
-        _busy = true; _error = null;
+        _busy = true; _error = null; using var activity = BeginActivity("Saving phone…");
         try { await Directory.SavePhoneAsync(Model, LifetimeToken); LifetimeToken.ThrowIfCancellationRequested(); Feedback.Notify($"Saved {Model.Name}.", "success"); await OnSaved.InvokeAsync(); }
         catch (DuplicatePhoneException ex) { _error = ex.Message; }
         catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }

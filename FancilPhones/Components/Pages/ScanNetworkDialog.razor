@@ -5,7 +5,7 @@
 <AppDialog Open="true" Title="Discover phones" Description="Scan an internal network range for Fanvil handsets." OnClose="CloseAsync">
     <div class="dialog-body">
         <div class="scan-controls"><label class="field">IP address or range<input @bind="_range" @bind:event="oninput" disabled="@_scanning" placeholder="192.168.55.0/24" /><small>IPv4, CIDR, or a range such as 192.168.55.1–254 (use a hyphen).</small></label>
-        @if (_scanning) { <button class="button button--danger" @onclick="CancelScan"><RadzenIcon Icon="stop" aria-hidden="true" />Stop scan</button> } else { <button class="button button--primary" @onclick="StartScanAsync"><RadzenIcon Icon="radar" aria-hidden="true" />Start scan</button> }</div>
+        @if (_scanning) { <button class="button button--danger" @onclick="CancelScan"><RadzenIcon Icon="stop" aria-hidden="true" />Stop scan</button> } else { <AsyncButton Text="Start scan" BusyText="Scanning…" Icon="radar" OnClick="StartScanAsync" /> }</div>
         @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error</div> }
         @if (_total > 0) { <div class="scan-progress"><progress value="@_done" max="@_total" aria-label="Network scan progress"></progress><p>@_done / @_total addresses checked <span class="badge badge--success">@_results.Count(r => r.IsFanvil && !r.AlreadyKnown) new phones</span></p></div> }
         <div class="table-wrap scan-results"><table><thead><tr><th scope="col">Add</th><th scope="col">IP address</th><th scope="col">Status</th><th scope="col">Phone name</th></tr></thead><tbody>
@@ -55,6 +55,7 @@
         using var scan = CancellationTokenSource.CreateLinkedTokenSource(LifetimeToken);
         _cts = scan;
         var token = scan.Token;
+        using var activity = Activity.Begin("Discovering network handsets…", token);
         var lastRender = System.Diagnostics.Stopwatch.StartNew();
 
         try

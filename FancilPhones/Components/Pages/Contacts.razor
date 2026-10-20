@@ -2,20 +2,22 @@
 @inject ILogger<Contacts> Logger
 @page "/contacts"
 @attribute [Authorize]
+@attribute [StreamRendering]
 @inject IPhoneDirectory Directory
 @inject UiFeedback Feedback
 <PageTitle>Phonebook · Fanvil Phones</PageTitle>
 <PageHeader Title="Shared phonebook" Description="One contact directory, delivered to every enabled handset.">
-    <a class="button" href="/api/phonebook.csv"><RadzenIcon Icon="description" aria-hidden="true" />Download CSV</a><a class="button" href="/api/phonebook.xlsx"><RadzenIcon Icon="download" aria-hidden="true" />Export Excel</a>
-    <AuthorizeView Policy="@PhonePolicies.Administrator"><label class="button file-button @(_busy ? "is-disabled" : "")"><RadzenIcon Icon="upload" aria-hidden="true" />Import CSV<InputFile OnChange="ImportAsync" accept=".csv" disabled="@(!RendererInfo.IsInteractive || (_busy || _loading))" aria-label="Import contacts from CSV" /></label><button class="button button--primary" disabled="@(!RendererInfo.IsInteractive || (_busy || _loading))" @onclick="() => _editing = new Contact()"><RadzenIcon Icon="person_add" aria-hidden="true" />Add contact</button></AuthorizeView>
+    <DownloadButton Url="/api/phonebook.csv" Text="Download CSV" Icon="description" /><DownloadButton Url="/api/phonebook.xlsx" Text="Export Excel" />
+    <AuthorizeView Policy="@PhonePolicies.Administrator"><label class="button file-button @(_busy ? "is-disabled" : "")">@if (_importing) { <span class="busy-spinner" aria-hidden="true"></span> } else { <RadzenIcon Icon="upload" aria-hidden="true" /> }@(_importing ? "Importing…" : "Import CSV")<InputFile OnChange="ImportAsync" accept=".csv" disabled="@(!RendererInfo.IsInteractive || (_busy || _loading))" aria-label="Import contacts from CSV" /></label><button class="button button--primary" disabled="@(!RendererInfo.IsInteractive || (_busy || _loading))" @onclick="() => _editing = new Contact()"><RadzenIcon Icon="person_add" aria-hidden="true" />Add contact</button></AuthorizeView>
 </PageHeader>
+<LoadingState Visible="_loading" Text="Loading shared phonebook…" />
 @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error <button class="text-button" @onclick="LoadAsync">Try again</button></div> }
-<div class="section-heading"><div><h2>Master directory <span class="count-label">@_contacts.Count</span></h2><p>Changes are applied to handsets on their next successful sync.</p></div><button class="button" disabled="@(!RendererInfo.IsInteractive || (_loading || _busy))" @onclick="LoadAsync"><RadzenIcon Icon="refresh" aria-hidden="true" />Refresh</button></div>
+<div class="section-heading"><div><h2>Master directory <span class="count-label">@_contacts.Count</span></h2><p>Changes are applied to handsets on their next successful sync.</p></div><AsyncButton Text="Refresh" BusyText="Refreshing…" Icon="refresh" Busy="_loading" Disabled="_busy" OnClick="LoadAsync" /></div>
 <div class="table-toolbar"><div class="inline-field"><span>Group</span><WorkspaceSelect TValue="string" Options="GroupOptions" @bind-Value="_group" @bind-Value:after="ResetPage" Label="Filter contacts by group" /></div><label class="search-field"><RadzenIcon Icon="search" aria-hidden="true" /><input type="search" placeholder="Search name or number…" aria-label="Search contacts" @bind="_search" @bind:event="oninput" @bind:after="ResetPage" /></label></div>
 <div class="table-wrap" aria-busy="@_loading"><table><thead><tr><th scope="col">Contact</th><th scope="col">Office</th><th scope="col">Mobile</th><th scope="col">Other</th><th scope="col">Group</th><th scope="col">Updated</th><th scope="col" class="align-right">Actions</th></tr></thead><tbody>
 @if (_loading) { <tr><td colspan="7" class="empty-cell">Loading phonebook…</td></tr> }
 else if (Filtered.Count == 0) { <tr><td colspan="7" class="empty-cell"><RadzenIcon Icon="contacts" aria-hidden="true" /><strong>@(_contacts.Count == 0 ? "Start your shared directory" : "No matching contacts")</strong><span>@(_contacts.Count == 0 ? "Add your first contact or import a CSV phonebook." : "Try another name, number, or group.")</span></td></tr> }
-@foreach (var contact in Paged) { <tr @key="contact.Id"><td><strong class="cell-title">@contact.DisplayName</strong><small>Ring: @(contact.Ring ?? "Auto")</small></td><td class="mono">@(contact.OfficeNumber ?? "—")</td><td class="mono">@(contact.MobileNumber ?? "—")</td><td class="mono">@(contact.OtherNumber ?? "—")</td><td><span class="badge">@(string.IsNullOrWhiteSpace(contact.Group) ? "Ungrouped" : contact.Group)</span></td><td class="muted">@UiFormat.Date(contact.UpdatedAt)</td><td><div class="row-actions"><AuthorizeView Policy="@PhonePolicies.Administrator" Context="contactAuth"><Authorized><button class="icon-button" title="Edit contact" aria-label="@($"Edit {contact.DisplayName}")" disabled="@(!RendererInfo.IsInteractive || (_busy || _loading))" @onclick="() => Edit(contact)"><RadzenIcon Icon="edit" aria-hidden="true" /></button><button class="icon-button icon-button--danger" title="Delete contact" aria-label="@($"Delete {contact.DisplayName}")" disabled="@(!RendererInfo.IsInteractive || (_busy || _loading))" @onclick="() => DeleteAsync(contact)"><RadzenIcon Icon="delete_outline" aria-hidden="true" /></button></Authorized><NotAuthorized><span class="muted small">View only</span></NotAuthorized></AuthorizeView></div></td></tr> }
+@foreach (var contact in Paged) { <tr @key="contact.Id"><td><strong class="cell-title">@contact.DisplayName</strong><small>Ring: @(contact.Ring ?? "Auto")</small></td><td class="mono">@(contact.OfficeNumber ?? "—")</td><td class="mono">@(contact.MobileNumber ?? "—")</td><td class="mono">@(contact.OtherNumber ?? "—")</td><td><span class="badge">@(string.IsNullOrWhiteSpace(contact.Group) ? "Ungrouped" : contact.Group)</span></td><td class="muted">@UiFormat.Date(contact.UpdatedAt)</td><td><div class="row-actions"><AuthorizeView Policy="@PhonePolicies.Administrator" Context="contactAuth"><Authorized><AsyncButton Class="icon-button" title="Edit contact" aria-label="@($"Edit {contact.DisplayName}")" disabled="@(!RendererInfo.IsInteractive || (_busy || _loading))" OnClick="() => Edit(contact)" Icon="edit" /><AsyncButton Class="icon-button icon-button--danger" title="Delete contact" aria-label="@($"Delete {contact.DisplayName}")" disabled="@(!RendererInfo.IsInteractive || (_busy || _loading))" OnClick="() => DeleteAsync(contact)" Icon="delete_outline" /></Authorized><NotAuthorized><span class="muted small">View only</span></NotAuthorized></AuthorizeView></div></td></tr> }
 </tbody></table></div>
 <TablePager Total="@Filtered.Count" @bind-Page="_page" @bind-PageSize="_pageSize" />
 <aside class="help-note"><RadzenIcon Icon="sync" aria-hidden="true" /><div><strong>Saved here. Delivered on sync.</strong><p>After updating the directory, open <a href="/sync">Synchronization</a> to send the latest phonebook to your enabled phones.</p></div></aside>
@@ -27,21 +29,21 @@ else if (Filtered.Count == 0) { <tr><td colspan="7" class="empty-cell"><RadzenIc
     private IEnumerable<SelectOption<string>> GroupOptions => new[] { new SelectOption<string>("", "All groups") }
         .Concat(_contacts.Select(c => c.Group).Where(g => !string.IsNullOrWhiteSpace(g)).Distinct().Order()
             .Select(g => new SelectOption<string>(g!, g!)));
-    private bool _loading = true, _busy;
+    private bool _loading = true, _busy, _importing;
     private string? _error;
     private int _page = 1, _pageSize = 25;
     private List<Contact> Filtered => _contacts.Where(c => (_group == "" || c.Group == _group) && (string.IsNullOrWhiteSpace(_search) || new[] { c.DisplayName, c.OfficeNumber, c.MobileNumber, c.OtherNumber }.Any(v => v?.Contains(_search, StringComparison.OrdinalIgnoreCase) == true))).ToList();
     private IEnumerable<Contact> Paged => Filtered.Skip((Math.Clamp(_page, 1, Math.Max(1, (int)Math.Ceiling((double)Filtered.Count / _pageSize))) - 1) * _pageSize).Take(_pageSize);
     private void ResetPage() => _page = 1;
     protected override Task OnInitializedAsync() => LoadAsync();
-    private async Task LoadAsync() { if (!TryBeginLoad()) return; _loading = true; _error = null; try { _contacts = await Directory.GetContactsAsync(LifetimeToken); LifetimeToken.ThrowIfCancellationRequested(); } catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
+    private async Task LoadAsync() { if (!TryBeginLoad("Loading shared phonebook…")) return; _loading = true; _error = null; try { _contacts = await Directory.GetContactsAsync(LifetimeToken); LifetimeToken.ThrowIfCancellationRequested(); } catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
         catch (Exception ex) { Logger.LogError(ex, "Failed to load the shared phonebook."); _error = "The phonebook could not be loaded. Please try again."; } finally { _loading = false; EndLoad(); } }
     private void Edit(Contact c) => _editing = new Contact { Id = c.Id, DisplayName = c.DisplayName, OfficeNumber = c.OfficeNumber, MobileNumber = c.MobileNumber, OtherNumber = c.OtherNumber, Group = c.Group, Ring = c.Ring };
     private async Task SavedAsync() { _editing = null; await LoadAsync(); }
     private async Task DeleteAsync(Contact contact)
     {
         if (_busy || IsDisposed) return; _busy = true;
-        try { if (!await Feedback.ConfirmAsync("Delete contact", $"Remove {contact.DisplayName} from the master directory? This change reaches handsets on their next sync.", "Delete contact", true, ct: LifetimeToken)) return; await Directory.DeleteContactAsync(contact.Id, LifetimeToken); LifetimeToken.ThrowIfCancellationRequested(); Feedback.Notify($"Removed {contact.DisplayName}.", "success"); await LoadAsync(); }
+        try { if (!await Feedback.ConfirmAsync("Delete contact", $"Remove {contact.DisplayName} from the master directory? This change reaches handsets on their next sync.", "Delete contact", true, ct: LifetimeToken)) return; using var activity = BeginActivity("Deleting contact…"); await Directory.DeleteContactAsync(contact.Id, LifetimeToken); LifetimeToken.ThrowIfCancellationRequested(); Feedback.Notify($"Removed {contact.DisplayName}.", "success"); await LoadAsync(); }
         catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
         catch (Exception ex) { Logger.LogError(ex, "Failed to delete contact {ContactId}.", contact.Id); Feedback.Notify("The contact could not be deleted. Please try again.", "danger"); }
         finally { _busy = false; }
@@ -49,13 +51,15 @@ else if (Filtered.Count == 0) { <tr><td colspan="7" class="empty-cell"><RadzenIc
     private async Task ImportAsync(InputFileChangeEventArgs args)
     {
         if (_busy || IsDisposed) return; _busy = true;
+        _importing = true;
         try {
+            using var activity = BeginActivity("Importing shared phonebook…");
             using var reader = new StreamReader(args.File.OpenReadStream(5 * 1024 * 1024)); var contacts = PhonebookCsv.Parse(await reader.ReadToEndAsync(LifetimeToken), LifetimeToken);
             if (contacts.Count == 0) { Feedback.Notify("No contacts were found in this CSV.", "warning"); return; }
             if (!await Feedback.ConfirmAsync("Replace phonebook", $"Replace the entire master directory with {contacts.Count} contacts from {args.File.Name}? Existing contacts will be removed.", "Replace phonebook", true, ct: LifetimeToken)) return;
             await Directory.ReplaceContactsAsync(contacts, LifetimeToken); LifetimeToken.ThrowIfCancellationRequested(); Feedback.Notify($"Imported {contacts.Count} contacts.", "success"); _group = ""; ResetPage(); await LoadAsync();
         } catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
         catch (Exception ex) { Logger.LogError(ex, "Failed to import the shared phonebook CSV."); Feedback.Notify("The CSV could not be imported. Check the file format and try again.", "danger"); }
-        finally { _busy = false; }
+        finally { _busy = false; _importing = false; }
     }
 }

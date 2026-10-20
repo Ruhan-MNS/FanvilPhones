@@ -1,0 +1,13 @@
+@if (Visible)
+{
+    <div class="loading-state @(Compact ? "loading-state--compact" : "")" role="status">
+        <span class="busy-spinner" aria-hidden="true"></span>
+        <span><strong>@Text</strong>@if (Detail is not null) { <small>@Detail</small> }</span>
+    </div>
+}
+@code {
+    [Parameter] public bool Visible { get; set; } = true;
+    [Parameter] public string Text { get; set; } = "Loading workspace…";
+    [Parameter] public string? Detail { get; set; }
+    [Parameter] public bool Compact { get; set; }
+}

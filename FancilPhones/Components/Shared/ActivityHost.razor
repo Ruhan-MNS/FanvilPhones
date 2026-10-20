@@ -1,0 +1,21 @@
+@implements IDisposable
+@inject UiActivity Activity
+@inject ILogger<ActivityHost> Logger
+@if (Activity.Current is { } work)
+{
+    <div class="workspace-progress" aria-hidden="true"><span></span></div>
+    <div class="activity-status" role="status" aria-live="polite" aria-atomic="true">
+        <span class="busy-spinner" aria-hidden="true"></span><span>@work.Message</span>
+    </div>
+}
+@code {
+    private bool disposed;
+    protected override void OnInitialized() => Activity.Changed += Refresh;
+    private void Refresh() => _ = RefreshAsync();
+    private async Task RefreshAsync()
+    {
+        try { await InvokeAsync(() => { if (!disposed) StateHasChanged(); }); }
+        catch (Exception ex) { if (!disposed) Logger.LogError(ex, "Workspace activity feedback could not be rendered."); }
+    }
+    public void Dispose() { disposed = true; Activity.Changed -= Refresh; }
+}

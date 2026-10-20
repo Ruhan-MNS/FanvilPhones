@@ -2,9 +2,11 @@
 @inject ILogger<Logs> Logger
 @page "/logs"
 @attribute [Authorize]
+@attribute [StreamRendering]
 @inject IPhoneDirectory Directory
 <PageTitle>Activity log · Fanvil Phones</PageTitle>
-<PageHeader Title="Activity log" Description="Trace phonebook deliveries, connection probes, and SIP configuration changes."><button class="button" disabled="@(!RendererInfo.IsInteractive || (_loading))" @onclick="LoadAsync"><RadzenIcon Icon="refresh" aria-hidden="true" />Refresh activity</button></PageHeader>
+<PageHeader Title="Activity log" Description="Trace phonebook deliveries, connection probes, and SIP configuration changes."><AsyncButton Text="Refresh activity" BusyText="Refreshing…" Icon="refresh" Busy="_loading" Disabled="false" OnClick="LoadAsync" /></PageHeader>
+<LoadingState Visible="_loading" Text="Loading activity history…" />
 @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error <button class="text-button" @onclick="LoadAsync">Try again</button></div> }
 <div class="section-heading"><div><h2>Recent events <span class="count-label">@_runs.Count</span></h2><p>Up to 500 latest records. Expand a message to see the full details.</p></div><span class="badge">@_runs.Count(r => r.Status is "Failed" or "Error") failed events</span></div>
 <div class="table-toolbar"><div class="filter-fields"><div class="inline-field"><span>Action</span><WorkspaceSelect TValue="string" Options="ActionOptions" @bind-Value="_action" @bind-Value:after="ResetPage" Label="Filter activity by action" /></div><div class="inline-field"><span>Result</span><WorkspaceSelect TValue="string" Options="StatusOptions" @bind-Value="_status" @bind-Value:after="ResetPage" Label="Filter activity by result" /></div><button class="text-button" @onclick="ClearFilters" disabled="@(!RendererInfo.IsInteractive || FiltersAreClear)">Clear filters</button></div><label class="search-field"><RadzenIcon Icon="search" aria-hidden="true" /><input type="search" placeholder="Search phone, IP, message…" aria-label="Search activity" @bind="_search" @bind:event="oninput" @bind:after="ResetPage" /></label></div>
@@ -27,6 +29,6 @@
     private void ResetPage() => _page = 1;
     private void ClearFilters() { _action = _status = "All"; _search = ""; ResetPage(); }
     protected override Task OnInitializedAsync() => LoadAsync();
-    private async Task LoadAsync() { if (!TryBeginLoad()) return; _loading = true; _error = null; try { _runs = await Directory.GetHistoryAsync(500, LifetimeToken); ResetPage(); } catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
+    private async Task LoadAsync() { if (!TryBeginLoad("Loading activity history…")) return; _loading = true; _error = null; try { _runs = await Directory.GetHistoryAsync(500, LifetimeToken); ResetPage(); } catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
         catch (Exception ex) { Logger.LogError(ex, "Failed to load handset activity history."); _error = "Activity could not be loaded. Please try again."; } finally { _loading = false; EndLoad(); } }
 }

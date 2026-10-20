@@ -20,7 +20,7 @@ public sealed class PhoneSyncService(
     private PhoneOperationOptions Settings => options.Value;
     private sealed record HandsetResult(bool Success, int? HttpStatus, string Message);
 
-    public async Task<IReadOnlyList<SyncResult>> SyncAllAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<SyncResult>> SyncAllAsync(CancellationToken ct = default, IProgress<SyncProgress>? progress = null)
     {
         using var stopping = CancellationTokenSource.CreateLinkedTokenSource(ct, application.ApplicationStopping);
         ct = stopping.Token;
@@ -36,11 +36,25 @@ public sealed class PhoneSyncService(
         using var scope = logger.BeginScope("FleetSyncId:{FleetSyncId}", Guid.NewGuid());
         logger.LogInformation("Fleet synchronization started for {PhoneCount} phones with {ContactCount} contacts.", phones.Count, contacts.Count);
         var results = new SyncResult[phones.Count];
+        var progressGate = new object();
+        var completed = 0;
+        var succeeded = 0;
+        progress?.Report(new(0, phones.Count, 0, 0));
         await Parallel.ForEachAsync(Enumerable.Range(0, phones.Count), new ParallelOptions
         {
             MaxDegreeOfParallelism = Settings.MaxConcurrentSyncs,
             CancellationToken = ct
-        }, async (index, token) => results[index] = await PushAsync(phones[index], contacts.Count, csv, token));
+        }, async (index, token) =>
+        {
+            var result = await PushAsync(phones[index], contacts.Count, csv, token);
+            results[index] = result;
+            lock (progressGate)
+            {
+                completed++;
+                if (result.Success) succeeded++;
+                progress?.Report(new(completed, phones.Count, succeeded, completed - succeeded, result));
+            }
+        });
         logger.LogInformation("Fleet synchronization completed. Successful: {SuccessCount}; failed: {FailureCount}.",
             results.Count(r => r.Success), results.Count(r => !r.Success));
         return results;

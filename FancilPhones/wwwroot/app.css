@@ -2324,3 +2324,89 @@ progress::-webkit-progress-value {
         scroll-behavior: auto!important;
     }
 }
+
+/* Shared feedback for real pending work; cancellation stays available. */
+.busy-spinner {
+    display: inline-block;
+    flex: 0 0 17px;
+    width: 17px;
+    height: 17px;
+    border: 2px solid currentColor;
+    border-inline-end-color: transparent;
+    border-radius: 50%;
+    animation: busy-turn .8s linear infinite;
+}
+@keyframes busy-turn { to { transform: rotate(360deg); } }
+.button.is-busy, .icon-button.is-busy, .fp-login-btn.is-busy {
+    opacity: 1;
+    cursor: progress;
+}
+.button.is-busy { min-inline-size: max-content; }
+.fp-login-btn.is-busy { display: flex; justify-content: center; align-items: center; gap: 10px; }
+.loading-state {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+    margin-bottom: 22px;
+    color: var(--accent);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-inline-start: 3px solid var(--accent);
+}
+.loading-state strong { color: var(--text); font-size: .85rem; }
+.loading-state small { display: block; color: var(--muted); margin-top: 3px; }
+.loading-state--compact { margin: 0; padding: 12px; }
+.workspace-progress {
+    position: fixed;
+    top: calc(var(--header) - 3px);
+    inset-inline: 0;
+    height: 3px;
+    overflow: hidden;
+    z-index: 2100;
+    pointer-events: none;
+    background: var(--accent-soft);
+}
+.workspace-progress > span {
+    display: block;
+    height: 100%;
+    width: 35%;
+    background: var(--accent);
+    animation: busy-travel 1.4s ease-in-out infinite;
+}
+@keyframes busy-travel { from { transform: translateX(-100%); } to { transform: translateX(390%); } }
+.activity-status {
+    position: fixed;
+    inset-inline-end: 22px;
+    bottom: 22px;
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(380px, calc(100vw - 36px));
+    padding: 14px 18px;
+    background: var(--raised);
+    border: 1px solid var(--line);
+    color: var(--text);
+    box-shadow: 0 8px 26px #0005;
+    font-size: .85rem;
+    pointer-events: none;
+}
+.activity-status .busy-spinner { color: var(--accent); }
+.is-submitting::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    inset-inline: 0;
+    height: 3px;
+    z-index: 3000;
+    background: linear-gradient(90deg, var(--accent-soft), var(--accent), var(--accent-soft));
+}
+.run-progress progress { width: 100%; accent-color: var(--accent); }
+@media (max-width: 760px) {
+    .activity-status { inset-inline: 18px; bottom: 16px; max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .busy-spinner, .workspace-progress > span { animation: none; }
+    .workspace-progress > span { width: 100%; opacity: .75; }
+}

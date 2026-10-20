@@ -17,7 +17,7 @@
             @{ var accountLabel = GetAccountLabel(auth.User); }
             <div class="account-area">
                 <a class="account-link" href="/account/change-password" title="@accountLabel" aria-label="Manage account for @accountLabel"><span class="account-avatar" aria-hidden="true">@accountLabel[..1].ToUpperInvariant()</span><span class="account-copy"><strong>@accountLabel</strong><small>@(auth.User.IsInRole("BI-ADMIN") || auth.User.IsInRole("IT_ADMIN") ? "Administrator" : "Viewer")</small></span></a>
-                <form method="post" action="/auth/logout"><AntiforgeryToken /><button type="submit" class="button button--quiet" title="Sign out"><RadzenIcon Icon="logout" aria-hidden="true" /><span>Sign out</span></button></form>
+                <form data-loading-label="Signing out…" method="post" action="/auth/logout"><AntiforgeryToken /><button type="submit" class="button button--quiet" title="Sign out"><RadzenIcon Icon="logout" aria-hidden="true" /><span>Sign out</span></button></form>
             </div>
         </Authorized></AuthorizeView>
     </header>
@@ -25,6 +25,7 @@
     <aside class="workspace-sidebar" aria-label="Workspace navigation"><NavMenu OnNavigate="CloseMobile" /></aside>
     <main id="main-content" class="workspace-main" tabindex="-1"><div class="page-container">@Body</div><footer class="workspace-footer"><span>Multinet Systems · Voice operations</span><span>Fanvil phone management</span></footer></main>
 </div>
+<ActivityHost />
 <FeedbackHost />
 <div id="blazor-error-ui" data-nosnippet>Connection interrupted. <a href="." class="reload">Reload workspace</a><button type="button" class="dismiss" aria-label="Dismiss error">×</button></div>
 

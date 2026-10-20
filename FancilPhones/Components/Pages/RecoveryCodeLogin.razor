@@ -11,7 +11,7 @@
         {
             <div class="fp-login-error" role="alert">Invalid recovery code. Try again.</div>
         }
-        <form method="post" action="/auth/recovery-code" class="fp-login-form">
+        <form data-loading-label="Verifying recovery code…" method="post" action="/auth/recovery-code" class="fp-login-form">
             <AntiforgeryToken />
             <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
             <label for="recovery" class="fp-login-label">Recovery code</label>

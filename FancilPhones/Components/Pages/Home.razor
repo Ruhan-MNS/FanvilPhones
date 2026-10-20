@@ -2,13 +2,15 @@
 @inject ILogger<Home> Logger
 @page "/"
 @attribute [Authorize]
+@attribute [StreamRendering]
 @inject IPhoneDirectory Directory
 
 <PageTitle>Overview · Fanvil Phones</PageTitle>
 <PageHeader Title="Phone operations" Description="A clear view of your handsets, shared phonebook, and latest deliveries.">
-    <button class="button" @onclick="LoadAsync" disabled="@(!RendererInfo.IsInteractive || (_loading))"><RadzenIcon Icon="refresh" aria-hidden="true" />Refresh overview</button>
+    <AsyncButton Text="Refresh overview" BusyText="Refreshing…" Icon="refresh" Busy="_loading" Disabled="false" OnClick="LoadAsync" />
     <a class="button button--primary" href="/phones"><RadzenIcon Icon="phone_in_talk" aria-hidden="true" />Open phone fleet</a>
 </PageHeader>
+<LoadingState Visible="_loading" Text="Loading fleet overview…" />
 @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error <button class="text-button" @onclick="LoadAsync">Try again</button></div> }
 <section class="section-block" aria-labelledby="glance-title">
     <div class="section-heading"><div><h2 id="glance-title">At a glance</h2><p>Current fleet and phonebook status</p></div><span class="muted small">@(_loading ? "Loading fleet…" : $"Updated {_updatedAt:HH:mm}")</span></div>
@@ -68,7 +70,7 @@
     protected override Task OnInitializedAsync() => LoadAsync();
     private async Task LoadAsync()
     {
-        if (!TryBeginLoad()) return;
+        if (!TryBeginLoad("Loading fleet overview…")) return;
         _loading = true; _error = null;
         try
         {

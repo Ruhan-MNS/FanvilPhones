@@ -16,6 +16,7 @@ public interface IUserAccess
 public record FleetSummary(int PhoneCount, int ContactCount, DateTime? LastActivity, int EnabledPhoneCount = 0);
 public record PhoneImportResult(int Added, int Updated);
 public record SyncResult(int PhoneId, string PhoneName, bool Success, int? HttpStatus, string Message);
+public record SyncProgress(int Completed, int Total, int Succeeded, int Failed, SyncResult? Latest = null);
 
 public sealed class DuplicatePhoneException(string ipAddress, Exception innerException)
     : Exception($"A phone with IP {ipAddress} already exists.", innerException);
@@ -37,7 +38,7 @@ public interface IPhoneDirectory
 
 public interface IPhoneSyncService
 {
-    Task<IReadOnlyList<SyncResult>> SyncAllAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<SyncResult>> SyncAllAsync(CancellationToken ct = default, IProgress<SyncProgress>? progress = null);
     Task<SyncResult> SyncOneAsync(int phoneId, CancellationToken ct = default);
     Task<(bool ok, string message)> PushSipDisplayNameAsync(int phoneId, CancellationToken ct = default);
     Task<(bool reachable, int? status, string message)> ProbeAsync(Phone phone, CancellationToken ct = default);

@@ -1,0 +1,45 @@
+@inherits AsyncComponentBase
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@inject UiFeedback Feedback
+@inject ILogger<DownloadButton> Logger
+
+<AsyncButton Text="@Text" BusyText="Preparing export…" Icon="@Icon" OnClick="DownloadAsync" />
+
+@code {
+    [Parameter, EditorRequired] public string Url { get; set; } = "";
+    [Parameter] public string Text { get; set; } = "Export";
+    [Parameter] public string Icon { get; set; } = "download";
+    private readonly string requestId = Guid.NewGuid().ToString("N");
+    private IJSObjectReference? module;
+
+    private async Task DownloadAsync()
+    {
+        using var activity = BeginActivity("Preparing your export…");
+        try
+        {
+            module ??= await JS.InvokeAsync<IJSObjectReference>("import", LifetimeToken, "./js/workspace-loading.js");
+            await module.InvokeVoidAsync("download", LifetimeToken, requestId, Url);
+        }
+        catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
+        catch (JSDisconnectedException) { }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Workspace export could not complete.");
+            if (!IsDisposed) Feedback.Notify("The export could not be downloaded. Check your connection and try again.", "danger");
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (IsDisposed) return;
+        Dispose();
+        if (module is null) return;
+        using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        try { await module.InvokeVoidAsync("cancelDownload", cleanup.Token, requestId); await module.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
+        catch (TaskCanceledException) { }
+        catch (JSException ex) { Logger.LogDebug(ex, "Export cleanup ended after the component was disposed."); }
+    }
+}

@@ -13,7 +13,7 @@
             </div></fieldset>
             <fieldset disabled="@_busy"><legend>Organization & ringtone</legend><div class="form-grid"><label class="field">Group<TextFieldInput @bind-Value="Model.Group" placeholder="Staff" maxlength="64" /></label><label class="field">Ring<TextFieldInput @bind-Value="Model.Ring" placeholder="Auto" maxlength="16" /><small>Use Auto for the handset's default ringtone.</small></label></div></fieldset>
         </div>
-        <footer class="dialog-footer"><button type="button" class="button" disabled="@_busy" @onclick="OnCancel">Cancel</button><button type="submit" class="button button--primary" disabled="@_busy"><RadzenIcon Icon="save" aria-hidden="true" />@(_busy ? "Saving…" : "Save contact")</button></footer>
+        <footer class="dialog-footer"><button type="button" class="button" disabled="@_busy" @onclick="OnCancel">Cancel</button><AsyncButton Type="submit" Class="button button--primary" Text="Save contact" BusyText="Saving…" Icon="save" Busy="_busy" /></footer>
     </EditForm>
 </AppDialog>
 @code {
@@ -22,6 +22,6 @@
     [Parameter] public EventCallback OnCancel { get; set; }
     private bool _busy;
     private string? _error;
-    private async Task SaveAsync() { if (_busy || IsDisposed) return; _busy = true; _error = null; try { await Directory.SaveContactAsync(Model, LifetimeToken); LifetimeToken.ThrowIfCancellationRequested(); Feedback.Notify($"Saved {Model.DisplayName}.", "success"); await OnSaved.InvokeAsync(); } catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
+    private async Task SaveAsync() { if (_busy || IsDisposed) return; _busy = true; _error = null; using var activity = BeginActivity("Saving contact…"); try { await Directory.SaveContactAsync(Model, LifetimeToken); LifetimeToken.ThrowIfCancellationRequested(); Feedback.Notify($"Saved {Model.DisplayName}.", "success"); await OnSaved.InvokeAsync(); } catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
         catch (Exception ex) { Logger.LogError(ex, "Failed to save contact {ContactId}.", Model.Id); _error = "The contact could not be saved. Check the details and try again."; } finally { _busy = false; } }
 }

@@ -22,6 +22,7 @@ var hostArgs = args.Where((arg, index) => !string.Equals(arg, "--migrate-databas
 var builder = WebApplication.CreateBuilder(hostArgs);
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddScoped<UiFeedback>();
+builder.Services.AddScoped<UiActivity>();
 builder.Services.AddRadzenComponents();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddCascadingAuthenticationState();

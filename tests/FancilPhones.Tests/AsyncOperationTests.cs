@@ -116,6 +116,23 @@ public sealed class AsyncOperationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task FleetProgressReportsActualCompletedResultsInOrder()
+    {
+        var updates = new List<SyncProgress>();
+        var clients = new ControlledFanvilFactory
+        {
+            Upload = (host, _) => Task.FromResult(new FanvilResponse { StatusCode = host.EndsWith(".3") ? 500 : 200 })
+        };
+        var results = await CreateService(clients, concurrency: 3).SyncAllAsync(progress: new InlineProgress<SyncProgress>(updates.Add));
+        Assert.Equal(6, results.Count);
+        Assert.Equal(Enumerable.Range(0, 7), updates.Select(u => u.Completed));
+        Assert.All(updates, u => Assert.Equal(u.Completed, u.Succeeded + u.Failed));
+        Assert.Equal(5, updates[^1].Succeeded);
+        Assert.Equal(1, updates[^1].Failed);
+        Assert.Equal(6, updates.Where(u => u.Latest is not null).Select(u => u.Latest!.PhoneId).Distinct().Count());
+    }
+
+    [Fact]
     public async Task DisposingDiscoveryEnumerationCancelsAndJoinsOutstandingWorkers()
     {
         var active = 0;
@@ -225,6 +242,10 @@ public sealed class AsyncOperationTests : IAsyncLifetime
     private sealed class Factory(DbContextOptions<AppDbContext> options) : IDbContextFactory<AppDbContext>
     {
         public AppDbContext CreateDbContext() => new(options);
+    }
+    private sealed class InlineProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
     private sealed class Access : IUserAccess
     {
