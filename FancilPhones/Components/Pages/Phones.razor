@@ -2,337 +2,71 @@
 @attribute [Authorize]
 @inject IPhoneDirectory Directory
 @inject IPhoneSyncService SyncSvc
-@inject ISnackbar Snackbar
-@inject IDialogService Dialogs
+@inject UiFeedback Feedback
 
-<PageTitle>Phones</PageTitle>
-
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-    <div class="fp-section-header" style="margin-bottom: 0;">
-        <span class="fp-section-icon"><MudIcon Icon="@Icons.Material.Filled.Smartphone" /></span>
-        <div>
-            <MudText Typo="Typo.h4">Phones</MudText>
-        </div>
+<PageTitle>Phone fleet · Fanvil Phones</PageTitle>
+<PageHeader Title="Phone fleet" Description="Manage your handsets, connection details, and SIP identity.">
+    <button class="button" @onclick="LoadAsync" disabled="@(!RendererInfo.IsInteractive || (_loading))"><RadzenIcon Icon="refresh" aria-hidden="true" />Refresh</button>
+    <AuthorizeView Policy="@PhonePolicies.Administrator"><a class="button" href="/api/phones.xlsx"><RadzenIcon Icon="download" aria-hidden="true" />Export Excel</a><label class="button file-button @(_busy ? "is-disabled" : "")"><RadzenIcon Icon="upload" aria-hidden="true" />Import Excel<InputFile OnChange="ImportXlsxAsync" accept=".xlsx" disabled="@(!RendererInfo.IsInteractive || (_busy))" aria-label="Import phones from Excel" /></label><button class="button" disabled="@(!RendererInfo.IsInteractive || (_busy))" @onclick="() => _scanning = true"><RadzenIcon Icon="radar" aria-hidden="true" />Scan network</button><button class="button button--primary" disabled="@(!RendererInfo.IsInteractive || (_busy))" @onclick="() => _editing = new Phone()"><RadzenIcon Icon="add" aria-hidden="true" />Add phone</button></AuthorizeView>
+</PageHeader>
+@if (_error is not null) { <div class="alert alert--danger" role="alert">@_error <button class="text-button" @onclick="LoadAsync">Try again</button></div> }
+<div class="section-heading"><div><h2>Configured handsets <span class="count-label">@_phones.Count</span></h2><p>Probe a phone before delivering a new phonebook or applying SIP settings.</p></div></div>
+<div class="table-toolbar">
+    <div class="filter-tabs" role="group" aria-label="Filter phones">
+        @foreach (var filter in new[] { "All phones", "Enabled", "Needs attention", "Disabled" }) { <button class="@(_filter == filter ? "is-active" : "")" aria-pressed="@(_filter == filter)" @onclick="() => SetFilter(filter)">@filter <span>@Count(filter)</span></button> }
     </div>
-    <MudSpacer />
-    <AuthorizeView Policy="@PhonePolicies.Administrator">
-        <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.TableView"
-                   Href="api/phones.xlsx" Target="_blank" Class="me-2">
-            Export Excel
-        </MudButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload"
-                   HtmlTag="label" for="phonesXlsxUploadInput" Class="me-2">
-            Import Excel
-        </MudButton>
-        <InputFile id="phonesXlsxUploadInput" OnChange="ImportXlsxAsync" accept=".xlsx" style="display:none" />
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Radar" OnClick="ScanAsync" Class="me-2">
-            Scan network
-        </MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
-            Add phone
-        </MudButton>
-    </AuthorizeView>
-</MudStack>
-<div class="fp-section-subtitle">Each Fanvil handset on your network - credentials, upload endpoint, and last sync status.</div>
-
-<div class="fp-table-wrap">
-<MudTable Items="_phones" Dense="true" Hover="true" Bordered="false" Loading="_loading"
-          Elevation="0">
-    <HeaderContent>
-        <MudTh>Name</MudTh>
-        <MudTh>IP</MudTh>
-        <MudTh>Username</MudTh>
-        <MudTh>Upload Path</MudTh>
-        <MudTh>Enabled</MudTh>
-        <MudTh>Last Sync</MudTh>
-        <MudTh Style="text-align:right">Actions</MudTh>
-    </HeaderContent>
-    <RowTemplate>
-        <MudTd>@context.Name</MudTd>
-        <MudTd>@context.Scheme://@context.IpAddress</MudTd>
-        <MudTd>@context.Username</MudTd>
-        <MudTd><code>@context.UploadPath</code></MudTd>
-        <MudTd>
-            <AuthorizeView Policy="@PhonePolicies.Administrator" Context="auth">
-                <Authorized>
-                    <MudSwitch T="bool" Value="context.Enabled" ValueChanged="@(v => ToggleEnabled(context, v))" Color="Color.Success" />
-                </Authorized>
-                <NotAuthorized>
-                    <MudIcon Icon="@(context.Enabled ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.RadioButtonUnchecked)"
-                             Color="@(context.Enabled ? Color.Success : Color.Default)" />
-                </NotAuthorized>
-            </AuthorizeView>
-        </MudTd>
-        <MudTd>
-            @if (context.LastSyncedAt is null)
-            {
-                <MudText Typo="Typo.body2" Color="Color.Default">never</MudText>
-            }
-            else
-            {
-                <MudTooltip Text="@context.LastSyncMessage">
-                    <MudChip T="string" Size="Size.Small"
-                             Color="@StatusColor(context.LastSyncStatus)">
-                        @context.LastSyncStatus @context.LastSyncedAt?.ToLocalTime().ToString("g")
-                    </MudChip>
-                </MudTooltip>
-            }
-        </MudTd>
-        <MudTd Style="text-align:right">
-            <MudIconButton Icon="@Icons.Material.Filled.Wifi" Size="Size.Small"
-                           OnClick="@(() => ProbeAsync(context))" aria-label="Probe" />
-            <AuthorizeView Policy="@PhonePolicies.Administrator" Context="auth">
-                <MudIconButton Icon="@Icons.Material.Filled.Sync" Size="Size.Small"
-                               OnClick="@(() => SyncOneAsync(context))" aria-label="Sync this phone" />
-                <MudTooltip Text="@PushTooltip(context)">
-                    <MudIconButton Icon="@Icons.Material.Filled.Badge" Size="Size.Small"
-                                   OnClick="@(() => PushDisplayNameAsync(context))"
-                                   Disabled="@(string.IsNullOrWhiteSpace(context.SipDisplayName)
-                                               && string.IsNullOrWhiteSpace(context.SipExtension))"
-                                   aria-label="Push SIP line settings" />
-                </MudTooltip>
-                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                               OnClick="@(() => EditAsync(context))" aria-label="Edit" />
-                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                               OnClick="@(() => DeleteAsync(context))" aria-label="Delete" />
-            </AuthorizeView>
-        </MudTd>
-    </RowTemplate>
-    <NoRecordsContent>
-        <MudText>No phones yet. Click <b>Add phone</b> to start.</MudText>
-    </NoRecordsContent>
-</MudTable>
+    <label class="search-field"><RadzenIcon Icon="search" aria-hidden="true" /><input type="search" placeholder="Search name, IP, extension…" aria-label="Search phones" @bind="_search" @bind:event="oninput" @bind:after="ResetPage" /></label>
 </div>
-
-<MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-6">
-    Defaults (<code>/pBookAdv.htm</code>, field <code>PHONEBOOK</code>) match Fanvil X-series
-    phones and rarely need changing. Credentials default to <b>admin / admin</b>.
-    Use <b>Probe</b> to verify a phone is reachable and the login works before syncing.
-</MudAlert>
-
+<div class="table-wrap" aria-busy="@_loading"><table class="fleet-table"><thead><tr><th scope="col">Handset</th><th scope="col">Network address</th><th scope="col">SIP identity</th><th scope="col">Enabled</th><th scope="col">Last delivery</th><th scope="col" class="align-right">Actions</th></tr></thead><tbody>
+    @if (_loading) { <tr><td colspan="6" class="empty-cell">Loading phones…</td></tr> }
+    else if (Filtered.Count == 0) { <tr><td colspan="6" class="empty-cell"><RadzenIcon Icon="phone_in_talk" aria-hidden="true" /><strong>@(_phones.Count == 0 ? "Your fleet starts here" : "No matching handsets")</strong><span>@(_phones.Count == 0 ? "Add a phone or scan your network to get started." : "Try a different search or filter.")</span></td></tr> }
+    @foreach (var phone in Paged) {
+        <tr @key="phone.Id"><td><strong class="cell-title">@phone.Name</strong><small>@phone.Username · @phone.UploadPath</small></td><td><a class="mono device-link" href="@($"{(phone.Scheme == "https" ? "https" : "http")}://{phone.IpAddress}")" target="_blank" rel="noopener noreferrer" title="Open handset web interface">@phone.IpAddress <RadzenIcon Icon="open_in_new" aria-hidden="true" /></a><small>@phone.Scheme.ToUpperInvariant()</small></td><td>@(string.IsNullOrWhiteSpace(phone.SipDisplayName) ? "Not configured" : phone.SipDisplayName)<small>Extension @(phone.SipExtension ?? "—") · Line @phone.SipLineIndex</small></td>
+        <td><AuthorizeView Policy="@PhonePolicies.Administrator" Context="enabledAuth"><Authorized><label class="toggle"><input type="checkbox" checked="@phone.Enabled" disabled="@(!RendererInfo.IsInteractive || (_busy))" aria-label="@($"Enable {phone.Name} for sync")" @onchange="args => ToggleAsync(phone, args.Value is true)" /><span aria-hidden="true"></span><span>@(phone.Enabled ? "On" : "Off")</span></label></Authorized><NotAuthorized><span class="badge">@(phone.Enabled ? "Enabled" : "Disabled")</span></NotAuthorized></AuthorizeView></td>
+        <td title="@phone.LastSyncMessage"><StatusBadge Status="@(phone.LastSyncedAt is null ? "Pending" : phone.LastSyncStatus)" /><small>@UiFormat.Date(phone.LastSyncedAt)</small></td>
+        <td><div class="row-actions"><button class="icon-button" disabled="@(!RendererInfo.IsInteractive || (_busy))" title="Probe connection" aria-label="@($"Probe {phone.Name}")" @onclick="() => ProbeAsync(phone)"><RadzenIcon Icon="wifi_tethering" aria-hidden="true" /></button><AuthorizeView Policy="@PhonePolicies.Administrator" Context="actionAuth"><button class="icon-button" disabled="@(!RendererInfo.IsInteractive || (_busy))" title="Sync phonebook" aria-label="@($"Sync {phone.Name}")" @onclick="() => SyncOneAsync(phone)"><RadzenIcon Icon="sync" aria-hidden="true" /></button><button class="icon-button" disabled="@(!RendererInfo.IsInteractive || (_busy || !HasSip(phone)))" title="Push SIP settings" aria-label="@($"Push SIP settings to {phone.Name}")" @onclick="() => PushAsync(phone)"><RadzenIcon Icon="badge" aria-hidden="true" /></button><button class="icon-button" disabled="@(!RendererInfo.IsInteractive || (_busy))" title="Edit phone" aria-label="@($"Edit {phone.Name}")" @onclick="() => Edit(phone)"><RadzenIcon Icon="edit" aria-hidden="true" /></button><button class="icon-button icon-button--danger" disabled="@(!RendererInfo.IsInteractive || (_busy))" title="Delete phone" aria-label="@($"Delete {phone.Name}")" @onclick="() => DeleteAsync(phone)"><RadzenIcon Icon="delete_outline" aria-hidden="true" /></button></AuthorizeView></div></td></tr>
+    }
+</tbody></table></div>
+<TablePager Total="@Filtered.Count" @bind-Page="_page" @bind-PageSize="_pageSize" />
+<aside class="help-note"><RadzenIcon Icon="info" aria-hidden="true" /><div><strong>Built for Fanvil X-series</strong><p>The default upload path is <code>/pBookAdv.htm</code> with field <code>PHONEBOOK</code>. Handset credentials are separate from your employee login.</p></div></aside>
+@if (_editing is not null) { <PhoneEditDialog Model="_editing" OnSaved="SavedAsync" OnCancel="() => _editing = null" /> }
+@if (_scanning) { <ScanNetworkDialog OnAdded="AddDiscoveredAsync" OnCancel="() => _scanning = false" /> }
 @code {
-    private List<Phone> _phones = new();
-    private bool _loading = true;
-
-    protected override async Task OnInitializedAsync() => await LoadAsync();
-
-    private async Task LoadAsync()
-    {
-        _loading = true;
-        _phones = await Directory.GetPhonesAsync();
-        _loading = false;
-    }
-
-    private static Color StatusColor(string? s) => s switch
-    {
-        "Success" => Color.Success,
-        "Failed" => Color.Warning,
-        "Error" => Color.Error,
-        _ => Color.Default
-    };
-
-    private async Task ToggleEnabled(Phone p, bool v)
-    {
-        await Directory.SetPhoneEnabledAsync(p.Id, v);
-        p.Enabled = v;
-    }
-
-    private async Task AddNewAsync()
-    {
-        var parameters = new DialogParameters<PhoneEditDialog> { { x => x.Model, new Phone() } };
-        var dlg = await Dialogs.ShowAsync<PhoneEditDialog>("Add phone", parameters);
-        var res = await dlg.Result;
-        if (res is { Canceled: false, Data: Phone p })
-        {
-            try
-            {
-                await Directory.SavePhoneAsync(p);
-                Snackbar.Add($"Added {p.Name}", Severity.Success);
-                await LoadAsync();
-            }
-            catch (DuplicatePhoneException)
-            {
-                Snackbar.Add($"A phone with IP {p.IpAddress} already exists.", Severity.Error);
-            }
-            catch (Exception ex)
-            {
-                Snackbar.Add("Could not save phone: " + ex.Message, Severity.Error);
-            }
-        }
-    }
-
-    private async Task ImportXlsxAsync(InputFileChangeEventArgs e)
-    {
-        var file = e.File;
-        if (file is null) return;
-        try
-        {
-            using var ms = new MemoryStream();
-            await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
-            ms.Position = 0;
-
-            var parsed = PhonesXlsx.Parse(ms);
-            if (parsed.Count == 0)
-            {
-                Snackbar.Add("No phones found in that file.", Severity.Warning);
-                return;
-            }
-
-            var mode = await Dialogs.ShowMessageBoxAsync(new MessageBoxOptions
-            {
-                Title = "Import phones",
-                Message = $"Found {parsed.Count} phones in the file. " +
-                          "Merge updates existing rows by IP and adds new ones. " +
-                          "Replace deletes all current phones first.",
-                YesText = "Merge",
-                NoText = "Replace all",
-                CancelText = "Cancel",
-            });
-            if (mode is null) return;
-
-            var result = await Directory.ImportPhonesAsync(parsed, replace: mode == false);
-            Snackbar.Add($"Imported: {result.Added} added, {result.Updated} updated.", Severity.Success);
-            await LoadAsync();
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add("Import failed: " + ex.Message, Severity.Error);
-        }
-    }
-
-    private async Task ScanAsync()
-    {
-        var dlg = await Dialogs.ShowAsync<ScanNetworkDialog>("Scan network",
-            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
-        var res = await dlg.Result;
-        if (res is not { Canceled: false, Data: List<Phone> picks } || picks.Count == 0)
-            return;
-
-        var added = 0;
-        var skipped = 0;
-        foreach (var p in picks)
-        {
-            try
-            {
-                await Directory.SavePhoneAsync(p);
-                added++;
-            }
-            catch (DuplicatePhoneException)
-            {
-                skipped++;
-            }
-            catch (Exception ex)
-            {
-                Snackbar.Add($"Could not add {p.IpAddress}: {ex.Message}", Severity.Error);
-            }
-        }
-
-        if (added > 0)
-            Snackbar.Add($"Added {added} phone{(added == 1 ? "" : "s")}" +
-                         (skipped > 0 ? $" ({skipped} already existed)" : ""), Severity.Success);
-        else if (skipped > 0)
-            Snackbar.Add($"All {skipped} selected phones already existed.", Severity.Info);
-
-        await LoadAsync();
-    }
-
-    private async Task EditAsync(Phone phone)
-    {
-        var copy = new Phone
-        {
-            Id = phone.Id, Name = phone.Name, IpAddress = phone.IpAddress,
-            Username = phone.Username, Password = phone.Password, Scheme = phone.Scheme,
-            UploadPath = phone.UploadPath, UploadFieldName = phone.UploadFieldName,
-            Enabled = phone.Enabled,
-            SipDisplayName = phone.SipDisplayName, SipLineIndex = phone.SipLineIndex,
-            SipExtension = phone.SipExtension,
-            SipRegistrationEnabled = phone.SipRegistrationEnabled,
-        };
-        var parameters = new DialogParameters<PhoneEditDialog> { { x => x.Model, copy } };
-        var dlg = await Dialogs.ShowAsync<PhoneEditDialog>("Edit phone", parameters);
-        var res = await dlg.Result;
-        if (res is { Canceled: false, Data: Phone p })
-        {
-            try
-            {
-                await Directory.SavePhoneAsync(p);
-                Snackbar.Add("Saved", Severity.Success);
-                await LoadAsync();
-            }
-            catch (DuplicatePhoneException)
-            {
-                Snackbar.Add($"Another phone with IP {p.IpAddress} already exists.", Severity.Error);
-            }
-            catch (Exception ex)
-            {
-                Snackbar.Add("Could not save phone: " + ex.Message, Severity.Error);
-            }
-        }
-    }
-
-    private async Task DeleteAsync(Phone phone)
-    {
-        var ok = await Dialogs.ShowMessageBoxAsync("Delete phone",
-            $"Delete '{phone.Name}' ({phone.IpAddress})?",
-            yesText: "Delete", cancelText: "Cancel");
-        if (ok != true) return;
-        await Directory.DeletePhoneAsync(phone.Id);
-        await LoadAsync();
-    }
-
-    private async Task ProbeAsync(Phone phone)
-    {
-        Snackbar.Add($"Probing {phone.IpAddress}...", Severity.Info);
-        var (ok, status, msg) = await SyncSvc.ProbeAsync(phone);
-        Snackbar.Add($"{phone.Name}: {msg}", ok ? Severity.Success : Severity.Error);
-    }
-
-    private static string PushTooltip(Phone p)
-    {
-        var hasName = !string.IsNullOrWhiteSpace(p.SipDisplayName);
-        var hasExt = !string.IsNullOrWhiteSpace(p.SipExtension);
-        if (!hasName && !hasExt)
-            return "No SIP display name or extension set";
-        var parts = new List<string>();
-        if (hasName) parts.Add($"display name '{p.SipDisplayName}'");
-        if (hasExt) parts.Add($"username '{p.SipExtension}'");
-        return $"Push {string.Join(" + ", parts)} to line {p.SipLineIndex}";
-    }
-
-    private async Task PushDisplayNameAsync(Phone phone)
-    {
-        var hasName = !string.IsNullOrWhiteSpace(phone.SipDisplayName);
-        var hasExt = !string.IsNullOrWhiteSpace(phone.SipExtension);
-        if (!hasName && !hasExt)
-        {
-            Snackbar.Add($"{phone.Name}: no SIP display name or extension configured. Edit the phone to set one.",
-                Severity.Warning);
-            return;
-        }
-
-        var parts = new List<string>();
-        if (hasName) parts.Add($"display name = '{phone.SipDisplayName}'");
-        if (hasExt) parts.Add($"username = '{phone.SipExtension}'");
-        var what = string.Join(", ", parts);
-
-        var ok = await Dialogs.ShowMessageBoxAsync("Push SIP line settings",
-            $"Apply {what} to line {phone.SipLineIndex} of {phone.Name} ({phone.IpAddress})?\n\n" +
-            "This modifies the phone's SIP line settings.",
-            yesText: "Push", cancelText: "Cancel");
-        if (ok != true) return;
-
-        Snackbar.Add($"Pushing SIP line settings to {phone.Name}...", Severity.Info);
-        var (success, message) = await SyncSvc.PushSipDisplayNameAsync(phone.Id);
-        Snackbar.Add($"{phone.Name}: {message}", success ? Severity.Success : Severity.Error);
-        await LoadAsync();
-    }
-
-    private async Task SyncOneAsync(Phone phone)
-    {
-        Snackbar.Add($"Syncing {phone.Name}...", Severity.Info);
-        var r = await SyncSvc.SyncOneAsync(phone.Id);
-        Snackbar.Add($"{phone.Name}: {r.Message}", r.Success ? Severity.Success : Severity.Error);
-        await LoadAsync();
-    }
+    private List<Phone> _phones = [];
+    private Phone? _editing;
+    private bool _loading = true, _busy, _scanning;
+    private string? _error;
+    private string _search = "", _filter = "All phones";
+    private int _page = 1, _pageSize = 25;
+    private static bool NeedsAttention(Phone p) => p.Enabled && p.LastSyncedAt is not null && p.LastSyncStatus != "Success";
+    private static bool HasSip(Phone p) => !string.IsNullOrWhiteSpace(p.SipDisplayName) || !string.IsNullOrWhiteSpace(p.SipExtension);
+    private bool InFilter(Phone p, string filter) => filter switch { "Enabled" => p.Enabled, "Disabled" => !p.Enabled, "Needs attention" => NeedsAttention(p), _ => true };
+    private int Count(string filter) => _phones.Count(p => InFilter(p, filter));
+    private List<Phone> Filtered => _phones.Where(p => InFilter(p, _filter) && (string.IsNullOrWhiteSpace(_search) || new[] { p.Name, p.IpAddress, p.SipExtension, p.SipDisplayName }.Any(v => v?.Contains(_search, StringComparison.OrdinalIgnoreCase) == true))).ToList();
+    private IEnumerable<Phone> Paged => Filtered.Skip((Math.Clamp(_page, 1, Math.Max(1, (int)Math.Ceiling((double)Filtered.Count / _pageSize))) - 1) * _pageSize).Take(_pageSize);
+    private void ResetPage() => _page = 1;
+    private void SetFilter(string filter) { _filter = filter; ResetPage(); }
+    protected override Task OnInitializedAsync() => LoadAsync();
+    private async Task LoadAsync() { _loading = true; _error = null; try { _phones = await Directory.GetPhonesAsync(); } catch { _error = "Phones could not be loaded. Please try again."; } finally { _loading = false; } }
+    private void Edit(Phone p) => _editing = new Phone { Id = p.Id, Name = p.Name, IpAddress = p.IpAddress, Scheme = p.Scheme, Username = p.Username, Password = p.Password, UploadPath = p.UploadPath, UploadFieldName = p.UploadFieldName, Enabled = p.Enabled, SipDisplayName = p.SipDisplayName, SipLineIndex = p.SipLineIndex, SipExtension = p.SipExtension, SipRegistrationEnabled = p.SipRegistrationEnabled };
+    private async Task SavedAsync() { _editing = null; await LoadAsync(); }
+    private async Task RunAsync(Func<Task> operation)
+    { if (_busy) return; _busy = true; try { await operation(); } catch (Exception) { Feedback.Notify("The action could not be completed. Check the connection and try again.", "danger"); } finally { _busy = false; } }
+    private Task ToggleAsync(Phone p, bool enabled) => RunAsync(async () => { await Directory.SetPhoneEnabledAsync(p.Id, enabled); p.Enabled = enabled; Feedback.Notify($"{p.Name} is now {(enabled ? "enabled" : "disabled")} for fleet sync.", "success"); });
+    private Task DeleteAsync(Phone p) => RunAsync(async () => { if (!await Feedback.ConfirmAsync("Delete phone", $"Remove {p.Name} ({p.IpAddress}) and its activity history? This cannot be undone.", "Delete phone", true)) return; await Directory.DeletePhoneAsync(p.Id); Feedback.Notify($"Removed {p.Name}.", "success"); await LoadAsync(); });
+    private Task ProbeAsync(Phone p) => RunAsync(async () => { Feedback.Notify($"Probing {p.Name}…"); var (ok, _, message) = await SyncSvc.ProbeAsync(p); Feedback.Notify($"{p.Name}: {message}", ok ? "success" : "danger"); });
+    private Task SyncOneAsync(Phone p) => RunAsync(async () => { Feedback.Notify($"Syncing the phonebook to {p.Name}…"); var result = await SyncSvc.SyncOneAsync(p.Id); Feedback.Notify($"{p.Name}: {result.Message}", result.Success ? "success" : "danger"); await LoadAsync(); });
+    private Task PushAsync(Phone p) => RunAsync(async () => { if (!await Feedback.ConfirmAsync("Push SIP settings", $"Apply display name '{p.SipDisplayName}' and extension '{p.SipExtension}' to line {p.SipLineIndex} on {p.Name}? This changes the handset configuration.", "Apply settings")) return; var (ok, message) = await SyncSvc.PushSipDisplayNameAsync(p.Id); Feedback.Notify(message, ok ? "success" : "danger"); await LoadAsync(); });
+    private Task ImportXlsxAsync(InputFileChangeEventArgs args) => RunAsync(async () => {
+        using var stream = new MemoryStream(); await args.File.OpenReadStream(10 * 1024 * 1024).CopyToAsync(stream); stream.Position = 0;
+        var parsed = PhonesXlsx.Parse(stream); if (parsed.Count == 0) { Feedback.Notify("No phone records were found in this workbook.", "warning"); return; }
+        var choice = await Feedback.ChooseAsync("Import phones", $"Found {parsed.Count} phones. Merge matches by IP address. Replace removes the current fleet and its activity history before importing.", "Merge phones", "Replace entire fleet");
+        if (choice == DialogChoice.Cancel) return;
+        var result = await Directory.ImportPhonesAsync(parsed, choice == DialogChoice.Secondary); Feedback.Notify($"Imported {result.Added} new phones and updated {result.Updated}.", "success"); await LoadAsync();
+    });
+    private Task AddDiscoveredAsync(List<Phone> phones) => RunAsync(async () => {
+        _scanning = false; var added = 0; var skipped = 0;
+        foreach (var phone in phones) { try { await Directory.SavePhoneAsync(phone); added++; } catch (DuplicatePhoneException) { skipped++; } }
+        Feedback.Notify($"Added {added} phones. {skipped} already existed.", "success"); await LoadAsync();
+    });
 }

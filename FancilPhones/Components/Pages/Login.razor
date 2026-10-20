@@ -12,18 +12,18 @@
                 <img src="mnsstar.png" alt="Multinet-Systems" />
             </span>
             <div>
-                <div class="fp-brand-title">Multinet-Systems</div>
-                <div class="fp-brand-sub">Fanvil phone manager</div>
+                <div class="fp-brand-title">Fanvil Phones</div>
+                <div class="fp-brand-sub">Multinet Systems · Voice workspace</div>
             </div>
         </div>
 
         <h1 class="fp-login-title">Sign in</h1>
-        <p class="fp-login-sub">Use the same employee account you use for BIDevHub.</p>
+        <p class="fp-login-sub">Your directory. Your handsets. One workspace.</p>
 
         @if (HasError)
         {
             <div class="fp-login-error">
-                <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Small" Class="mr-1" />
+                <RadzenIcon Icon="error_outline" aria-hidden="true" />
                 @ErrorMessage
             </div>
         }
@@ -46,7 +46,7 @@
             </button>
         </form>
 
-        <p class="fp-login-hint">Account and password assistance is provided by your identity administrator.</p>
+        <p class="fp-login-hint">Sign in with your shared employee account. Account and password assistance is provided by your identity administrator.</p>
     </div>
 </div>
 

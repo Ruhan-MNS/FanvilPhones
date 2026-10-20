@@ -1,17 +1,13 @@
-<div class="fp-nav">
-    <div class="fp-nav-section">Manage</div>
-    <MudNavMenu Class="fp-nav-menu">
-        <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Home</MudNavLink>
-        <MudNavLink Href="phones" Icon="@Icons.Material.Filled.Smartphone">Phones</MudNavLink>
-        <MudNavLink Href="contacts" Icon="@Icons.Material.Filled.ContactPhone">Contacts</MudNavLink>
-        <MudNavLink Href="sync" Icon="@Icons.Material.Filled.CloudSync">Sync</MudNavLink>
-        <MudNavLink Href="logs" Icon="@Icons.Material.Filled.Receipt">Logs</MudNavLink>
-        <AuthorizeView Policy="@PhonePolicies.Administrator">
-            <MudNavLink Href="users" Icon="@Icons.Material.Filled.People">Users</MudNavLink>
-        </AuthorizeView>
-    </MudNavMenu>
-    <div class="fp-nav-footer">
-        <span class="fp-status-dot"></span>
-        <span class="fp-nav-footer-text">All systems nominal</span>
-    </div>
+<div class="navigation">
+    <div class="nav-label">Workspace</div>
+    <nav>
+        <WorkspaceNavLink Href="/" Label="Overview" Description="Fleet health & recent activity" Icon="space_dashboard" OnNavigate="OnNavigate" Match="NavLinkMatch.All" />
+        <WorkspaceNavLink Href="/phones" Label="Phone fleet" Description="Handsets & SIP settings" Icon="phone_in_talk" OnNavigate="OnNavigate" />
+        <WorkspaceNavLink Href="/contacts" Label="Phonebook" Description="Your shared contact directory" Icon="contacts" OnNavigate="OnNavigate" />
+        <WorkspaceNavLink Href="/sync" Label="Synchronization" Description="Deliver the latest phonebook" Icon="sync" OnNavigate="OnNavigate" />
+        <WorkspaceNavLink Href="/logs" Label="Activity log" Description="Syncs, probes & configuration" Icon="receipt_long" OnNavigate="OnNavigate" />
+    </nav>
+    <AuthorizeView Policy="@PhonePolicies.Administrator"><div class="nav-label">Administration</div><nav><WorkspaceNavLink Href="/users" Label="Account access" Description="Shared identity & permissions" Icon="admin_panel_settings" OnNavigate="OnNavigate" /></nav></AuthorizeView>
+    <div class="sidebar-footer"><span class="environment-label"><span></span>INTERNAL WORKSPACE</span><p>One directory.<br />Every handset.</p><img src="mnsstar.png" alt="Multinet Systems" width="26" height="26" /></div>
 </div>
+@code { [Parameter] public EventCallback OnNavigate { get; set; } }

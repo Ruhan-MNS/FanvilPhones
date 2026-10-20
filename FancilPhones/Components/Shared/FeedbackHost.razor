@@ -1,0 +1,34 @@
+@implements IDisposable
+@inject UiFeedback Feedback
+
+<RadzenDialog />
+<section class="notifications" aria-label="Notifications" aria-live="polite" aria-relevant="additions">
+    @foreach (var notice in Feedback.Notices)
+    {
+        <div @key="notice.Id" class="notice notice--@notice.Tone" role="@(notice.Tone == "danger" ? "alert" : "status")">
+            <RadzenIcon Icon="@(notice.Tone == "success" ? "check_circle" : notice.Tone == "danger" ? "error_outline" : "info")" aria-hidden="true" />
+            <p>@notice.Message</p>
+            <button class="icon-button" aria-label="Dismiss notification" @onclick="() => Feedback.Dismiss(notice.Id)"><RadzenIcon Icon="close" aria-hidden="true" /></button>
+        </div>
+    }
+</section>
+<AppDialog Open="@(Feedback.ActivePrompt is not null)" Title="@(Feedback.ActivePrompt?.Title ?? "Confirm")" OnClose="Cancel">
+    @if (Feedback.ActivePrompt is { } prompt)
+    {
+        <div class="dialog-body"><p class="prompt-message">@prompt.Message</p></div>
+        <footer class="dialog-footer">
+            <button type="button" class="button" @onclick="Cancel">Cancel</button>
+            @if (prompt.Secondary is not null)
+            {
+                <button type="button" class="button button--danger" @onclick="() => Feedback.Resolve(DialogChoice.Secondary)">@prompt.Secondary</button>
+            }
+            <button type="button" class="button @(prompt.Destructive ? "button--danger" : "button--primary")" @onclick="() => Feedback.Resolve(DialogChoice.Primary)">@prompt.Primary</button>
+        </footer>
+    }
+</AppDialog>
+@code {
+    protected override void OnInitialized() => Feedback.Changed += Refresh;
+    private void Refresh() => _ = InvokeAsync(StateHasChanged);
+    private void Cancel() => Feedback.Resolve(DialogChoice.Cancel);
+    public void Dispose() { Feedback.Changed -= Refresh; Feedback.Resolve(DialogChoice.Cancel); }
+}

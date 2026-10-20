@@ -66,7 +66,15 @@ public sealed class AuthenticationTests
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/phonebook.csv")).StatusCode);
         Assert.Equal(expected, (await client.GetAsync("/api/phones.xlsx")).StatusCode);
         // SSR also exercises the page/service authorization boundary against the request principal.
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/phones")).StatusCode);
+        foreach (var path in new[] { "/", "/phones", "/contacts", "/sync", "/logs", "/account/change-password" })
+        {
+            var page = await client.GetAsync(path);
+            Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+            var html = await page.Content.ReadAsStringAsync();
+            Assert.Contains("workspace-header", html);
+            Assert.Contains("Radzen.Blazor", html);
+            Assert.DoesNotContain("MudBlazor", html);
+        }
     }
 
     [Fact]

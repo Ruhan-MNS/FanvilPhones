@@ -1,6 +1,6 @@
 @page "/users"
 @attribute [Authorize(Policy = PhonePolicies.Administrator)]
-<PageTitle>Account administration</PageTitle>
-<MudText Typo="Typo.h4" Class="mb-4">Account administration</MudText>
-<MudAlert Severity="Severity.Info">Accounts and role assignments are managed centrally in ASP Auth, using the same employee accounts as BIDevHub. Contact your identity administrator to create an account, reset a password, or change access.</MudAlert>
-<MudText Class="mt-4">BI-ADMIN and IT_ADMIN can manage phones, contacts, and syncs. Other signed-in users have view access and can probe existing phones.</MudText>
+<PageTitle>Account access · Fanvil Phones</PageTitle>
+<PageHeader Title="Account access" Description="Shared employee identity. Clear permissions for your voice workspace." />
+<section class="panel account-panel"><div class="panel-heading"><div><h2>Managed centrally</h2><p>Your employee account is shared with BIDevHub.</p></div><RadzenIcon Icon="verified_user" aria-hidden="true" /></div><div class="panel-body"><p>Accounts, passwords, authenticator setup, and role assignments are managed in ASP Auth. Contact your identity administrator to create an account, reset a password, or change access.</p></div></section>
+<div class="table-wrap"><table><thead><tr><th scope="col">Role</th><th scope="col">Workspace access</th></tr></thead><tbody><tr><td><span class="badge badge--accent">BI-ADMIN</span> <span class="badge badge--accent">IT_ADMIN</span></td><td>Manage phones and contacts, import and export fleet configuration, discover handsets, push SIP settings, and run syncs.</td></tr><tr><td>Other signed-in employees</td><td>View the fleet, phonebook, and activity. Export the shared phonebook and probe existing handsets.</td></tr></tbody></table></div>

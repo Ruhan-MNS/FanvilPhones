@@ -1,0 +1,8 @@
+@inherits InputText
+
+<input @attributes="AdditionalAttributes" name="@NameAttributeValue" class="@CssClass"
+       value="@CurrentValueAsString" @oninput="UpdateValue" />
+
+@code {
+    private void UpdateValue(ChangeEventArgs args) => CurrentValueAsString = args.Value?.ToString();
+}

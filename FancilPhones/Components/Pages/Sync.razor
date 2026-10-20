@@ -2,133 +2,37 @@
 @attribute [Authorize]
 @inject IPhoneDirectory Directory
 @inject IPhoneSyncService SyncSvc
-@inject ISnackbar Snackbar
-
-<PageTitle>Sync</PageTitle>
-
-<div class="fp-section-header">
-    <span class="fp-section-icon" style="background: rgba(245, 158, 11, 0.14); color: #B45309;">
-        <MudIcon Icon="@Icons.Material.Filled.CloudSync" />
-    </span>
-    <MudText Typo="Typo.h4">Sync</MudText>
-</div>
-<div class="fp-section-subtitle">Push the current master phonebook to every enabled handset.</div>
-
-<MudPaper Elevation="0" Class="pa-5 mb-4 fp-card-surface">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
-        <AuthorizeView Policy="@PhonePolicies.Administrator">
-            <Authorized>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" StartIcon="@Icons.Material.Filled.CloudUpload"
-                           Disabled="_running" OnClick="RunAsync">
-                    @(_running ? "Syncing..." : "Sync all enabled phones")
-                </MudButton>
-            </Authorized>
-            <NotAuthorized>
-                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
-                    Read-only view. Ask an admin to run a sync.
-                </MudAlert>
-            </NotAuthorized>
-        </AuthorizeView>
-        <MudText Class="mud-text-secondary">@_summary</MudText>
-    </MudStack>
-    @if (_running)
-    {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-4" Rounded="true" />
-    }
-</MudPaper>
-
-@if (_results.Count > 0)
-{
-    <MudText Typo="Typo.h6" Class="mt-2 mb-2">This run</MudText>
-    <div class="fp-table-wrap mb-4">
-    <MudTable Items="_results" Dense="true" Hover="true" Bordered="false" Elevation="0">
-        <HeaderContent>
-            <MudTh>Phone</MudTh>
-            <MudTh>Status</MudTh>
-            <MudTh>HTTP</MudTh>
-            <MudTh>Message</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd>@context.PhoneName</MudTd>
-            <MudTd>
-                <MudChip T="string" Size="Size.Small"
-                         Color="@(context.Success ? Color.Success : Color.Error)">
-                    @(context.Success ? "Success" : "Failed")
-                </MudChip>
-            </MudTd>
-            <MudTd>@context.HttpStatus</MudTd>
-            <MudTd>@context.Message</MudTd>
-        </RowTemplate>
-    </MudTable>
-    </div>
+@inject UiFeedback Feedback
+<PageTitle>Synchronization · Fanvil Phones</PageTitle>
+<PageHeader Title="Synchronization" Description="Deliver the current master phonebook to your enabled handsets."><button class="button" disabled="@(!RendererInfo.IsInteractive || (_loading || _running))" @onclick="LoadAsync"><RadzenIcon Icon="refresh" aria-hidden="true" />Refresh status</button></PageHeader>
+@if (_error is not null) { <div class="alert alert--danger" role="alert">@_error <button class="text-button" @onclick="LoadAsync">Try again</button></div> }
+<section class="panel sync-launch" aria-labelledby="sync-title"><div class="sync-launch-icon"><RadzenIcon Icon="sync" aria-hidden="true" /></div><div class="sync-launch-copy"><div class="eyebrow">Phonebook delivery</div><h2 id="sync-title">Keep your fleet up to date</h2><p>Send <strong>@_contactCount contacts</strong> to <strong>@_enabledCount enabled phones</strong>. Each handset's phonebook is replaced with the master directory.</p><a class="text-link" href="/contacts">Review the phonebook <RadzenIcon Icon="arrow_forward" aria-hidden="true" /></a></div><div class="sync-launch-action"><AuthorizeView Policy="@PhonePolicies.Administrator"><Authorized><button class="button button--primary" disabled="@(!RendererInfo.IsInteractive || (_running || _confirming || _loading || _enabledCount == 0))" @onclick="RunAsync"><RadzenIcon Icon="sync" aria-hidden="true" />@(_running ? "Syncing phones…" : "Sync enabled phones")</button><small>@(_enabledCount == 0 ? "Enable a phone to begin." : "Review the confirmation before sending.")</small></Authorized><NotAuthorized><span class="badge">View access</span><small>A phone administrator can start a sync.</small></NotAuthorized></AuthorizeView></div></section>
+@if (_running) { <div class="run-progress" role="status"><progress aria-label="Phonebook delivery in progress"></progress><strong>Delivering the phonebook…</strong><span>Keep this workspace open while the enabled handsets are processed.</span></div> }
+@if (_results.Count > 0) {
+    <section class="section-block"><div class="section-heading"><div><h2>Latest run results</h2><p role="status">@_summary</p></div><span class="badge badge--@(_results.All(r => r.Success) ? "success" : "warning")">@_results.Count(r => r.Success) / @_results.Count successful</span></div><div class="table-wrap"><table><thead><tr><th scope="col">Phone</th><th scope="col">Result</th><th scope="col">HTTP</th><th scope="col">Details</th></tr></thead><tbody>@foreach (var result in _results) { <tr><td class="cell-title">@result.PhoneName</td><td><StatusBadge Status="@(result.Success ? "Success" : "Failed")" /></td><td class="mono">@(result.HttpStatus?.ToString() ?? "—")</td><td class="message-cell">@result.Message</td></tr> }</tbody></table></div></section>
 }
-
-<MudText Typo="Typo.h6" Class="mt-6 mb-2">Recent sync history</MudText>
-<div class="fp-table-wrap">
-<MudTable Items="_history" Dense="true" Hover="true" Bordered="false" Elevation="0">
-    <HeaderContent>
-        <MudTh>Started</MudTh>
-        <MudTh>Phone</MudTh>
-        <MudTh>Status</MudTh>
-        <MudTh>Contacts</MudTh>
-        <MudTh>Message</MudTh>
-    </HeaderContent>
-    <RowTemplate>
-        <MudTd>@context.StartedAt.ToLocalTime().ToString("g")</MudTd>
-        <MudTd>@(context.Phone?.Name ?? "?")</MudTd>
-        <MudTd>
-            <MudChip T="string" Size="Size.Small" Color="@HistoryStatusColor(context.Status)">
-                @context.Status
-            </MudChip>
-        </MudTd>
-        <MudTd>@context.ContactCount</MudTd>
-        <MudTd>@context.Message</MudTd>
-    </RowTemplate>
-</MudTable>
-</div>
-
+<section class="section-block"><div class="section-heading"><div><h2>Delivery history <span class="count-label">@_history.Count</span></h2><p>Recent phonebook syncs, including deliveries to individual phones</p></div><a class="text-link" href="/logs">All activity <RadzenIcon Icon="arrow_forward" aria-hidden="true" /></a></div><div class="table-wrap" aria-busy="@_loading"><table><thead><tr><th scope="col">Started</th><th scope="col">Phone</th><th scope="col">Result</th><th scope="col">Contacts</th><th scope="col">Duration</th><th scope="col">Details</th></tr></thead><tbody>
+    @if (_history.Count == 0) { <tr><td colspan="6" class="empty-cell"><RadzenIcon Icon="sync" aria-hidden="true" /><strong>@(_loading ? "Loading deliveries…" : "No deliveries recorded yet")</strong><span>The results of your first phonebook sync will appear here.</span></td></tr> }
+    @foreach (var run in _history.Skip((_page - 1) * _pageSize).Take(_pageSize)) { <tr><td class="nowrap">@UiFormat.Date(run.StartedAt)</td><td class="cell-title">@(run.Phone?.Name ?? "Deleted phone")</td><td><StatusBadge Status="@run.Status" /></td><td>@run.ContactCount</td><td>@UiFormat.Duration(run.StartedAt, run.FinishedAt)</td><td class="message-cell">@run.Message</td></tr> }
+</tbody></table></div><TablePager Total="@_history.Count" @bind-Page="_page" @bind-PageSize="_pageSize" /></section>
 @code {
-    private static Color HistoryStatusColor(string? s) => s switch
-    {
-        "Success" => Color.Success,
-        "Failed" => Color.Warning,
-        "Error" => Color.Error,
-        _ => Color.Default
-    };
-
-    private bool _running;
+    private bool _loading = true, _running, _confirming;
+    private int _enabledCount, _contactCount, _page = 1, _pageSize = 10;
+    private string? _error;
     private string _summary = "";
-    private List<SyncResult> _results = new();
-    private List<SyncRun> _history = new();
-
-    protected override async Task OnInitializedAsync() => await LoadHistoryAsync();
-
-    private async Task LoadHistoryAsync()
-    {
-        _history = await Directory.GetHistoryAsync(50);
-    }
-
+    private List<SyncRun> _history = [];
+    private List<SyncResult> _results = [];
+    protected override Task OnInitializedAsync() => LoadAsync();
+    private async Task LoadAsync() { _loading = true; _error = null; try { _contactCount = (await Directory.GetSummaryAsync()).ContactCount; _enabledCount = (await Directory.GetPhonesAsync()).Count(p => p.Enabled); _history = (await Directory.GetHistoryAsync(500)).Where(r => r.Action == "Sync").Take(50).ToList(); _page = 1; } catch { _error = "Delivery status could not be loaded. Please try again."; } finally { _loading = false; } }
     private async Task RunAsync()
     {
-        _running = true;
-        _summary = "Pushing phonebook to all enabled phones...";
-        try
-        {
-            var rs = await SyncSvc.SyncAllAsync();
-            _results = rs.ToList();
-            var ok = _results.Count(r => r.Success);
-            _summary = $"{ok} of {_results.Count} phones succeeded.";
-            Snackbar.Add(_summary, ok == _results.Count ? Severity.Success : Severity.Warning);
-        }
-        catch (Exception ex)
-        {
-            _summary = "Error: " + ex.Message;
-            Snackbar.Add(_summary, Severity.Error);
-        }
-        finally
-        {
-            _running = false;
-            await LoadHistoryAsync();
-        }
+        if (_running || _confirming) return;
+        _confirming = true;
+        try { if (!await Feedback.ConfirmAsync("Sync enabled phones", $"Send the current phonebook ({_contactCount} contacts) to {_enabledCount} enabled phones? Existing handset phonebooks are replaced by the master directory.", "Start sync")) return; }
+        finally { _confirming = false; }
+        _running = true; _results.Clear();
+        try { _results = (await SyncSvc.SyncAllAsync()).ToList(); var success = _results.Count(r => r.Success); _summary = $"{success} of {_results.Count} phones received the phonebook successfully."; Feedback.Notify(_summary, success == _results.Count ? "success" : "warning"); }
+        catch { Feedback.Notify("The fleet sync could not be completed. Review the activity log before retrying.", "danger"); }
+        finally { _running = false; await LoadAsync(); }
     }
 }

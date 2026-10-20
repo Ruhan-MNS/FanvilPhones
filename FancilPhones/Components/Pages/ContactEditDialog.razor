@@ -1,94 +1,24 @@
-@* Reusable dialog for adding/editing a Contact. *@
-
-<MudDialog Class="fp-phone-dialog">
-    <TitleContent>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <span class="fp-section-icon" style="background: rgba(43, 43, 43, 0.10); color: #2B2B2B;">
-                <MudIcon Icon="@Icons.Material.Filled.PersonAddAlt1" />
-            </span>
-            <div style="display: flex; flex-direction: column;">
-                <MudText Typo="Typo.h6" Style="line-height: 1.2;">
-                    @(Model.Id == 0 ? "Add contact" : "Edit contact")
-                </MudText>
-                <MudText Typo="Typo.caption" Style="color: #6B7280;">
-                    Pushed to every enabled phone on the next sync.
-                </MudText>
-            </div>
+@inject IPhoneDirectory Directory
+@inject UiFeedback Feedback
+<AppDialog Open="true" Title="@(Model.Id == 0 ? "Add contact" : "Edit contact")" Description="This contact will be included in the next phonebook delivery." Busy="@_busy" OnClose="OnCancel">
+    <EditForm Model="Model" OnValidSubmit="SaveAsync" FormName="contact-editor"><DataAnnotationsValidator />
+        <div class="dialog-body"><ValidationSummary />
+            @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error</div> }
+            <fieldset disabled="@_busy"><legend>Contact details</legend><div class="form-grid">
+                <label class="field field--wide">Display name<TextFieldInput @bind-Value="Model.DisplayName" placeholder="Jane Doe" required maxlength="128" /><ValidationMessage For="() => Model.DisplayName" /></label>
+                <label class="field">Office number<TextFieldInput @bind-Value="Model.OfficeNumber" type="tel" maxlength="64" /></label><label class="field">Mobile number<TextFieldInput @bind-Value="Model.MobileNumber" type="tel" maxlength="64" /></label>
+                <label class="field field--wide">Other number<TextFieldInput @bind-Value="Model.OtherNumber" type="tel" maxlength="64" /></label>
+            </div></fieldset>
+            <fieldset disabled="@_busy"><legend>Organization & ringtone</legend><div class="form-grid"><label class="field">Group<TextFieldInput @bind-Value="Model.Group" placeholder="Staff" maxlength="64" /></label><label class="field">Ring<TextFieldInput @bind-Value="Model.Ring" placeholder="Auto" maxlength="16" /><small>Use Auto for the handset's default ringtone.</small></label></div></fieldset>
         </div>
-    </TitleContent>
-    <DialogContent>
-        <MudForm @ref="_form">
-
-            <MudText Typo="Typo.overline" Class="fp-dlg-section">Identity</MudText>
-            <MudTextField @bind-Value="Model.DisplayName" Label="Display name" Required="true"
-                          Placeholder="Jane Doe" Variant="Variant.Outlined"
-                          Margin="Margin.Dense" Class="mb-3"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Badge" />
-
-            <MudText Typo="Typo.overline" Class="fp-dlg-section">Phone numbers</MudText>
-            <MudGrid Spacing="2" Class="mb-2">
-                <MudItem xs="12" sm="6">
-                    <MudTextField @bind-Value="Model.OfficeNumber" Label="Office"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Adornment="Adornment.Start"
-                                  AdornmentIcon="@Icons.Material.Filled.Business" />
-                </MudItem>
-                <MudItem xs="12" sm="6">
-                    <MudTextField @bind-Value="Model.MobileNumber" Label="Mobile"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Adornment="Adornment.Start"
-                                  AdornmentIcon="@Icons.Material.Filled.PhoneIphone" />
-                </MudItem>
-                <MudItem xs="12">
-                    <MudTextField @bind-Value="Model.OtherNumber" Label="Other"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Adornment="Adornment.Start"
-                                  AdornmentIcon="@Icons.Material.Filled.Phone" />
-                </MudItem>
-            </MudGrid>
-
-            <MudText Typo="Typo.overline" Class="fp-dlg-section">Categorisation</MudText>
-            <MudGrid Spacing="2">
-                <MudItem xs="12" sm="6">
-                    <MudTextField @bind-Value="Model.Group" Label="Group"
-                                  Placeholder="e.g. Staff" Variant="Variant.Outlined"
-                                  Margin="Margin.Dense"
-                                  Adornment="Adornment.Start"
-                                  AdornmentIcon="@Icons.Material.Filled.Folder" />
-                </MudItem>
-                <MudItem xs="12" sm="6">
-                    <MudTextField @bind-Value="Model.Ring" Label="Ring"
-                                  Placeholder="Auto" Variant="Variant.Outlined"
-                                  Margin="Margin.Dense"
-                                  Adornment="Adornment.Start"
-                                  AdornmentIcon="@Icons.Material.Filled.MusicNote" />
-                </MudItem>
-            </MudGrid>
-        </MudForm>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancel</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled"
-                   StartIcon="@Icons.Material.Filled.Save" OnClick="Ok">
-            Save
-        </MudButton>
-    </DialogActions>
-</MudDialog>
-
+        <footer class="dialog-footer"><button type="button" class="button" disabled="@_busy" @onclick="OnCancel">Cancel</button><button type="submit" class="button button--primary" disabled="@_busy"><RadzenIcon Icon="save" aria-hidden="true" />@(_busy ? "Saving…" : "Save contact")</button></footer>
+    </EditForm>
+</AppDialog>
 @code {
-    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
-    [Parameter] public Contact Model { get; set; } = new();
-    private MudForm? _form;
-
-    private async Task Ok()
-    {
-        if (_form is not null)
-        {
-            await _form.ValidateAsync();
-            if (!_form.IsValid) return;
-        }
-        MudDialog.Close(DialogResult.Ok(Model));
-    }
-    private void Cancel() => MudDialog.Cancel();
+    [Parameter, EditorRequired] public Contact Model { get; set; } = new();
+    [Parameter] public EventCallback OnSaved { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    private bool _busy;
+    private string? _error;
+    private async Task SaveAsync() { if (_busy) return; _busy = true; _error = null; try { await Directory.SaveContactAsync(Model); Feedback.Notify($"Saved {Model.DisplayName}.", "success"); await OnSaved.InvokeAsync(); } catch { _error = "The contact could not be saved. Check the details and try again."; } finally { _busy = false; } }
 }

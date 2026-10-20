@@ -1,198 +1,41 @@
 @inherits LayoutComponentBase
-@inject IPhoneDirectory Directory
 @implements IDisposable
+@inject NavigationManager Navigation
+@inject UiFeedback Feedback
 
-<MudThemeProvider Theme="_theme" IsDarkMode="false" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
-
-<MudLayout>
-    <MudAppBar Elevation="0" Class="fp-appbar" Dense="true">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-            <span class="fp-brand-mark">
-                <img src="mnsstar.png" alt="Multinet-Systems" />
-            </span>
-            <MudStack Spacing="0">
-                <span class="fp-brand-title">Multinet-Systems Fanvil Phones</span>
-                <span class="fp-brand-sub">Fanvil phone manager</span>
-            </MudStack>
-        </MudStack>
-        <MudSpacer />
-        <MudChip T="string" Icon="@Icons.Material.Filled.Phone" Color="Color.Primary"
-                 Variant="Variant.Outlined" Size="Size.Small">
-            @_phoneCount phone@(_phoneCount == 1 ? "" : "s")
-        </MudChip>
-        <MudChip T="string" Icon="@Icons.Material.Filled.Contacts" Color="Color.Secondary"
-                 Variant="Variant.Outlined" Size="Size.Small" Class="ml-2">
-            @_contactCount contact@(_contactCount == 1 ? "" : "s")
-        </MudChip>
-
-        <AuthorizeView Context="auth">
-            <Authorized>
-                <MudMenu Class="ml-3" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
-                         ActivationEvent="MouseEvent.LeftClick">
-                    <ActivatorContent>
-                        <MudButton Variant="Variant.Text" Class="fp-user-chip-btn"
-                                   EndIcon="@Icons.Material.Filled.ArrowDropDown">
-                            <span class="fp-user-avatar mr-2">@(auth.User.Identity?.Name?.Substring(0,1).ToUpper())</span>
-                            <span style="font-weight: 500;">@auth.User.Identity?.Name</span>
-                        </MudButton>
-                    </ActivatorContent>
-                    <ChildContent>
-                        <MudMenuItem Href="/account/change-password" Icon="@Icons.Material.Filled.Password">
-                            Account information
-                        </MudMenuItem>
-                        <AuthorizeView Policy="@PhonePolicies.Administrator" Context="adminCtx">
-                            <MudMenuItem Href="/users" Icon="@Icons.Material.Filled.People">
-                                Account administration
-                            </MudMenuItem>
-                        </AuthorizeView>
-                        <MudDivider />
-                        <form method="post" action="/auth/logout" style="margin: 0;">
-                            <AntiforgeryToken />
-                            <button type="submit"
-                                    style="all: unset; display: flex; align-items: center; gap: 12px;
-                                           padding: 6px 16px; width: 100%; cursor: pointer; box-sizing: border-box;">
-                                <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" />
-                                <span>Sign out</span>
-                            </button>
-                        </form>
-                    </ChildContent>
-                </MudMenu>
-                <form method="post" action="/auth/logout" style="margin: 0;" class="ml-2">
-                    <AntiforgeryToken />
-                    <MudTooltip Text="Sign out">
-                        <button type="submit" class="fp-logout-btn" aria-label="Sign out">
-                            <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" />
-                        </button>
-                    </MudTooltip>
-                </form>
-            </Authorized>
-        </AuthorizeView>
-    </MudAppBar>
-    <MudDrawer Open="true" Variant="DrawerVariant.Mini" OpenMiniOnHover="true" Elevation="0"
-               Class="fp-drawer">
-        <NavMenu />
-    </MudDrawer>
-    <MudMainContent>
-        <div class="fp-page-bg">
-            <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
-                @Body
-            </MudContainer>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<div class="workspace @(_collapsed ? "workspace--compact" : "") @(_mobileOpen ? "workspace--mobile-open" : "")" @onkeydown="HandleKey">
+    <header class="workspace-header">
+        <div class="brand">
+            <button type="button" class="icon-button desktop-only" disabled="@(!RendererInfo.IsInteractive)" aria-label="Toggle navigation" aria-expanded="@(!_collapsed)" @onclick="() => _collapsed = !_collapsed"><RadzenIcon Icon="menu_open" aria-hidden="true" /></button>
+            <button type="button" class="icon-button mobile-only" disabled="@(!RendererInfo.IsInteractive)" aria-label="Toggle navigation" aria-expanded="@_mobileOpen" @onclick="() => _mobileOpen = !_mobileOpen"><RadzenIcon Icon="menu" aria-hidden="true" /></button>
+            <a href="/" class="brand-link"><span class="brand-symbol"><RadzenIcon Icon="settings_phone" aria-hidden="true" /></span><span class="brand-copy"><strong>Fanvil Phones</strong><small>Multinet Systems</small></span></a>
         </div>
-    </MudMainContent>
-</MudLayout>
-
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+        <div class="workspace-location"><span>Voice workspace</span><strong>@_location</strong></div>
+        <AuthorizeView Context="auth"><Authorized>
+            <div class="account-area">
+                <a class="account-link" href="/account/change-password"><span class="account-avatar">@(auth.User.Identity?.Name?.FirstOrDefault().ToString().ToUpperInvariant() ?? "U")</span><span class="account-copy"><strong>@auth.User.Identity?.Name</strong><small>@(auth.User.IsInRole("BI-ADMIN") || auth.User.IsInRole("IT_ADMIN") ? "Administrator" : "Viewer")</small></span></a>
+                <form method="post" action="/auth/logout"><AntiforgeryToken /><button type="submit" class="button button--quiet" title="Sign out"><RadzenIcon Icon="logout" aria-hidden="true" /><span>Sign out</span></button></form>
+            </div>
+        </Authorized></AuthorizeView>
+    </header>
+    @if (_mobileOpen) { <button class="nav-backdrop" aria-label="Close navigation" @onclick="() => _mobileOpen = false"></button> }
+    <aside class="workspace-sidebar" aria-label="Workspace navigation"><NavMenu OnNavigate="CloseMobile" /></aside>
+    <main id="main-content" class="workspace-main" tabindex="-1"><div class="page-container">@Body</div><footer class="workspace-footer"><span>Multinet Systems · Voice operations</span><span>Fanvil phone management</span></footer></main>
 </div>
+<FeedbackHost />
+<div id="blazor-error-ui" data-nosnippet>Connection interrupted. <a href="." class="reload">Reload workspace</a><button type="button" class="dismiss" aria-label="Dismiss error">×</button></div>
 
 @code {
-    private int _phoneCount;
-    private int _contactCount;
-    private Timer? _refreshTimer;
-
-    private readonly MudTheme _theme = new()
-    {
-        PaletteLight = new PaletteLight
-        {
-            Primary = "#E2231A",
-            PrimaryDarken = "#B01810",
-            PrimaryLighten = "#FDECEB",
-            Secondary = "#2B2B2B",
-            SecondaryDarken = "#1A1A1A",
-            Tertiary = "#F59E0B",
-            Success = "#16A34A",
-            Warning = "#F59E0B",
-            Error = "#DC2626",
-            Info = "#2B2B2B",
-            Background = "#F7F8FB",
-            Surface = "#FFFFFF",
-            AppbarBackground = "#FFFFFF",
-            AppbarText = "#111827",
-            DrawerBackground = "#FFFFFF",
-            DrawerText = "#111827",
-            DrawerIcon = "#E2231A",
-            TextPrimary = "#111827",
-            TextSecondary = "#6B7280",
-            ActionDefault = "#6B7280",
-            Divider = "#E5E7EB",
-            LinesDefault = "#E5E7EB",
-            TableLines = "#E5E7EB",
-            TableHover = "rgba(226, 35, 26, 0.06)"
-        },
-        Typography = new Typography
-        {
-            Default = new DefaultTypography
-            {
-                FontFamily = new[] { "Inter", "Roboto", "Helvetica Neue", "Helvetica", "Arial", "sans-serif" },
-                FontSize = "0.9rem",
-                FontWeight = "400",
-                LetterSpacing = "0.005em",
-                LineHeight = "1.5"
-            },
-            H4 = new H4Typography
-            {
-                FontFamily = new[] { "Inter", "Roboto", "sans-serif" },
-                FontWeight = "700",
-                FontSize = "1.6rem",
-                LetterSpacing = "-0.015em",
-                LineHeight = "1.25"
-            },
-            H5 = new H5Typography
-            {
-                FontFamily = new[] { "Inter", "Roboto", "sans-serif" },
-                FontWeight = "600",
-                FontSize = "1.25rem",
-                LetterSpacing = "-0.01em"
-            },
-            H6 = new H6Typography
-            {
-                FontFamily = new[] { "Inter", "Roboto", "sans-serif" },
-                FontWeight = "600",
-                FontSize = "1.05rem",
-                LetterSpacing = "-0.005em"
-            },
-            Button = new ButtonTypography
-            {
-                FontFamily = new[] { "Inter", "Roboto", "sans-serif" },
-                FontWeight = "500",
-                TextTransform = "none",
-                LetterSpacing = "0.01em"
-            }
-        },
-        LayoutProperties = new LayoutProperties
-        {
-            DefaultBorderRadius = "12px",
-            DrawerWidthLeft = "240px",
-            DrawerMiniWidthLeft = "64px",
-            AppbarHeight = "64px"
-        }
-    };
-
-    protected override async Task OnInitializedAsync()
-    {
-        await RefreshCountsAsync();
-        _refreshTimer = new System.Threading.Timer(async _ =>
-        {
-            try { await RefreshCountsAsync(); await InvokeAsync(StateHasChanged); }
-            catch { }
-        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
-    }
-
-    private async Task RefreshCountsAsync()
-    {
-        try
-        {
-            var summary = await Directory.GetSummaryAsync();
-            _phoneCount = summary.PhoneCount;
-            _contactCount = summary.ContactCount;
-        }
-        catch { }
-    }
-
-    public void Dispose() => _refreshTimer?.Dispose();
+    private bool _collapsed;
+    private bool _mobileOpen;
+    private string _location = "Overview";
+    protected override void OnInitialized() { UpdateLocation(); Navigation.LocationChanged += LocationChanged; }
+    private void UpdateLocation() => _location = new Uri(Navigation.Uri).AbsolutePath.Trim('/').ToLowerInvariant() switch
+    { "phones" => "Phone fleet", "contacts" => "Phonebook", "sync" => "Synchronization", "logs" => "Activity log", "users" => "Account administration", "account/change-password" => "My account", _ => "Overview" };
+    private void CloseMobile() => _mobileOpen = false;
+    private void HandleKey(KeyboardEventArgs args) { if (args.Key == "Escape") _mobileOpen = false; }
+    private void LocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)
+    { UpdateLocation(); _mobileOpen = false; Feedback.Resolve(DialogChoice.Cancel); _ = InvokeAsync(StateHasChanged); }
+    public void Dispose() => Navigation.LocationChanged -= LocationChanged;
 }

@@ -1,0 +1,58 @@
+@implements IDisposable
+@inject DialogService Dialogs
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    private bool _wasOpen;
+    private bool _closing;
+    private bool _disposed;
+    private readonly DialogOptions _options = new()
+    {
+        Width = "760px", CssClass = "phone-dialog", ShowClose = true,
+        CloseDialogOnOverlayClick = false, CloseDialogOnEsc = true,
+        AutoFocusFirstElement = true, Resizable = false, Draggable = false
+    };
+
+    protected override void OnInitialized() => Dialogs.OnClose += HandleClosed;
+
+    // Radzen raises this synchronously. Mark this instance closed before another
+    // dialog can open, so a delayed parameter render cannot close that new dialog.
+    private void HandleClosed(dynamic result)
+    {
+        if (_wasOpen) { _wasOpen = false; _closing = true; }
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        _options.ShowClose = !Busy;
+        _options.CloseDialogOnEsc = !Busy;
+        if (!Open) _closing = false;
+        if (Open && !_wasOpen && !_closing) { _wasOpen = true; _ = ShowAsync(); }
+        else if (!Open && _wasOpen) { _wasOpen = false; Dialogs.Close(); }
+        else if (Open) Dialogs.Refresh();
+        return Task.CompletedTask;
+    }
+
+    private async Task ShowAsync()
+    {
+        await Dialogs.OpenAsync(Title, _ => @<div class="dialog-content @Class">
+            @if (!string.IsNullOrWhiteSpace(Description)) { <p class="dialog-description">@Description</p> }
+            @ChildContent
+        </div>, _options);
+        _wasOpen = false;
+        if (!_disposed && Open) await OnClose.InvokeAsync();
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Dialogs.OnClose -= HandleClosed;
+        if (_wasOpen) { _wasOpen = false; Dialogs.Close(); }
+    }
+}

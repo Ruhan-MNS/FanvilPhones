@@ -1,0 +1,10 @@
+<header class="page-heading">
+    <div><div class="eyebrow">@Eyebrow</div><h1>@Title</h1><p>@Description</p></div>
+    @if (ChildContent is not null) { <div class="actions">@ChildContent</div> }
+</header>
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string Eyebrow { get; set; } = "Voice workspace";
+    [Parameter] public string Description { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

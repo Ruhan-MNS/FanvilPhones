@@ -1,142 +1,44 @@
-@* Reusable dialog for adding/editing a Phone. *@
-
-<MudDialog Class="fp-phone-dialog">
-    <TitleContent>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <span class="fp-section-icon" style="background: rgba(226, 35, 26, 0.10); color: #E2231A;">
-                <MudIcon Icon="@Icons.Material.Filled.Smartphone" />
-            </span>
-            <div style="display: flex; flex-direction: column;">
-                <MudText Typo="Typo.h6" Style="line-height: 1.2;">
-                    @(Model.Id == 0 ? "Add phone" : "Edit phone")
-                </MudText>
-                <MudText Typo="Typo.caption" Style="color: #6B7280;">
-                    Configure how FancilPhones reaches this handset.
-                </MudText>
-            </div>
+@inject IPhoneDirectory Directory
+@inject UiFeedback Feedback
+<AppDialog Open="true" Title="@(Model.Id == 0 ? "Add phone" : "Edit phone")" Description="Configure how this workspace connects to the handset." Busy="@_busy" OnClose="OnCancel">
+    <EditForm Model="Model" OnValidSubmit="SaveAsync" FormName="phone-editor">
+        <DataAnnotationsValidator />
+        <div class="dialog-body"><ValidationSummary />
+            @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error</div> }
+            <fieldset disabled="@_busy"><legend>Handset & network</legend><div class="form-grid">
+                <label class="field field--wide">Phone name<TextFieldInput @bind-Value="Model.Name" placeholder="Reception" required maxlength="100" /><ValidationMessage For="() => Model.Name" /></label>
+                <label class="field">IP address<TextFieldInput @bind-Value="Model.IpAddress" placeholder="192.168.55.101" required maxlength="64" /><ValidationMessage For="() => Model.IpAddress" /></label>
+                <label class="field">Connection<InputSelect @bind-Value="Model.Scheme"><option value="http">HTTP</option><option value="https">HTTPS</option></InputSelect></label>
+                <label class="check-row field--wide"><InputCheckbox @bind-Value="Model.Enabled" /><span><strong>Include in fleet sync</strong><small>Enabled handsets receive the shared phonebook.</small></span></label>
+            </div></fieldset>
+            <fieldset disabled="@_busy"><legend>Handset access</legend><div class="form-grid">
+                <label class="field">Username<TextFieldInput @bind-Value="Model.Username" autocomplete="off" maxlength="64" /></label>
+                <div class="field"><label for="handset-password">Password</label><div class="password-field"><TextFieldInput id="handset-password" @bind-Value="Model.Password" type="@(_showPassword ? "text" : "password")" autocomplete="new-password" maxlength="128" /><button type="button" class="icon-button" aria-label="@(_showPassword ? "Hide handset password" : "Show handset password")" aria-pressed="@_showPassword" @onclick="() => _showPassword = !_showPassword"><RadzenIcon Icon="@(_showPassword ? "visibility_off" : "visibility")" aria-hidden="true" /></button></div></div>
+                <label class="field">Upload path<TextFieldInput @bind-Value="Model.UploadPath" maxlength="256" /><small>Usually /pBookAdv.htm</small></label><label class="field">Upload field name<TextFieldInput @bind-Value="Model.UploadFieldName" maxlength="64" /><small>Usually PHONEBOOK</small></label>
+            </div></fieldset>
+            <fieldset disabled="@_busy"><legend>SIP identity <span class="muted">Optional</span></legend><p class="field-hint">Save these values here, then use “Push SIP settings” to apply them to the phone.</p><div class="form-grid">
+                <label class="field">Display name<TextFieldInput @bind-Value="Model.SipDisplayName" placeholder="Reception" maxlength="64" /></label><label class="field">Line number<InputNumber @bind-Value="Model.SipLineIndex" min="1" max="16" /></label>
+                <label class="field field--wide">Extension / phone number<TextFieldInput @bind-Value="Model.SipExtension" placeholder="144" maxlength="32" /><small>Used for both Username and Authentication User on the handset.</small></label>
+                <label class="check-row field--wide"><InputCheckbox @bind-Value="Model.SipRegistrationEnabled" /><span><strong>Enable SIP registration</strong><small>Activate the line when these settings are pushed.</small></span></label>
+            </div></fieldset>
         </div>
-    </TitleContent>
-    <DialogContent>
-        <MudForm @ref="_form">
-
-            <MudText Typo="Typo.overline" Class="fp-dlg-section">Identity</MudText>
-            <MudTextField @bind-Value="Model.Name" Label="Name" Required="true"
-                          Placeholder="Reception" Variant="Variant.Outlined"
-                          Margin="Margin.Dense" Class="mb-3" />
-
-            <MudText Typo="Typo.overline" Class="fp-dlg-section">Network</MudText>
-            <MudGrid Spacing="2" Class="mb-2">
-                <MudItem xs="4">
-                    <MudSelect T="string" @bind-Value="Model.Scheme" Label="Scheme"
-                               Variant="Variant.Outlined" Margin="Margin.Dense">
-                        <MudSelectItem Value="@("http")">http</MudSelectItem>
-                        <MudSelectItem Value="@("https")">https</MudSelectItem>
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="8">
-                    <MudTextField @bind-Value="Model.IpAddress" Label="IP address" Required="true"
-                                  Placeholder="192.168.55.101" Variant="Variant.Outlined"
-                                  Margin="Margin.Dense"
-                                  Adornment="Adornment.Start"
-                                  AdornmentIcon="@Icons.Material.Filled.Lan" />
-                </MudItem>
-            </MudGrid>
-
-            <MudText Typo="Typo.overline" Class="fp-dlg-section">Credentials</MudText>
-            <MudGrid Spacing="2" Class="mb-2">
-                <MudItem xs="6">
-                    <MudTextField @bind-Value="Model.Username" Label="Username"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Adornment="Adornment.Start"
-                                  AdornmentIcon="@Icons.Material.Filled.Person" />
-                </MudItem>
-                <MudItem xs="6">
-                    <MudTextField @bind-Value="Model.Password" Label="Password"
-                                  InputType="@(_showPassword ? InputType.Text : InputType.Password)"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Adornment="Adornment.End"
-                                  AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
-                                  OnAdornmentClick="@(() => _showPassword = !_showPassword)" />
-                </MudItem>
-            </MudGrid>
-
-            <MudText Typo="Typo.overline" Class="fp-dlg-section">Upload endpoint</MudText>
-            <MudTextField @bind-Value="Model.UploadPath" Label="Upload path"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
-                          HelperText="Path the phone's web UI posts to when uploading contacts (capture via DevTools)." />
-            <MudTextField @bind-Value="Model.UploadFieldName" Label="Upload field name"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
-                          HelperText="Multipart form field name for the file (usually 'PHONEBOOK')." />
-
-            <MudText Typo="Typo.overline" Class="fp-dlg-section">SIP line (optional push)</MudText>
-            <MudGrid Spacing="2" Class="mb-2">
-                <MudItem xs="8">
-                    <MudTextField @bind-Value="Model.SipDisplayName" Label="SIP display name"
-                                  Placeholder="e.g. Ruhan Slater" Variant="Variant.Outlined"
-                                  Margin="Margin.Dense"
-                                  HelperText="Pushed to the phone's Display Name field." />
-                </MudItem>
-                <MudItem xs="4">
-                    <MudNumericField T="int" @bind-Value="Model.SipLineIndex" Label="Line"
-                                     Min="1" Max="16" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                     HelperText="Line 1 only." />
-                </MudItem>
-            </MudGrid>
-            <MudGrid Spacing="2" Class="mb-3">
-                <MudItem xs="12">
-                    <MudTextField @bind-Value="Model.SipExtension" Label="SIP extension / phone number"
-                                  Placeholder="e.g. 144" Variant="Variant.Outlined"
-                                  Margin="Margin.Dense"
-                                  HelperText="Pushed to both Username and Authentication User. Leave blank with display name to push only the name." />
-                </MudItem>
-                <MudItem xs="12">
-                    <div class="fp-dlg-toggle">
-                        <div>
-                            <MudText Typo="Typo.body2"><strong>Registration enabled</strong></MudText>
-                            <MudText Typo="Typo.caption" Style="color: #6B7280;">
-                                Push the "Activate" checkbox on the phone's line settings as on.
-                            </MudText>
-                        </div>
-                        <MudSwitch T="bool" @bind-Value="Model.SipRegistrationEnabled" Color="Color.Success" />
-                    </div>
-                </MudItem>
-            </MudGrid>
-
-            <div class="fp-dlg-toggle">
-                <div>
-                    <MudText Typo="Typo.body2"><strong>Enabled</strong></MudText>
-                    <MudText Typo="Typo.caption" Style="color: #6B7280;">
-                        Include this phone in "Sync All".
-                    </MudText>
-                </div>
-                <MudSwitch T="bool" @bind-Value="Model.Enabled" Color="Color.Primary" />
-            </div>
-        </MudForm>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancel</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled"
-                   StartIcon="@Icons.Material.Filled.Save" OnClick="Ok">
-            Save
-        </MudButton>
-    </DialogActions>
-</MudDialog>
-
+        <footer class="dialog-footer"><button type="button" class="button" disabled="@_busy" @onclick="OnCancel">Cancel</button><button type="submit" class="button button--primary" disabled="@_busy"><RadzenIcon Icon="save" aria-hidden="true" />@(_busy ? "Saving…" : "Save phone")</button></footer>
+    </EditForm>
+</AppDialog>
 @code {
-    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
-    [Parameter] public Phone Model { get; set; } = new();
-    private MudForm? _form;
-    private bool _showPassword;
-
-    private async Task Ok()
+    [Parameter, EditorRequired] public Phone Model { get; set; } = new();
+    [Parameter] public EventCallback OnSaved { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    private bool _busy, _showPassword;
+    private string? _error;
+    private async Task SaveAsync()
     {
-        if (_form is not null)
-        {
-            await _form.ValidateAsync();
-            if (!_form.IsValid) return;
-        }
-        MudDialog.Close(DialogResult.Ok(Model));
+        if (_busy) return;
+        if (Model.SipLineIndex is < 1 or > 16) { _error = "Choose a SIP line between 1 and 16."; return; }
+        _busy = true; _error = null;
+        try { await Directory.SavePhoneAsync(Model); Feedback.Notify($"Saved {Model.Name}.", "success"); await OnSaved.InvokeAsync(); }
+        catch (DuplicatePhoneException ex) { _error = ex.Message; }
+        catch { _error = "The phone could not be saved. Check its details and try again."; }
+        finally { _busy = false; }
     }
-
-    private void Cancel() => MudDialog.Cancel();
 }

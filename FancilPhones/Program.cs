@@ -9,7 +9,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using MudBlazor.Services;
+using FancilPhones.UI;
+using Radzen;
 using System.Threading.RateLimiting;
 
 var migrateOnly = args.Contains("--migrate-database", StringComparer.OrdinalIgnoreCase);
@@ -20,7 +21,8 @@ var hostArgs = args.Where((arg, index) => !string.Equals(arg, "--migrate-databas
     && index != importIndex && (importIndex < 0 || index != importIndex + 1)).ToArray();
 var builder = WebApplication.CreateBuilder(hostArgs);
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
-builder.Services.AddMudServices();
+builder.Services.AddScoped<UiFeedback>();
+builder.Services.AddRadzenComponents();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
@@ -105,7 +107,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();

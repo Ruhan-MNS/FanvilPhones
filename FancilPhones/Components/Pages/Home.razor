@@ -1,248 +1,74 @@
 @page "/"
 @attribute [Authorize]
 @inject IPhoneDirectory Directory
-@inject NavigationManager Nav
 
-<PageTitle>FancilPhones</PageTitle>
-
-<div class="fp-hero mb-6">
-    <h1>Welcome back</h1>
-    <p>Manage and sync phonebook contacts across every Fanvil IP phone on your network, one master list, pushed to the entire fleet in seconds.</p>
-    <MudStack Row="true" Spacing="2">
-        <MudButton Variant="Variant.Filled" Color="Color.Surface" Class="fp-hero-btn-primary"
-                   StartIcon="@Icons.Material.Filled.CloudSync"
-                   OnClick="@(() => Nav.NavigateTo("sync"))">
-            Sync now
-        </MudButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Inherit"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="@(() => Nav.NavigateTo("phones"))">
-            Add phone
-        </MudButton>
-    </MudStack>
+<PageTitle>Overview · Fanvil Phones</PageTitle>
+<PageHeader Title="Phone operations" Description="A clear view of your handsets, shared phonebook, and latest deliveries.">
+    <button class="button" @onclick="LoadAsync" disabled="@(!RendererInfo.IsInteractive || (_loading))"><RadzenIcon Icon="refresh" aria-hidden="true" />Refresh overview</button>
+    <a class="button button--primary" href="/phones"><RadzenIcon Icon="phone_in_talk" aria-hidden="true" />Open phone fleet</a>
+</PageHeader>
+@if (_error is not null) { <div class="alert alert--danger" role="alert">@_error <button class="text-button" @onclick="LoadAsync">Try again</button></div> }
+<section class="section-block" aria-labelledby="glance-title">
+    <div class="section-heading"><div><h2 id="glance-title">At a glance</h2><p>Current fleet and phonebook status</p></div><span class="muted small">@(_loading ? "Loading fleet…" : $"Updated {_updatedAt:HH:mm}")</span></div>
+    <div class="metric-strip">
+        <a class="metric" href="/phones"><RadzenIcon Icon="devices" aria-hidden="true" /><strong>@Value(_phones.Count)</strong><span>Configured phones</span></a>
+        <a class="metric" href="/phones"><RadzenIcon Icon="power_settings_new" aria-hidden="true" /><strong>@Value(_phones.Count(p => p.Enabled))</strong><span>Enabled for sync</span></a>
+        <a class="metric" href="/contacts"><RadzenIcon Icon="contacts" aria-hidden="true" /><strong>@Value(_contactCount)</strong><span>Shared contacts</span></a>
+        <a class="metric metric--warning" href="/phones"><RadzenIcon Icon="error_outline" aria-hidden="true" /><strong>@Value(Attention.Count)</strong><span>Need attention</span></a>
+    </div>
+</section>
+<div class="overview-grid">
+    <section class="panel" aria-labelledby="delivery-title">
+        <div class="panel-heading"><div><h2 id="delivery-title">Phonebook delivery</h2><p>Latest recorded result for each handset</p></div><span class="badge">Fleet status</span></div>
+        <div class="panel-body">
+            <div class="coverage-heading"><span class="large-number">@Value(SuccessCount)<small>/ @_phones.Count</small></span><span class="muted">phones last synced<br /><strong class="text-success">successfully</strong></span></div>
+            <div class="coverage-bar" role="img" aria-label="@($"{SuccessCount} successful, {Attention.Count} need attention, {PendingCount} never synced, {DisabledCount} disabled")">
+                @if (_phones.Count > 0) {
+                    <span class="coverage--success" style="flex:@SuccessCount"></span><span class="coverage--danger" style="flex:@Attention.Count"></span><span class="coverage--pending" style="flex:@PendingCount"></span><span class="coverage--disabled" style="flex:@DisabledCount"></span>
+                }
+            </div>
+            <div class="legend"><span><i class="swatch swatch--success"></i>Successful <strong>@SuccessCount</strong></span><span><i class="swatch swatch--danger"></i>Attention <strong>@Attention.Count</strong></span><span><i class="swatch swatch--pending"></i>Never synced <strong>@PendingCount</strong></span><span><i class="swatch swatch--disabled"></i>Disabled <strong>@DisabledCount</strong></span></div>
+        </div>
+        <div class="panel-footer"><span>Last activity <strong>@UiFormat.Date(_lastActivity)</strong></span><a href="/sync" class="text-link">Synchronization <RadzenIcon Icon="arrow_forward" aria-hidden="true" /></a></div>
+    </section>
+    <section class="panel workflow-panel" aria-labelledby="workflow-title"><div class="panel-heading"><div><h2 id="workflow-title">Keep every phone in step</h2><p>Your phonebook workflow</p></div><RadzenIcon Icon="route" aria-hidden="true" /></div>
+        <ol class="workflow"><li><span>01</span><div><a href="/contacts">Maintain the phonebook</a><p>Add contacts or import your master CSV.</p></div></li><li><span>02</span><div><a href="/phones">Review your fleet</a><p>Check enabled handsets and connection details.</p></div></li><li><span>03</span><div><a href="/sync">Sync and verify</a><p>Deliver the directory, then review the results.</p></div></li></ol>
+    </section>
 </div>
-
-<MudGrid>
-    <MudItem xs="12" md="4" Class="d-flex">
-        <MudCard Elevation="0" Class="fp-card-surface pa-2 fp-card-equal">
-            <MudCardContent>
-                <div class="fp-section-header">
-                    <span class="fp-section-icon" style="background: rgba(226, 35, 26, 0.10); color: #E2231A;">
-                        <MudIcon Icon="@Icons.Material.Filled.Smartphone" />
-                    </span>
-                    <MudText Typo="Typo.h6">Phones</MudText>
-                </div>
-                <MudText>Add the IP, credentials and upload endpoint for each handset.</MudText>
-                <div class="fp-stat">@_phoneCount phone@(_phoneCount == 1 ? "" : "s") configured</div>
-            </MudCardContent>
-            <MudCardActions>
-                <MudButton Href="phones" Variant="Variant.Filled" Color="Color.Primary">Open</MudButton>
-            </MudCardActions>
-        </MudCard>
-    </MudItem>
-    <MudItem xs="12" md="4" Class="d-flex">
-        <MudCard Elevation="0" Class="fp-card-surface pa-2 fp-card-equal">
-            <MudCardContent>
-                <div class="fp-section-header">
-                    <span class="fp-section-icon" style="background: rgba(43, 43, 43, 0.10); color: #2B2B2B;">
-                        <MudIcon Icon="@Icons.Material.Filled.ContactPhone" />
-                    </span>
-                    <MudText Typo="Typo.h6">Contacts</MudText>
-                </div>
-                <MudText>The single master phonebook pushed to every phone.</MudText>
-                <div class="fp-stat">@_contactCount contact@(_contactCount == 1 ? "" : "s") in the list</div>
-            </MudCardContent>
-            <MudCardActions>
-                <MudButton Href="contacts" Variant="Variant.Filled" Color="Color.Secondary">Open</MudButton>
-            </MudCardActions>
-        </MudCard>
-    </MudItem>
-    <MudItem xs="12" md="4" Class="d-flex">
-        <MudCard Elevation="0" Class="fp-card-surface pa-2 fp-card-equal">
-            <MudCardContent>
-                <div class="fp-section-header">
-                    <span class="fp-section-icon" style="background: rgba(245, 158, 11, 0.14); color: #B45309;">
-                        <MudIcon Icon="@Icons.Material.Filled.CloudSync" />
-                    </span>
-                    <MudText Typo="Typo.h6">Sync</MudText>
-                </div>
-                <MudText>Push the master list to all enabled phones at once.</MudText>
-                <div class="fp-stat">Last sync: @_lastSyncDisplay</div>
-            </MudCardContent>
-            <MudCardActions>
-                <MudButton Href="sync" Variant="Variant.Filled" Color="Color.Tertiary">Open</MudButton>
-            </MudCardActions>
-        </MudCard>
-    </MudItem>
-    <MudItem xs="12" md="12" Class="d-flex">
-        <MudCard Elevation="0" Class="fp-card-surface pa-2 fp-card-equal" Style="width: 100%;">
-            <MudCardContent>
-                <div class="fp-section-header">
-                    <span class="fp-section-icon" style="background: rgba(16, 185, 129, 0.12); color: #047857;">
-                        <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" />
-                    </span>
-                    <MudText Typo="Typo.h6">Fleet health</MudText>
-                </div>
-
-                @{
-                    var total = _okCount + _failedCount + _neverCount + _disabledCount;
-                }
-                @if (total == 0)
-                {
-                    <MudText>No phones configured yet.</MudText>
-                }
-                else
-                {
-                    <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin: 12px 0 16px 0; background: #E5E7EB;">
-                        @if (_okCount > 0)
-                        {
-                            <div style="@($"width: {(_okCount * 100.0 / total):F2}%; background: #10B981;")" title="@($"{_okCount} OK")"></div>
-                        }
-                        @if (_failedCount > 0)
-                        {
-                            <div style="@($"width: {(_failedCount * 100.0 / total):F2}%; background: #EF4444;")" title="@($"{_failedCount} failed")"></div>
-                        }
-                        @if (_neverCount > 0)
-                        {
-                            <div style="@($"width: {(_neverCount * 100.0 / total):F2}%; background: #F59E0B;")" title="@($"{_neverCount} never synced")"></div>
-                        }
-                        @if (_disabledCount > 0)
-                        {
-                            <div style="@($"width: {(_disabledCount * 100.0 / total):F2}%; background: #9CA3AF;")" title="@($"{_disabledCount} disabled")"></div>
-                        }
-                    </div>
-
-                    <MudGrid Spacing="2">
-                        <MudItem xs="6" sm="3">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="width: 10px; height: 10px; border-radius: 50%; background: #10B981; display: inline-block;"></span>
-                                <MudText Typo="Typo.body2"><strong>@_okCount</strong> OK</MudText>
-                            </div>
-                        </MudItem>
-                        <MudItem xs="6" sm="3">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="width: 10px; height: 10px; border-radius: 50%; background: #EF4444; display: inline-block;"></span>
-                                <MudText Typo="Typo.body2"><strong>@_failedCount</strong> Failed</MudText>
-                            </div>
-                        </MudItem>
-                        <MudItem xs="6" sm="3">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="width: 10px; height: 10px; border-radius: 50%; background: #F59E0B; display: inline-block;"></span>
-                                <MudText Typo="Typo.body2"><strong>@_neverCount</strong> Never synced</MudText>
-                            </div>
-                        </MudItem>
-                        <MudItem xs="6" sm="3">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="width: 10px; height: 10px; border-radius: 50%; background: #9CA3AF; display: inline-block;"></span>
-                                <MudText Typo="Typo.body2"><strong>@_disabledCount</strong> Disabled</MudText>
-                            </div>
-                        </MudItem>
-                    </MudGrid>
-
-                    @if (_failedPhones.Count > 0)
-                    {
-                        <MudDivider Class="my-4" />
-                        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="color: #B91C1C;">
-                            <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Small" Class="mr-1" />
-                            Failed phones
-                        </MudText>
-                        <MudList T="object" Dense="true" Class="pa-0">
-                            @foreach (var p in _failedPhones)
-                            {
-                                <MudListItem T="object" Class="px-2" OnClick="@(() => Nav.NavigateTo("phones"))">
-                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;">
-                                        <div style="display: flex; flex-direction: column;">
-                                            <MudText Typo="Typo.body2"><strong>@p.Name</strong> <span style="color: #6B7280;">@p.IpAddress</span></MudText>
-                                            @if (!string.IsNullOrWhiteSpace(p.LastSyncMessage))
-                                            {
-                                                <MudText Typo="Typo.caption" Style="color: #B91C1C;">@p.LastSyncMessage</MudText>
-                                            }
-                                        </div>
-                                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined">@p.LastSyncStatus</MudChip>
-                                    </div>
-                                </MudListItem>
-                            }
-                        </MudList>
-                    }
-
-                    @if (_neverPhones.Count > 0)
-                    {
-                        <MudDivider Class="my-4" />
-                        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="color: #B45309;">
-                            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Size="Size.Small" Class="mr-1" />
-                            Never synced
-                        </MudText>
-                        <MudList T="object" Dense="true" Class="pa-0">
-                            @foreach (var p in _neverPhones)
-                            {
-                                <MudListItem T="object" Class="px-2" OnClick="@(() => Nav.NavigateTo("sync"))">
-                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;">
-                                        <div style="display: flex; flex-direction: column;">
-                                            <MudText Typo="Typo.body2"><strong>@p.Name</strong> <span style="color: #6B7280;">@p.IpAddress</span></MudText>
-                                            <MudText Typo="Typo.caption" Style="color: #6B7280;">Hasn't received a phonebook push yet.</MudText>
-                                        </div>
-                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Pending</MudChip>
-                                    </div>
-                                </MudListItem>
-                            }
-                        </MudList>
-                    }
-                }
-            </MudCardContent>
-            <MudCardActions>
-                <MudButton Href="sync" Variant="Variant.Filled" Color="Color.Tertiary"
-                           StartIcon="@Icons.Material.Filled.CloudSync">Open Sync</MudButton>
-            </MudCardActions>
-        </MudCard>
-    </MudItem>
-</MudGrid>
-
+<section class="section-block" aria-labelledby="attention-title">
+    <div class="section-heading"><div><h2 id="attention-title">Handsets to review <span class="count-label">@(Attention.Count + PendingCount)</span></h2><p>Failed deliveries and enabled phones waiting for their first sync</p></div><a class="text-link" href="/phones">View all phones <RadzenIcon Icon="arrow_forward" aria-hidden="true" /></a></div>
+    <div class="table-wrap"><table><thead><tr><th scope="col">Phone</th><th scope="col">Network address</th><th scope="col">Status</th><th scope="col">Last delivery</th><th scope="col">Details</th></tr></thead><tbody>
+    @if (_loading) { <tr><td colspan="5" class="empty-cell">Loading handset status…</td></tr> }
+    else if (!ReviewPhones.Any()) { <tr><td colspan="5" class="empty-cell"><RadzenIcon Icon="check_circle" aria-hidden="true" /><strong>No handsets need review</strong><span>Enabled phones have successful recorded deliveries, or your fleet is empty.</span></td></tr> }
+    @foreach (var phone in ReviewPhones.Take(5)) { <tr><td><a class="cell-title" href="/phones">@phone.Name</a><small>Extension @(phone.SipExtension ?? "not set")</small></td><td class="mono">@phone.IpAddress</td><td><StatusBadge Status="@(phone.LastSyncedAt is null ? "Pending" : phone.LastSyncStatus)" /></td><td class="nowrap">@UiFormat.Date(phone.LastSyncedAt)</td><td class="message-cell">@(phone.LastSyncMessage ?? "Ready for its first phonebook sync.")</td></tr> }
+    </tbody></table></div>
+</section>
+<section class="section-block" aria-labelledby="recent-title"><div class="section-heading"><div><h2 id="recent-title">Recent activity</h2><p>The latest actions across your fleet</p></div><a class="text-link" href="/logs">Activity log <RadzenIcon Icon="arrow_forward" aria-hidden="true" /></a></div>
+    <div class="table-wrap"><table><thead><tr><th scope="col">Phone</th><th scope="col">Action</th><th scope="col">Result</th><th scope="col">Started</th><th scope="col">Duration</th></tr></thead><tbody>
+        @if (_history.Count == 0) { <tr><td colspan="5" class="empty-cell">@(_loading ? "Loading activity…" : "No activity yet. Syncs, probes, and SIP changes will appear here.")</td></tr> }
+        @foreach (var run in _history) { <tr><td class="cell-title">@(run.Phone?.Name ?? "Deleted phone")</td><td>@run.Action</td><td><StatusBadge Status="@run.Status" /></td><td class="nowrap">@UiFormat.Date(run.StartedAt)</td><td>@UiFormat.Duration(run.StartedAt, run.FinishedAt)</td></tr> }
+    </tbody></table></div>
+</section>
 @code {
-    private int _phoneCount;
+    private List<Phone> _phones = [];
+    private List<SyncRun> _history = [];
     private int _contactCount;
-    private string _lastSyncDisplay = "never";
-    private int _okCount;
-    private int _failedCount;
-    private int _neverCount;
-    private int _disabledCount;
-    private List<Phone> _failedPhones = new();
-    private List<Phone> _neverPhones = new();
-
-    protected override async Task OnInitializedAsync()
+    private DateTime? _lastActivity;
+    private DateTime _updatedAt;
+    private bool _loading = true;
+    private string? _error;
+    private List<Phone> Attention => _phones.Where(p => p.Enabled && p.LastSyncedAt is not null && p.LastSyncStatus != "Success").ToList();
+    private int PendingCount => _phones.Count(p => p.Enabled && p.LastSyncedAt is null);
+    private int DisabledCount => _phones.Count(p => !p.Enabled);
+    private int SuccessCount => _phones.Count(p => p.Enabled && p.LastSyncedAt is not null && p.LastSyncStatus == "Success");
+    private IEnumerable<Phone> ReviewPhones => Attention.Concat(_phones.Where(p => p.Enabled && p.LastSyncedAt is null));
+    private string Value(int value) => _loading ? "—" : value.ToString();
+    protected override Task OnInitializedAsync() => LoadAsync();
+    private async Task LoadAsync()
     {
-        try
-        {
-            var summary = await Directory.GetSummaryAsync();
-            _phoneCount = summary.PhoneCount;
-            _contactCount = summary.ContactCount;
-
-            var phones = await Directory.GetPhonesAsync();
-            foreach (var p in phones)
-            {
-                if (!p.Enabled) _disabledCount++;
-                else if (p.LastSyncedAt == null)
-                {
-                    _neverCount++;
-                    _neverPhones.Add(p);
-                }
-                else if (p.LastSyncStatus == "Success") _okCount++;
-                else
-                {
-                    _failedCount++;
-                    _failedPhones.Add(p);
-                }
-            }
-
-            var last = summary.LastActivity;
-            if (last.HasValue)
-            {
-                var ago = DateTime.UtcNow - last.Value;
-                _lastSyncDisplay = ago.TotalMinutes < 1 ? "just now"
-                    : ago.TotalMinutes < 60 ? $"{(int)ago.TotalMinutes} min ago"
-                    : ago.TotalHours < 24 ? $"{(int)ago.TotalHours} hr ago"
-                    : last.Value.ToLocalTime().ToString("g");
-            }
-        }
-        catch { }
+        _loading = true; _error = null;
+        try { var summary = await Directory.GetSummaryAsync(); _contactCount = summary.ContactCount; _lastActivity = summary.LastActivity; _phones = await Directory.GetPhonesAsync(); _history = await Directory.GetHistoryAsync(5); _updatedAt = DateTime.Now; }
+        catch (Exception) { _error = "The fleet could not be loaded. Please try again."; }
+        finally { _loading = false; }
     }
 }

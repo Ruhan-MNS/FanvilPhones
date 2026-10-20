@@ -1,0 +1,36 @@
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<a href="@Href" class="nav-link @(IsActive ? "active" : "")" title="@Label" aria-current="@(IsActive ? "page" : null)"
+         @onclick="NavigateAsync" @onclick:preventDefault="RendererInfo.IsInteractive">
+    <span class="nav-icon"><RadzenIcon Icon="@Icon" aria-hidden="true" /></span>
+    <span class="nav-copy"><strong>@Label</strong><small>@Description</small></span>
+    <RadzenIcon Icon="chevron_right" Class="nav-arrow" aria-hidden="true" />
+</a>
+
+@code {
+    [Parameter] public string Href { get; set; } = "/";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Description { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public NavLinkMatch Match { get; set; } = NavLinkMatch.Prefix;
+    [Parameter] public EventCallback OnNavigate { get; set; }
+    private bool IsActive
+    {
+        get
+        {
+            var path = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Trim('/');
+            var target = Href.Trim('/');
+            return path.Equals(target, StringComparison.OrdinalIgnoreCase)
+                || (Match == NavLinkMatch.Prefix && path.StartsWith(target + "/", StringComparison.OrdinalIgnoreCase));
+        }
+    }
+    protected override void OnInitialized() => Navigation.LocationChanged += LocationChanged;
+    private void LocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args) => _ = InvokeAsync(StateHasChanged);
+    public void Dispose() => Navigation.LocationChanged -= LocationChanged;
+    private async Task NavigateAsync()
+    {
+        Navigation.NavigateTo(Href);
+        await OnNavigate.InvokeAsync();
+    }
+}
