@@ -10,7 +10,7 @@
             <fieldset disabled="@_busy"><legend>Handset & network</legend><div class="form-grid">
                 <label class="field field--wide">Phone name<TextFieldInput @bind-Value="Model.Name" placeholder="Reception" required maxlength="100" /><ValidationMessage For="() => Model.Name" /></label>
                 <label class="field">IP address<TextFieldInput @bind-Value="Model.IpAddress" placeholder="192.168.55.101" required maxlength="64" /><ValidationMessage For="() => Model.IpAddress" /></label>
-                <label class="field">Connection<InputSelect @bind-Value="Model.Scheme"><option value="http">HTTP</option><option value="https">HTTPS</option></InputSelect></label>
+                <div class="field"><span>Connection</span><WorkspaceSelect TValue="string" Options="ConnectionOptions" @bind-Value="Model.Scheme" Label="Handset connection protocol" Disabled="_busy" /></div>
                 <label class="check-row field--wide"><InputCheckbox @bind-Value="Model.Enabled" /><span><strong>Include in fleet sync</strong><small>Enabled handsets receive the shared phonebook.</small></span></label>
             </div></fieldset>
             <fieldset disabled="@_busy"><legend>Handset access</legend><div class="form-grid">
@@ -28,6 +28,7 @@
     </EditForm>
 </AppDialog>
 @code {
+    private static readonly SelectOption<string>[] ConnectionOptions = [new("http", "HTTP"), new("https", "HTTPS")];
     [Parameter, EditorRequired] public Phone Model { get; set; } = new();
     [Parameter] public EventCallback OnSaved { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }

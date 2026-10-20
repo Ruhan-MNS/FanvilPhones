@@ -11,7 +11,7 @@
 </PageHeader>
 @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error <button class="text-button" @onclick="LoadAsync">Try again</button></div> }
 <div class="section-heading"><div><h2>Master directory <span class="count-label">@_contacts.Count</span></h2><p>Changes are applied to handsets on their next successful sync.</p></div><button class="button" disabled="@(!RendererInfo.IsInteractive || (_loading || _busy))" @onclick="LoadAsync"><RadzenIcon Icon="refresh" aria-hidden="true" />Refresh</button></div>
-<div class="table-toolbar"><label class="inline-field">Group<select @bind="_group" @bind:after="ResetPage"><option value="">All groups</option>@foreach (var group in _contacts.Select(c => c.Group).Where(g => !string.IsNullOrWhiteSpace(g)).Distinct().Order()) { <option value="@group">@group</option> }</select></label><label class="search-field"><RadzenIcon Icon="search" aria-hidden="true" /><input type="search" placeholder="Search name or number…" aria-label="Search contacts" @bind="_search" @bind:event="oninput" @bind:after="ResetPage" /></label></div>
+<div class="table-toolbar"><div class="inline-field"><span>Group</span><WorkspaceSelect TValue="string" Options="GroupOptions" @bind-Value="_group" @bind-Value:after="ResetPage" Label="Filter contacts by group" /></div><label class="search-field"><RadzenIcon Icon="search" aria-hidden="true" /><input type="search" placeholder="Search name or number…" aria-label="Search contacts" @bind="_search" @bind:event="oninput" @bind:after="ResetPage" /></label></div>
 <div class="table-wrap" aria-busy="@_loading"><table><thead><tr><th scope="col">Contact</th><th scope="col">Office</th><th scope="col">Mobile</th><th scope="col">Other</th><th scope="col">Group</th><th scope="col">Updated</th><th scope="col" class="align-right">Actions</th></tr></thead><tbody>
 @if (_loading) { <tr><td colspan="7" class="empty-cell">Loading phonebook…</td></tr> }
 else if (Filtered.Count == 0) { <tr><td colspan="7" class="empty-cell"><RadzenIcon Icon="contacts" aria-hidden="true" /><strong>@(_contacts.Count == 0 ? "Start your shared directory" : "No matching contacts")</strong><span>@(_contacts.Count == 0 ? "Add your first contact or import a CSV phonebook." : "Try another name, number, or group.")</span></td></tr> }
@@ -24,6 +24,9 @@ else if (Filtered.Count == 0) { <tr><td colspan="7" class="empty-cell"><RadzenIc
     private List<Contact> _contacts = [];
     private Contact? _editing;
     private string _search = "", _group = "";
+    private IEnumerable<SelectOption<string>> GroupOptions => new[] { new SelectOption<string>("", "All groups") }
+        .Concat(_contacts.Select(c => c.Group).Where(g => !string.IsNullOrWhiteSpace(g)).Distinct().Order()
+            .Select(g => new SelectOption<string>(g!, g!)));
     private bool _loading = true, _busy;
     private string? _error;
     private int _page = 1, _pageSize = 25;

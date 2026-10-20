@@ -10,7 +10,7 @@
         <div class="brand">
             <button type="button" class="icon-button desktop-only" disabled="@(!RendererInfo.IsInteractive)" aria-label="Toggle navigation" aria-expanded="@(!_collapsed)" @onclick="() => _collapsed = !_collapsed"><RadzenIcon Icon="menu_open" aria-hidden="true" /></button>
             <button type="button" class="icon-button mobile-only" disabled="@(!RendererInfo.IsInteractive)" aria-label="Toggle navigation" aria-expanded="@_mobileOpen" @onclick="() => _mobileOpen = !_mobileOpen"><RadzenIcon Icon="menu" aria-hidden="true" /></button>
-            <a href="/" class="brand-link"><span class="brand-symbol"><RadzenIcon Icon="settings_phone" aria-hidden="true" /></span><span class="brand-copy"><strong>Fanvil Phones</strong><small>Multinet Systems</small></span></a>
+            <a href="/" class="brand-link"><span class="brand-symbol"><img src="mnsstar.png" width="34" height="34" alt="Multinet Systems" /></span><span class="brand-copy"><strong>Fanvil Phones</strong><small>Multinet Systems</small></span></a>
         </div>
         <div class="workspace-location"><span>Voice workspace</span><strong>@_location</strong></div>
         <AuthorizeView Context="auth"><Authorized>

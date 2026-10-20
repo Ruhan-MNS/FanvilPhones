@@ -1,7 +1,7 @@
 <div class="table-footer">
     <span>@(Total == 0 ? "No records" : $"{(CurrentPage - 1) * PageSize + 1}–{Math.Min(CurrentPage * PageSize, Total)} of {Total} records")</span>
     <div class="pager">
-        <label>Rows <select value="@PageSize" @onchange="Resize" aria-label="Rows per page"><option>10</option><option>25</option><option>50</option></select></label>
+        <div class="pager-size"><span>Rows</span><WorkspaceSelect TValue="int" Options="PageSizes" Value="@PageSize" ValueChanged="Resize" Label="Rows per page" Class="workspace-select--compact" /></div>
         <button type="button" class="icon-button" disabled="@(CurrentPage <= 1)" aria-label="Previous page" @onclick="() => PageChanged.InvokeAsync(CurrentPage - 1)"><RadzenIcon Icon="chevron_left" aria-hidden="true" /></button>
         <span>Page @CurrentPage of @PageCount</span>
         <button type="button" class="icon-button" disabled="@(CurrentPage >= PageCount)" aria-label="Next page" @onclick="() => PageChanged.InvokeAsync(CurrentPage + 1)"><RadzenIcon Icon="chevron_right" aria-hidden="true" /></button>
@@ -15,9 +15,10 @@
     [Parameter] public EventCallback<int> PageSizeChanged { get; set; }
     private int PageCount => Math.Max(1, (int)Math.Ceiling((double)Total / PageSize));
     private int CurrentPage => Math.Clamp(Page, 1, PageCount);
-    private async Task Resize(ChangeEventArgs args)
+    private static readonly SelectOption<int>[] PageSizes = [new(10, "10"), new(25, "25"), new(50, "50")];
+    private async Task Resize(int size)
     {
-        if (int.TryParse(args.Value?.ToString(), out var size)) await PageSizeChanged.InvokeAsync(size);
+        await PageSizeChanged.InvokeAsync(size);
         await PageChanged.InvokeAsync(1);
     }
 }
