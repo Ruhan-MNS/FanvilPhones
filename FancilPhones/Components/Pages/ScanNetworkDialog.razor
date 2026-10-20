@@ -1,5 +1,5 @@
 @inject ILogger<ScanNetworkDialog> Logger
-@implements IDisposable
+@inherits AsyncComponentBase
 @inject IPhoneDiscoveryService Discovery
 @inject IPhoneDirectory Directory
 <AppDialog Open="true" Title="Discover phones" Description="Scan an internal network range for Fanvil handsets." OnClose="CloseAsync">
@@ -19,7 +19,6 @@
     [Parameter] public EventCallback<List<Phone>> OnAdded { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
     private string? _error;
-    private bool _disposed;
 
     private string _range = "192.168.55.0/24";
     private bool _scanning;
@@ -42,6 +41,7 @@
 
     private async Task StartScanAsync()
     {
+        if (_scanning || IsDisposed) return;
         _results.Clear();
         _selected.Clear();
         _names.Clear();
@@ -52,13 +52,16 @@
         if (_total == 0) { _error = "Enter a valid IPv4 address, CIDR subnet, or IP range."; return; }
 
         _scanning = true;
-        _cts = new CancellationTokenSource();
+        using var scan = CancellationTokenSource.CreateLinkedTokenSource(LifetimeToken);
+        _cts = scan;
+        var token = scan.Token;
+        var lastRender = System.Diagnostics.Stopwatch.StartNew();
 
         try
         {
             var known = new HashSet<string>(
-                (await Directory.GetPhonesAsync()).Select(p => p.IpAddress), StringComparer.OrdinalIgnoreCase);
-            await foreach (var result in Discovery.ScanAsync(_range, known, ct: _cts.Token))
+                (await Directory.GetPhonesAsync(token)).Select(p => p.IpAddress), StringComparer.OrdinalIgnoreCase);
+            await foreach (var result in Discovery.ScanAsync(_range, known, ct: token))
             {
                 _done++;
                 _results.Add(result);
@@ -67,17 +70,16 @@
                     _selected.Add(result.Ip);
                     _names[result.Ip] = result.Ip;
                 }
-                if (!_disposed) StateHasChanged();
+                if (!IsDisposed && lastRender.ElapsedMilliseconds >= 100) { StateHasChanged(); lastRender.Restart(); }
             }
         }
-        catch (OperationCanceledException) when (_cts?.IsCancellationRequested == true) { }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception ex) { Logger.LogError(ex, "Network discovery could not complete."); _error = "The scan could not be completed. Check the range and try again."; }
         finally
         {
             _scanning = false;
-            _cts?.Dispose();
             _cts = null;
-            if (!_disposed) StateHasChanged();
+            if (!IsDisposed) StateHasChanged();
         }
     }
 
@@ -98,10 +100,4 @@
 
     private async Task CloseAsync() { CancelScan(); await OnCancel.InvokeAsync(); }
 
-    public void Dispose()
-    {
-        _disposed = true;
-        try { _cts?.Cancel(); } catch { }
-        _cts?.Dispose();
-    }
 }

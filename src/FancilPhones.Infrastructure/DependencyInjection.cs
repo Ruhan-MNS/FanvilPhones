@@ -23,6 +23,9 @@ public static class DependencyInjection
         services.AddDbContextFactory<AppDbContext>(options => options.UseSqlServer(phones.ConnectionString,
             sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", AppDbContext.Schema)));
         services.AddScoped<IPhoneDirectory, PhoneDirectory>();
+        services.AddOptions<PhoneOperationOptions>().Bind(configuration.GetSection("PhoneOperations"))
+            .ValidateDataAnnotations().ValidateOnStart();
+        services.AddSingleton<IFanvilClientFactory, FanvilClientFactory>();
         services.AddScoped<IPhoneSyncService, PhoneSyncService>();
         services.AddScoped<IPhoneDiscoveryService, PhoneDiscoveryService>();
         services.AddScoped<LegacyPhoneDataImporter>();

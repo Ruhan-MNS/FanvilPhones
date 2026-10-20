@@ -6,6 +6,9 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using System.Data.Common;
 
 namespace FancilPhones.Tests;
 
@@ -41,7 +44,7 @@ public sealed class PhoneDirectoryTests : IAsyncLifetime
     [Fact]
     public async Task ViewersCannotRunSyncOrPushSipSettings()
     {
-        var sync = new PhoneSyncService(factory, NullLogger<PhoneSyncService>.Instance, new Access(false));
+        var sync = new PhoneSyncService(factory, NullLogger<PhoneSyncService>.Instance, new Access(false), new FanvilClientFactory(), Options.Create(new PhoneOperationOptions()), new TestApplicationLifetime());
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => sync.SyncAllAsync());
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => sync.SyncOneAsync(1));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => sync.PushSipDisplayNameAsync(1));
@@ -108,7 +111,7 @@ public sealed class PhoneDirectoryTests : IAsyncLifetime
     {
         using var logs = new RecordingLoggerProvider();
         using var logFactory = LoggerFactory.Create(builder => builder.AddProvider(logs));
-        var sync = new PhoneSyncService(factory, logFactory.CreateLogger<PhoneSyncService>(), new Access(true));
+        var sync = new PhoneSyncService(factory, logFactory.CreateLogger<PhoneSyncService>(), new Access(true), new FanvilClientFactory(), Options.Create(new PhoneOperationOptions()), new TestApplicationLifetime());
         Assert.Empty(await sync.SyncAllAsync());
 
         var correlationIds = logs.Entries.SelectMany(entry => entry.Scope).Where(p => p.Key == "FleetSyncId").Select(p => p.Value).ToArray();
@@ -130,6 +133,60 @@ public sealed class PhoneDirectoryTests : IAsyncLifetime
         Assert.Equal("144", (await directory.GetPhonesAsync()).Single(p => p.Name == "Updated").SipExtension);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CancellationAfterBulkDeleteRollsBackTheEntireReplacement(bool replaceContacts)
+    {
+        await using (var db = factory.CreateDbContext())
+        {
+            db.Contacts.Add(new Contact { DisplayName = "Original contact" });
+            db.SyncRuns.Add(new SyncRun { Phone = new Phone { Name = "Original phone", IpAddress = "192.0.2.8" }, Status = "Success" });
+            await db.SaveChangesAsync();
+        }
+        using var cancellation = new CancellationTokenSource();
+        var cancellingFactory = new Factory(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection)
+            .AddInterceptors(new CancelAfterDelete(cancellation)).Options);
+        var directory = new PhoneDirectory(cancellingFactory, new Access(true), NullLogger<PhoneDirectory>.Instance);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => replaceContacts
+            ? directory.ReplaceContactsAsync([new Contact { DisplayName = "Replacement" }], cancellation.Token)
+            : directory.ImportPhonesAsync([new Phone { Name = "Replacement", IpAddress = "192.0.2.9" }], true, cancellation.Token));
+        await using var verification = factory.CreateDbContext();
+        Assert.Equal("Original contact", (await verification.Contacts.SingleAsync()).DisplayName);
+        Assert.Equal("Original phone", (await verification.Phones.SingleAsync()).Name);
+        Assert.Single(await verification.SyncRuns.ToListAsync());
+    }
+
+    [Fact]
+    public async Task HistoryFiltersBeforeLimitingAndExcludesHandsetCredentials()
+    {
+        await using (var db = factory.CreateDbContext())
+        {
+            var phone = new Phone { Name = "Phone", IpAddress = "192.0.2.10", Password = "do-not-load" };
+            db.SyncRuns.Add(new SyncRun { Phone = phone, Action = "Sync", StartedAt = DateTime.UtcNow.AddDays(-1) });
+            db.SyncRuns.AddRange(Enumerable.Range(0, 501).Select(_ => new SyncRun { Phone = phone, Action = "Probe" }));
+            await db.SaveChangesAsync();
+        }
+        var directory = new PhoneDirectory(factory, new Access(true), NullLogger<PhoneDirectory>.Instance);
+        var run = Assert.Single(await directory.GetHistoryAsync(50, action: "Sync"));
+        Assert.Equal("Sync", run.Action);
+        Assert.Equal("", run.Phone!.Password);
+        Assert.Equal("", run.Phone.Username);
+        var summary = await directory.GetSummaryAsync();
+        Assert.Equal(1, summary.PhoneCount);
+        Assert.Equal(1, summary.EnabledPhoneCount);
+    }
+
+    private sealed class CancelAfterDelete(CancellationTokenSource cancellation) : DbCommandInterceptor
+    {
+        public override ValueTask<int> NonQueryExecutedAsync(DbCommand command, CommandExecutedEventData eventData,
+            int result, CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.TrimStart().StartsWith("DELETE", StringComparison.OrdinalIgnoreCase)) cancellation.Cancel();
+            return ValueTask.FromResult(result);
+        }
+    }
+
     [Fact]
     public void SqlServerModelContainsOnlyOwnedTablesAndAuthHasNoLocalPasswordFlag()
     {
@@ -147,8 +204,8 @@ public sealed class PhoneDirectoryTests : IAsyncLifetime
 
     private sealed class Access(bool administrator) : IUserAccess
     {
-        public Task RequireAuthenticatedAsync() => Task.CompletedTask;
-        public Task RequireAdministratorAsync() => administrator ? Task.CompletedTask
+        public Task RequireAuthenticatedAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task RequireAdministratorAsync(CancellationToken ct = default) => administrator ? Task.CompletedTask
             : Task.FromException(new UnauthorizedAccessException());
     }
 }

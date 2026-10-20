@@ -11,9 +11,9 @@ public sealed class CurrentUserAccess(
     IAuthorizationService authorization,
     ILogger<CurrentUserAccess> logger) : IUserAccess
 {
-    public async Task RequireAuthenticatedAsync()
+    public async Task RequireAuthenticatedAsync(CancellationToken ct = default)
     {
-        var user = await GetUserAsync();
+        var user = await GetUserAsync(ct);
         if (user.Identity?.IsAuthenticated != true)
         {
             logger.LogWarning("Phone data access denied: authentication is required.");
@@ -21,10 +21,10 @@ public sealed class CurrentUserAccess(
         }
     }
 
-    public async Task RequireAdministratorAsync()
+    public async Task RequireAdministratorAsync(CancellationToken ct = default)
     {
-        var user = await GetUserAsync();
-        if (!(await authorization.AuthorizeAsync(user, PhonePolicies.Administrator)).Succeeded)
+        var user = await GetUserAsync(ct);
+        if (!(await authorization.AuthorizeAsync(user, PhonePolicies.Administrator).WaitAsync(ct)).Succeeded)
         {
             logger.LogWarning("Phone operation denied by policy {Policy}. Authenticated: {Authenticated}.",
                 PhonePolicies.Administrator, user.Identity?.IsAuthenticated == true);
@@ -32,11 +32,12 @@ public sealed class CurrentUserAccess(
         }
     }
 
-    private async Task<ClaimsPrincipal> GetUserAsync()
+    private async Task<ClaimsPrincipal> GetUserAsync(CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         // HTTP endpoints have a request principal; interactive circuits use their revalidated state.
         if (httpContext.HttpContext is { } context && !context.Response.HasStarted)
             return context.User;
-        return (await authenticationState.GetAuthenticationStateAsync()).User;
+        return (await authenticationState.GetAuthenticationStateAsync().WaitAsync(ct)).User;
     }
 }

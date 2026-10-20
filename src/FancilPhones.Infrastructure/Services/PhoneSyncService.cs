@@ -3,381 +3,327 @@ using FancilPhones.Domain;
 using FancilPhones.Infrastructure.Data;
 using FancilPhones.Application;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 
 namespace FancilPhones.Infrastructure.Services;
 
-public class PhoneSyncService : IPhoneSyncService
+public sealed class PhoneSyncService(
+    IDbContextFactory<AppDbContext> dbf,
+    ILogger<PhoneSyncService> logger,
+    IUserAccess access,
+    IFanvilClientFactory clients,
+    IOptions<PhoneOperationOptions> options,
+    IHostApplicationLifetime application) : IPhoneSyncService
 {
-    private readonly IDbContextFactory<AppDbContext> _dbf;
-    private readonly ILogger<PhoneSyncService> _log;
-    private readonly IUserAccess _access;
-
-    public PhoneSyncService(IDbContextFactory<AppDbContext> dbf, ILogger<PhoneSyncService> log, IUserAccess access)
-    {
-        _dbf = dbf;
-        _log = log;
-        _access = access;
-    }
+    private PhoneOperationOptions Settings => options.Value;
+    private sealed record HandsetResult(bool Success, int? HttpStatus, string Message);
 
     public async Task<IReadOnlyList<SyncResult>> SyncAllAsync(CancellationToken ct = default)
     {
-        await _access.RequireAdministratorAsync();
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        var phones = await db.Phones.Where(p => p.Enabled).ToListAsync(ct);
-        var contacts = await db.Contacts.OrderBy(c => c.DisplayName).ToListAsync(ct);
-        var csv = PhonebookCsv.Build(contacts);
-
-        using var scope = _log.BeginScope("FleetSyncId:{FleetSyncId}", Guid.NewGuid());
-        _log.LogInformation("Fleet synchronization started for {PhoneCount} phones with {ContactCount} contacts.", phones.Count, contacts.Count);
-        var tasks = phones.Select(p => PushAsync(p, contacts.Count, csv, ct)).ToList();
-        var results = await Task.WhenAll(tasks);
-        _log.LogInformation("Fleet synchronization completed. Successful: {SuccessCount}; failed: {FailureCount}.",
+        using var stopping = CancellationTokenSource.CreateLinkedTokenSource(ct, application.ApplicationStopping);
+        ct = stopping.Token;
+        await access.RequireAdministratorAsync(ct);
+        List<Phone> phones;
+        List<Contact> contacts;
+        await using (var db = await dbf.CreateDbContextAsync(ct))
+        {
+            phones = await db.Phones.AsNoTracking().Where(p => p.Enabled).OrderBy(p => p.Id).ToListAsync(ct);
+            contacts = await db.Contacts.AsNoTracking().OrderBy(c => c.DisplayName).ToListAsync(ct);
+        }
+        var csv = PhonebookCsv.Build(contacts, ct);
+        using var scope = logger.BeginScope("FleetSyncId:{FleetSyncId}", Guid.NewGuid());
+        logger.LogInformation("Fleet synchronization started for {PhoneCount} phones with {ContactCount} contacts.", phones.Count, contacts.Count);
+        var results = new SyncResult[phones.Count];
+        await Parallel.ForEachAsync(Enumerable.Range(0, phones.Count), new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Settings.MaxConcurrentSyncs,
+            CancellationToken = ct
+        }, async (index, token) => results[index] = await PushAsync(phones[index], contacts.Count, csv, token));
+        logger.LogInformation("Fleet synchronization completed. Successful: {SuccessCount}; failed: {FailureCount}.",
             results.Count(r => r.Success), results.Count(r => !r.Success));
         return results;
     }
 
     public async Task<SyncResult> SyncOneAsync(int phoneId, CancellationToken ct = default)
     {
-        await _access.RequireAdministratorAsync();
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        var phone = await db.Phones.FindAsync(new object?[] { phoneId }, ct);
-        if (phone is null)
-        {
-            _log.LogWarning("Synchronization skipped: phone {PhoneId} no longer exists.", phoneId);
-            return new SyncResult(phoneId, "?", false, null, "Phone not found");
-        }
-        var contacts = await db.Contacts.OrderBy(c => c.DisplayName).ToListAsync(ct);
-        var csv = PhonebookCsv.Build(contacts);
-        return await PushAsync(phone, contacts.Count, csv, ct);
+        using var stopping = CancellationTokenSource.CreateLinkedTokenSource(ct, application.ApplicationStopping);
+        ct = stopping.Token;
+        await access.RequireAdministratorAsync(ct);
+        await using var db = await dbf.CreateDbContextAsync(ct);
+        var phone = await db.Phones.AsNoTracking().SingleOrDefaultAsync(p => p.Id == phoneId, ct);
+        if (phone is null) return new(phoneId, "?", false, null, "Phone not found");
+        var contacts = await db.Contacts.AsNoTracking().OrderBy(c => c.DisplayName).ToListAsync(ct);
+        return await PushAsync(phone, contacts.Count, PhonebookCsv.Build(contacts, ct), ct);
     }
 
-    private async Task<SyncResult> PushAsync(Phone phone, int contactCount, byte[] csv, CancellationToken ct)
+    private async Task<SyncResult> PushAsync(Phone phone, int count, byte[] csv, CancellationToken ct)
     {
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        var run = new SyncRun
+        var result = await RunHandsetAsync(phone, "Sync", count, async (client, token) =>
         {
-            PhoneId = phone.Id,
-            StartedAt = DateTime.UtcNow,
-            ContactCount = contactCount,
-            Status = "Running",
-            Action = "Sync",
-        };
-        db.SyncRuns.Add(run);
-        await db.SaveChangesAsync(ct);
-        using var scope = BeginRunScope(run);
-        _log.LogInformation("Phonebook synchronization started with {ContactCount} contacts.", contactCount);
-
-        try
-        {
-            using var client = new FanvilHttpClient(phone.IpAddress, phone.Scheme == "https");
-
-            // Step 1: nonce/MD5 login to obtain the session ('auth') cookie.
-            var login = await client.LoginAsync(phone.Username, phone.Password, ct);
-            if (!login.ok)
-                throw new Exception(login.message);
-
-            // Step 2: wipe the phone's existing phonebook then upload the master
-            // CSV - the phone's import only merges, so a delete-all first makes the
-            // sync a true mirror (deletions in the app propagate). Finally log out
-            // so the phone releases its (limited) session slot.
-            FanvilResponse resp;
-            try
-            {
-                await client.DeleteAllContactsAsync(ct);
-                resp = await client.PostFileAsync(
-                    phone.UploadPath, phone.UploadFieldName, "phonebook.csv",
-                    csv, "application/octet-stream", ct);
-            }
-            finally
-            {
-                await client.LogoutAsync(ct);
-            }
-
-            var ok = resp.StatusCode is >= 200 and < 400;
-            var msg = ok
-                ? $"Uploaded {contactCount} contacts (HTTP {resp.StatusCode})"
-                : $"HTTP {resp.StatusCode}: {Truncate(resp.Body, 400)}";
-
-            run.FinishedAt = DateTime.UtcNow;
-            run.Status = ok ? "Success" : "Failed";
-            run.HttpStatusCode = resp.StatusCode;
-            run.Message = msg;
-
-            phone.LastSyncedAt = run.FinishedAt;
-            phone.LastSyncStatus = run.Status;
-            phone.LastSyncMessage = msg;
-            db.Phones.Update(phone);
-            await db.SaveChangesAsync(ct);
-
-            _log.Log(ok ? LogLevel.Information : LogLevel.Warning,
-                "Phonebook synchronization finished with {Status}; HTTP {HttpStatus}.", run.Status, resp.StatusCode);
-            return new SyncResult(phone.Id, phone.Name, ok, resp.StatusCode, msg);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            _log.LogInformation("Phonebook synchronization canceled.");
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _log.LogWarning(ex, "Phonebook synchronization failed.");
-            run.FinishedAt = DateTime.UtcNow;
-            run.Status = "Error";
-            run.Message = ex.Message;
-
-            phone.LastSyncedAt = run.FinishedAt;
-            phone.LastSyncStatus = "Error";
-            phone.LastSyncMessage = ex.Message;
-            db.Phones.Update(phone);
-            await db.SaveChangesAsync(ct);
-
-            return new SyncResult(phone.Id, phone.Name, false, null, ex.Message);
-        }
+            var deleted = await client.DeleteAllContactsAsync(token);
+            if (deleted.StatusCode is < 200 or >= 400)
+                return new(false, deleted.StatusCode, "The handset rejected clearing its phonebook; upload was not attempted.");
+            var response = await client.PostFileAsync(phone.UploadPath, phone.UploadFieldName, "phonebook.csv", csv, "application/octet-stream", token);
+            var ok = response.StatusCode is >= 200 and < 400;
+            return new(ok, response.StatusCode, ok ? $"Uploaded {count} contacts (HTTP {response.StatusCode})" : $"HTTP {response.StatusCode}: {Truncate(response.Body, 400)}");
+        }, ct);
+        return new(phone.Id, phone.Name, result.Success, result.HttpStatus, result.Message);
     }
 
-    /// <summary>
-    /// Pushes <see cref="Phone.SipDisplayName"/> into the phone's SIP line
-    /// settings (<c>SIP_DisPlayName_R</c> on <c>/lines.htm</c>) for the line
-    /// indicated by <see cref="Phone.SipLineIndex"/>. Phonebook sync is NOT
-    /// affected — this is a separate action.
-    ///
-    /// Safety: the phone's <c>/lines.htm</c> form echoes saved passwords as a
-    /// masked obfuscated string (e.g. <c>$EP^%39]KioqKioq...</c>). POSTing those
-    /// back would overwrite the real SIP password. We therefore submit only the
-    /// display-name field (plus the line selector / ReturnPage hidden fields)
-    /// and explicitly skip anything matching <c>passwd</c>/<c>password</c>.
-    /// </summary>
     public async Task<(bool ok, string message)> PushSipDisplayNameAsync(int phoneId, CancellationToken ct = default)
     {
-        await _access.RequireAdministratorAsync();
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        var phone = await db.Phones.FindAsync(new object?[] { phoneId }, ct);
-        if (phone is null)
-        {
-            _log.LogWarning("SIP push skipped: phone {PhoneId} no longer exists.", phoneId);
-            return (false, "Phone not found");
-        }
-
-        var displayName = phone.SipDisplayName?.Trim();
-        var extension = phone.SipExtension?.Trim();
-        if (string.IsNullOrEmpty(displayName) && string.IsNullOrEmpty(extension))
+        using var stopping = CancellationTokenSource.CreateLinkedTokenSource(ct, application.ApplicationStopping);
+        ct = stopping.Token;
+        await access.RequireAdministratorAsync(ct);
+        await using var db = await dbf.CreateDbContextAsync(ct);
+        var phone = await db.Phones.AsNoTracking().SingleOrDefaultAsync(p => p.Id == phoneId, ct);
+        if (phone is null) return (false, "Phone not found");
+        if (string.IsNullOrWhiteSpace(phone.SipDisplayName) && string.IsNullOrWhiteSpace(phone.SipExtension))
             return (false, "No SIP display name or extension configured for this phone.");
+        var result = await RunHandsetAsync(phone, "Push", 0, (client, token) => PushSipSettingsAsync(client, phone, token), ct);
+        return (result.Success, result.Message);
+    }
 
-        var run = new SyncRun
+    public async Task<(bool reachable, int? status, string message)> ProbeAsync(Phone phone, CancellationToken ct = default)
+    {
+        using var stopping = CancellationTokenSource.CreateLinkedTokenSource(ct, application.ApplicationStopping);
+        ct = stopping.Token;
+        await access.RequireAuthenticatedAsync(ct);
+        var result = await RunHandsetAsync(phone, "Probe", 0,
+            (_, _) => Task.FromResult(new HandsetResult(true, 200, "Reachable, login OK")), ct);
+        return (result.Success, result.HttpStatus, result.Message);
+    }
+
+    // Each operation owns its timeout and client. Cleanup gets a separate, short token
+    // so caller cancellation cannot strand sessions or leave history marked Running.
+    private async Task<HandsetResult> RunHandsetAsync(Phone phone, string action, int contactCount,
+        Func<IFanvilClient, CancellationToken, Task<HandsetResult>> operation, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var run = new SyncRun { PhoneId = phone.Id, Action = action, Status = "Running", ContactCount = contactCount };
+        await using (var db = await dbf.CreateDbContextAsync(ct))
         {
-            PhoneId = phone.Id,
-            StartedAt = DateTime.UtcNow,
-            Status = "Running",
-            Action = "Push",
-        };
-        db.SyncRuns.Add(run);
-        await db.SaveChangesAsync(ct);
-        using var scope = BeginRunScope(run);
-        _log.LogInformation("SIP settings push started.");
-
-        // Multi-line support not yet implemented; line selector reverse-engineering
-        // is a follow-up. Clamp to line 1 and surface this in the message.
-        var requestedLine = phone.SipLineIndex;
-        var lineIdx = 1;
-        var lineNote = requestedLine > 1
-            ? $" (requested line {requestedLine}; multi-line not yet supported, pushed to line 1)"
-            : "";
-
+            db.SyncRuns.Add(run);
+            await db.SaveChangesAsync(ct);
+        }
+        using var scope = logger.BeginScope("PhoneId:{PhoneId} SyncRunId:{SyncRunId} Operation:{Operation}", phone.Id, run.Id, action);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Settings.TimeoutSeconds));
+        IFanvilClient? client = null;
+        HandsetResult result;
+        string status;
+        bool canceled = false;
+        logger.LogInformation("Handset operation started.");
         try
         {
-            using var client = new FanvilHttpClient(phone.IpAddress, phone.Scheme == "https");
-
-            var login = await client.LoginAsync(phone.Username, phone.Password, ct);
-            if (!login.ok)
-            {
-                _log.LogWarning("SIP settings push stopped: handset authentication failed.");
-                return (false, login.message);
-            }
-
-            try
-            {
-                // GET the line settings form so we can echo every field back.
-                // The phone's POST handler silently no-ops if required fields are
-                // missing, so a minimum-field POST does not work — we mirror what
-                // the browser sends, swapping only SIP_DisPlayName_R and excluding
-                // password fields (their values are masked echoes).
-                var get = await client.GetAsync("/lines.htm", ct);
-
-                // /lines.htm contains multiple <form> blocks (line-selector,
-                // SIP-config, etc.). Pick the one that owns SIP_DisPlayName_R
-                // and echo only that form's fields back — same as the browser.
-                List<FormField>? sipFormFields = null;
-                foreach (var formBody in ExtractFormBlocks(get.Body))
-                {
-                    var ff = ExtractFormFields(formBody);
-                    if (ff.Any(f => f.Name == "SIP_DisPlayName_R"))
-                    {
-                        sipFormFields = ff;
-                        break;
-                    }
-                }
-                if (sipFormFields is null || sipFormFields.Count == 0)
-                {
-                    _log.LogWarning("SIP settings push stopped: the handset response did not contain the expected form.");
-                    return (false, "Could not locate the SIP form on the phone " +
-                                   "(no <form> contains SIP_DisPlayName_R). Aborted.");
-                }
-
-                // The /lines.htm form is populated by JavaScript (the static HTML
-                // has empty `value` attributes; real values arrive via the page's
-                // magicMark XHRs). Our parser only sees the static HTML, so an
-                // "echo every field back" POST submits empty for every field
-                // EXCEPT the ones we explicitly override — wiping the phone's
-                // SIP config. To avoid that, we send ONLY the fields we want to
-                // change, plus the minimum state Fanvil needs to commit:
-                //   DefaultSubmit=Apply (action selector)
-                //   CheckBoxManager (preserves checkbox-section state)
-                //   keepList= (codec retention, JS-added but expected empty)
-                //   SIP_PhoneLineEntry (preserved from form parse)
-                // Fanvil's form handler preserves fields NOT included in POST.
-                var post = new Dictionary<string, string>(StringComparer.Ordinal);
-                foreach (var f in sipFormFields)
-                {
-                    if (!ExtraStateFields.Contains(f.Name)) continue;
-                    if (ExcludedFields.Contains(f.Name)) continue;
-                    post[f.Name] = f.Value;
-                }
-                if (!post.ContainsKey("keepList")) post["keepList"] = "";
-                post["DefaultSubmit"] = "Apply";
-
-                if (!string.IsNullOrEmpty(displayName))
-                    post["SIP_DisPlayName_R"] = displayName;
-                if (!string.IsNullOrEmpty(extension))
-                {
-                    // The phone's UI labels these "Username" and "Authentication
-                    // User"; both normally hold the same extension.
-                    post["SIP_PhoneNum_R"] = extension;
-                    post["SIP_RegUser_R"] = extension;
-                }
-                // "Activate" checkbox on the line settings page. Per Fanvil
-                // convention, checked → field present with value 1; unchecked →
-                // field omitted (CheckBoxManager declares it exists so the
-                // server treats absent as unchecked).
-                if (phone.SipRegistrationEnabled)
-                    post["SIP_EnableSipReg_RW"] = "ON";
-
-                _log.LogDebug("Submitting {FieldCount} SIP configuration fields for line {LineIndex}.", post.Count, lineIdx);
-
-                var resp = await client.PostFormAsync("/lines.htm", post, ct);
-                var body = resp.Body ?? "";
-                _log.LogDebug("SIP configuration response: HTTP {HttpStatus}, {ResponseLength} characters.",
-                    resp.StatusCode, body.Length);
-
-                var bouncedToLogin = body.Contains("logonButton", StringComparison.OrdinalIgnoreCase)
-                                     || body.Contains("USER_PASSWORD_ERROR", StringComparison.OrdinalIgnoreCase);
-                var invalidValue = body.Contains("Invalid Value", StringComparison.OrdinalIgnoreCase);
-                if (resp.StatusCode is < 200 or >= 400 || bouncedToLogin || invalidValue)
-                {
-                    var fail = invalidValue
-                        ? "Phone returned 'Invalid Value'. The handset's SIP config likely has " +
-                          "empty/invalid required fields (often from a previous push that wiped them) " +
-                          "and refuses any form submission until manually repaired. Open the phone's " +
-                          "web UI, fix the line settings, and click Apply there first."
-                        : $"POST failed: HTTP {resp.StatusCode}: {Truncate(body, 200)}";
-                    phone.LastSyncedAt = DateTime.UtcNow;
-                    phone.LastSyncStatus = "Failed";
-                    phone.LastSyncMessage = fail;
-                    run.FinishedAt = DateTime.UtcNow;
-                    run.Status = "Failed";
-                    run.HttpStatusCode = resp.StatusCode;
-                    run.Message = fail;
-                    db.Phones.Update(phone);
-                    await db.SaveChangesAsync(ct);
-                    _log.LogWarning("SIP settings push rejected. HTTP {HttpStatus}; login required: {LoginRequired}; invalid value: {InvalidValue}.",
-                        resp.StatusCode, bouncedToLogin, invalidValue);
-                    return (false, fail);
-                }
-
-                // Verify: parse the POST response itself (it's the re-rendered
-                // lines.htm page). Doing a separate GET would race the phone's
-                // apply commit and risk reading a stale page.
-                string actualName = "", actualExt = "";
-                bool foundForm = false;
-                foreach (var formBody in ExtractFormBlocks(body))
-                {
-                    var ff = ExtractFormFields(formBody);
-                    if (ff.Any(f => f.Name == "SIP_DisPlayName_R"))
-                    {
-                        actualName = ff.First(f => f.Name == "SIP_DisPlayName_R").Value;
-                        actualExt = ff.FirstOrDefault(f => f.Name == "SIP_PhoneNum_R")?.Value ?? "";
-                        foundForm = true;
-                        break;
-                    }
-                }
-
-                // If the POST response doesn't contain the line form (e.g. the
-                // page is JS-populated and we can't read the value from static
-                // HTML), treat that as a soft success — POST returned 200, no
-                // Invalid Value, no login bounce. We've done all we can verify.
-                var nameOk = string.IsNullOrEmpty(displayName) || !foundForm ||
-                             string.Equals(actualName, displayName, StringComparison.Ordinal);
-                var extOk = string.IsNullOrEmpty(extension) || !foundForm ||
-                            string.Equals(actualExt, extension, StringComparison.Ordinal);
-                var ok = nameOk && extOk;
-
-                var parts = new List<string>();
-                if (!string.IsNullOrEmpty(displayName))
-                    parts.Add(nameOk
-                        ? $"display name = '{displayName}'"
-                        : $"display name still '{actualName}' (expected '{displayName}')");
-                if (!string.IsNullOrEmpty(extension))
-                    parts.Add(extOk
-                        ? $"username = '{extension}'"
-                        : $"username still '{actualExt}' (expected '{extension}')");
-                if (phone.SipRegistrationEnabled)
-                    parts.Add("registration enabled");
-
-                var verifyNote = !foundForm
-                    ? " (response page didn't include the form — change accepted but couldn't verify)"
-                    : "";
-                var msg = ok
-                    ? $"Pushed to line {lineIdx}: {string.Join(", ", parts)}{lineNote}{verifyNote}"
-                    : $"Phone silently rejected part of the push — {string.Join("; ", parts)}";
-
-                phone.LastSyncedAt = DateTime.UtcNow;
-                phone.LastSyncStatus = ok ? "Success" : "Failed";
-                phone.LastSyncMessage = msg;
-                run.FinishedAt = DateTime.UtcNow;
-                run.Status = ok ? "Success" : "Failed";
-                run.HttpStatusCode = resp.StatusCode;
-                run.Message = msg;
-                db.Phones.Update(phone);
-                await db.SaveChangesAsync(ct);
-
-                _log.Log(ok ? LogLevel.Information : LogLevel.Warning,
-                    "SIP settings push finished with {Status}; HTTP {HttpStatus}; verification available: {Verified}.",
-                    run.Status, resp.StatusCode, foundForm);
-                return (ok, msg);
-            }
-            finally
-            {
-                await client.LogoutAsync(ct);
-            }
+            client = clients.Create(phone.IpAddress, phone.Scheme == "https");
+            var login = await client.LoginAsync(phone.Username, phone.Password, timeout.Token);
+            result = login.ok ? await operation(client, timeout.Token) : new(false, 401, login.message);
+            timeout.Token.ThrowIfCancellationRequested();
+            status = result.Success ? "Success" : "Failed";
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            _log.LogInformation("SIP settings push canceled.");
-            throw;
+            canceled = true;
+            status = "Cancelled";
+            result = new(false, null, "Operation cancelled. The handset may have applied partial changes; verify its state before retrying.");
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            status = "TimedOut";
+            result = new(false, null, "The handset operation timed out. Verify its state before retrying.");
+        }
+        catch (TimeoutException)
+        {
+            status = "TimedOut";
+            result = new(false, null, "Timed out waiting for the handset response. Verify its state before retrying.");
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "SIP settings push failed.");
-            phone.LastSyncedAt = DateTime.UtcNow;
-            phone.LastSyncStatus = "Error";
-            phone.LastSyncMessage = ex.Message;
-            run.FinishedAt = DateTime.UtcNow;
-            run.Status = "Error";
-            run.Message = ex.Message;
-            db.Phones.Update(phone);
-            await db.SaveChangesAsync(ct);
-            return (false, ex.Message);
+            logger.LogWarning(ex, "Handset operation failed.");
+            status = "Error";
+            result = new(false, null, ex.Message);
         }
+        finally
+        {
+            if (client is not null)
+            {
+                using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(Settings.CleanupTimeoutSeconds));
+                try { await client.LogoutAsync(cleanup.Token); }
+                catch (Exception ex) { logger.LogDebug(ex, "Best-effort handset logout did not complete."); }
+                finally { client.Dispose(); }
+            }
+        }
+
+        using var persist = new CancellationTokenSource(TimeSpan.FromSeconds(Settings.CleanupTimeoutSeconds));
+        try { await FinishRunAsync(run.Id, phone.Id, status, result, action != "Probe", persist.Token); }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not persist the handset operation result {Status}.", status);
+            if (!canceled) throw;
+        }
+        logger.Log(canceled || result.Success ? LogLevel.Information : LogLevel.Warning,
+            "Handset operation finished with {Status}; HTTP {HttpStatus}.", status, result.HttpStatus);
+        if (canceled) throw new OperationCanceledException(ct);
+        return result;
+    }
+
+    private async Task FinishRunAsync(int runId, int phoneId, string status, HandsetResult result, bool updatePhone, CancellationToken ct)
+    {
+        await using var db = await dbf.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var finished = DateTime.UtcNow;
+        await db.SyncRuns.Where(r => r.Id == runId).ExecuteUpdateAsync(setters => setters
+            .SetProperty(r => r.FinishedAt, finished).SetProperty(r => r.Status, status)
+            .SetProperty(r => r.HttpStatusCode, result.HttpStatus).SetProperty(r => r.Message, result.Message), ct);
+        if (updatePhone)
+            await db.Phones.Where(p => p.Id == phoneId).ExecuteUpdateAsync(setters => setters
+                .SetProperty(p => p.LastSyncedAt, finished).SetProperty(p => p.LastSyncStatus, status)
+                .SetProperty(p => p.LastSyncMessage, result.Message), ct);
+        await transaction.CommitAsync(ct);
+    }
+
+    private async Task<HandsetResult> PushSipSettingsAsync(IFanvilClient client, Phone phone, CancellationToken ct)
+    {
+        var displayName = phone.SipDisplayName?.Trim();
+        var extension = phone.SipExtension?.Trim();
+        var lineIdx = 1;
+        var lineNote = phone.SipLineIndex > 1 ? $" (requested line {phone.SipLineIndex}; multi-line not yet supported, pushed to line 1)" : "";
+        // GET the line settings form so we can echo every field back.
+        // The phone's POST handler silently no-ops if required fields are
+        // missing, so a minimum-field POST does not work — we mirror what
+        // the browser sends, swapping only SIP_DisPlayName_R and excluding
+        // password fields (their values are masked echoes).
+        var get = await client.GetAsync("/lines.htm", ct);
+
+        // /lines.htm contains multiple <form> blocks (line-selector,
+        // SIP-config, etc.). Pick the one that owns SIP_DisPlayName_R
+        // and echo only that form's fields back — same as the browser.
+        List<FormField>? sipFormFields = null;
+        foreach (var formBody in ExtractFormBlocks(get.Body))
+        {
+            var ff = ExtractFormFields(formBody);
+            if (ff.Any(f => f.Name == "SIP_DisPlayName_R"))
+            {
+                sipFormFields = ff;
+                break;
+            }
+        }
+        if (sipFormFields is null || sipFormFields.Count == 0)
+        {
+            logger.LogWarning("SIP settings push stopped: the handset response did not contain the expected form.");
+            return new(false, null, "Could not locate the SIP form on the phone " +
+                           "(no <form> contains SIP_DisPlayName_R). Aborted.");
+        }
+
+        // The /lines.htm form is populated by JavaScript (the static HTML
+        // has empty `value` attributes; real values arrive via the page's
+        // magicMark XHRs). Our parser only sees the static HTML, so an
+        // "echo every field back" POST submits empty for every field
+        // EXCEPT the ones we explicitly override — wiping the phone's
+        // SIP config. To avoid that, we send ONLY the fields we want to
+        // change, plus the minimum state Fanvil needs to commit:
+        //   DefaultSubmit=Apply (action selector)
+        //   CheckBoxManager (preserves checkbox-section state)
+        //   keepList= (codec retention, JS-added but expected empty)
+        //   SIP_PhoneLineEntry (preserved from form parse)
+        // Fanvil's form handler preserves fields NOT included in POST.
+        var post = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var f in sipFormFields)
+        {
+            if (!ExtraStateFields.Contains(f.Name)) continue;
+            if (ExcludedFields.Contains(f.Name)) continue;
+            post[f.Name] = f.Value;
+        }
+        if (!post.ContainsKey("keepList")) post["keepList"] = "";
+        post["DefaultSubmit"] = "Apply";
+
+        if (!string.IsNullOrEmpty(displayName))
+            post["SIP_DisPlayName_R"] = displayName;
+        if (!string.IsNullOrEmpty(extension))
+        {
+            // The phone's UI labels these "Username" and "Authentication
+            // User"; both normally hold the same extension.
+            post["SIP_PhoneNum_R"] = extension;
+            post["SIP_RegUser_R"] = extension;
+        }
+        // "Activate" checkbox on the line settings page. Per Fanvil
+        // convention, checked → field present with value 1; unchecked →
+        // field omitted (CheckBoxManager declares it exists so the
+        // server treats absent as unchecked).
+        if (phone.SipRegistrationEnabled)
+            post["SIP_EnableSipReg_RW"] = "ON";
+
+        logger.LogDebug("Submitting {FieldCount} SIP configuration fields for line {LineIndex}.", post.Count, lineIdx);
+
+        var resp = await client.PostFormAsync("/lines.htm", post, ct);
+        var body = resp.Body ?? "";
+        logger.LogDebug("SIP configuration response: HTTP {HttpStatus}, {ResponseLength} characters.",
+            resp.StatusCode, body.Length);
+
+        var bouncedToLogin = body.Contains("logonButton", StringComparison.OrdinalIgnoreCase)
+                             || body.Contains("USER_PASSWORD_ERROR", StringComparison.OrdinalIgnoreCase);
+        var invalidValue = body.Contains("Invalid Value", StringComparison.OrdinalIgnoreCase);
+        if (resp.StatusCode is < 200 or >= 400 || bouncedToLogin || invalidValue)
+        {
+            var fail = invalidValue
+                ? "Phone returned 'Invalid Value'. The handset's SIP config likely has " +
+                  "empty/invalid required fields (often from a previous push that wiped them) " +
+                  "and refuses any form submission until manually repaired. Open the phone's " +
+                  "web UI, fix the line settings, and click Apply there first."
+                : $"POST failed: HTTP {resp.StatusCode}: {Truncate(body, 200)}";
+            return new(false, resp.StatusCode, fail);
+        }
+
+        // Verify: parse the POST response itself (it's the re-rendered
+        // lines.htm page). Doing a separate GET would race the phone's
+        // apply commit and risk reading a stale page.
+        string actualName = "", actualExt = "";
+        bool foundForm = false;
+        foreach (var formBody in ExtractFormBlocks(body))
+        {
+            var ff = ExtractFormFields(formBody);
+            if (ff.Any(f => f.Name == "SIP_DisPlayName_R"))
+            {
+                actualName = ff.First(f => f.Name == "SIP_DisPlayName_R").Value;
+                actualExt = ff.FirstOrDefault(f => f.Name == "SIP_PhoneNum_R")?.Value ?? "";
+                foundForm = true;
+                break;
+            }
+        }
+
+        // If the POST response doesn't contain the line form (e.g. the
+        // page is JS-populated and we can't read the value from static
+        // HTML), treat that as a soft success — POST returned 200, no
+        // Invalid Value, no login bounce. We've done all we can verify.
+        var nameOk = string.IsNullOrEmpty(displayName) || !foundForm ||
+                     string.Equals(actualName, displayName, StringComparison.Ordinal);
+        var extOk = string.IsNullOrEmpty(extension) || !foundForm ||
+                    string.Equals(actualExt, extension, StringComparison.Ordinal);
+        var ok = nameOk && extOk;
+
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(displayName))
+            parts.Add(nameOk
+                ? $"display name = '{displayName}'"
+                : $"display name still '{actualName}' (expected '{displayName}')");
+        if (!string.IsNullOrEmpty(extension))
+            parts.Add(extOk
+                ? $"username = '{extension}'"
+                : $"username still '{actualExt}' (expected '{extension}')");
+        if (phone.SipRegistrationEnabled)
+            parts.Add("registration enabled");
+
+        var verifyNote = !foundForm
+            ? " (response page didn't include the form — change accepted but couldn't verify)"
+            : "";
+        var msg = ok
+            ? $"Pushed to line {lineIdx}: {string.Join(", ", parts)}{lineNote}{verifyNote}"
+            : $"Phone silently rejected part of the push — {string.Join("; ", parts)}";
+
+        return new(ok, resp.StatusCode, msg);
     }
 
     private static readonly Regex FormBlockRx = new(
@@ -510,63 +456,6 @@ public class PhoneSyncService : IPhoneSyncService
     private static bool LooksLikePassword(string name) =>
         name.Contains("passwd", StringComparison.OrdinalIgnoreCase)
         || name.Contains("password", StringComparison.OrdinalIgnoreCase);
-
-    public async Task<(bool reachable, int? status, string message)> ProbeAsync(
-        Phone phone, CancellationToken ct = default)
-    {
-        await _access.RequireAuthenticatedAsync();
-        await using var db = await _dbf.CreateDbContextAsync(ct);
-        var run = new SyncRun
-        {
-            PhoneId = phone.Id,
-            StartedAt = DateTime.UtcNow,
-            Status = "Running",
-            Action = "Probe",
-        };
-        db.SyncRuns.Add(run);
-        await db.SaveChangesAsync(ct);
-        using var scope = BeginRunScope(run);
-        _log.LogDebug("Handset connection probe started.");
-
-        try
-        {
-            using var client = new FanvilHttpClient(phone.IpAddress, phone.Scheme == "https");
-            var (ok, msg) = await client.LoginAsync(phone.Username, phone.Password, ct);
-            if (ok)
-                await client.LogoutAsync(ct); // free the session slot
-
-            var resultMsg = ok ? "Reachable, login OK" : msg;
-            run.FinishedAt = DateTime.UtcNow;
-            run.Status = ok ? "Success" : "Failed";
-            run.HttpStatusCode = ok ? 200 : 401;
-            run.Message = resultMsg;
-            await db.SaveChangesAsync(ct);
-
-            _log.Log(ok ? LogLevel.Information : LogLevel.Warning, "Handset connection probe finished with {Status}.", run.Status);
-            return (ok, ok ? 200 : 401, resultMsg);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            _log.LogInformation("Handset connection probe canceled.");
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _log.LogWarning(ex, "Handset connection probe failed.");
-            run.FinishedAt = DateTime.UtcNow;
-            run.Status = "Error";
-            run.Message = ex.Message;
-            try { await db.SaveChangesAsync(ct); }
-            catch (Exception saveException)
-            {
-                _log.LogError(saveException, "Failed to persist the handset probe failure.");
-            }
-            return (false, null, ex.Message);
-        }
-    }
-
-    private IDisposable? BeginRunScope(SyncRun run) => _log.BeginScope(
-        "PhoneId:{PhoneId} SyncRunId:{SyncRunId} Operation:{Operation}", run.PhoneId, run.Id, run.Action);
 
     private static string Truncate(string s, int max) =>
         string.IsNullOrEmpty(s) ? "" : (s.Length <= max ? s : s[..max] + "...");

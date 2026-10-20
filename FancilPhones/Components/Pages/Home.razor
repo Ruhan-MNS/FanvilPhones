@@ -1,3 +1,4 @@
+@inherits AsyncComponentBase
 @inject ILogger<Home> Logger
 @page "/"
 @attribute [Authorize]
@@ -67,9 +68,22 @@
     protected override Task OnInitializedAsync() => LoadAsync();
     private async Task LoadAsync()
     {
+        if (!TryBeginLoad()) return;
         _loading = true; _error = null;
-        try { var summary = await Directory.GetSummaryAsync(); _contactCount = summary.ContactCount; _lastActivity = summary.LastActivity; _phones = await Directory.GetPhonesAsync(); _history = await Directory.GetHistoryAsync(5); _updatedAt = DateTime.Now; }
+        try
+        {
+            // Each directory call owns a separate DbContext, so these reads can overlap safely.
+            var summaryTask = Directory.GetSummaryAsync(LifetimeToken);
+            var phonesTask = Directory.GetPhonesAsync(LifetimeToken);
+            var historyTask = Directory.GetHistoryAsync(5, LifetimeToken);
+            await Task.WhenAll(summaryTask, phonesTask, historyTask);
+            LifetimeToken.ThrowIfCancellationRequested();
+            var summary = await summaryTask;
+            _contactCount = summary.ContactCount; _lastActivity = summary.LastActivity;
+            _phones = await phonesTask; _history = await historyTask; _updatedAt = DateTime.Now;
+        }
+        catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
         catch (Exception ex) { Logger.LogError(ex, "Failed to load the fleet overview."); _error = "The fleet could not be loaded. Please try again."; }
-        finally { _loading = false; }
+        finally { _loading = false; EndLoad(); }
     }
 }

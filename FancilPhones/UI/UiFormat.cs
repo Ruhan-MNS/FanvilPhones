@@ -7,7 +7,7 @@ public static class UiFormat
     public static string Tone(string? status) => status switch
     {
         "Success" => "success", "Failed" or "Error" => "danger",
-        "Running" => "info", "Pending" => "warning", _ => "neutral"
+        "Running" => "info", "Pending" or "Cancelled" or "TimedOut" => "warning", _ => "neutral"
     };
 
     public static string Date(DateTime? value) => value?.ToLocalTime().ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture) ?? "Never";

@@ -11,12 +11,14 @@ public static class PhonebookCsv
 {
     private const string Header = "\"name\",\"work\",\"mobile\",\"other\",\"ring\",\"groups\"";
 
-    public static byte[] Build(IEnumerable<Contact> contacts)
+    public static byte[] Build(IEnumerable<Contact> contacts, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var sb = new StringBuilder();
         sb.Append(Header).Append("\r\n");
         foreach (var c in contacts)
         {
+            ct.ThrowIfCancellationRequested();
             sb.Append(Q(c.DisplayName)).Append(',')
               .Append(Q(c.OfficeNumber)).Append(',')
               .Append(Q(c.MobileNumber)).Append(',')
@@ -28,9 +30,10 @@ public static class PhonebookCsv
     }
 
     /// <summary>Parses CSV text into Contact records. Tolerates header in any column order.</summary>
-    public static List<Contact> Parse(string text)
+    public static List<Contact> Parse(string text, CancellationToken ct = default)
     {
-        var rows = ParseRows(text);
+        ct.ThrowIfCancellationRequested();
+        var rows = ParseRows(text, ct);
         var result = new List<Contact>();
         if (rows.Count == 0) return result;
 
@@ -57,6 +60,7 @@ public static class PhonebookCsv
 
         for (var r = start; r < rows.Count; r++)
         {
+            ct.ThrowIfCancellationRequested();
             var row = rows[r];
             var name = Get(row, iName);
             if (string.IsNullOrWhiteSpace(name)) continue;
@@ -78,7 +82,7 @@ public static class PhonebookCsv
     private static string? NullIfEmpty(string s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
     private static string Q(string? s) => "\"" + (s ?? "").Replace("\"", "\"\"") + "\"";
 
-    private static List<string[]> ParseRows(string text)
+    private static List<string[]> ParseRows(string text, CancellationToken ct)
     {
         var rows = new List<string[]>();
         var field = new StringBuilder();
@@ -87,6 +91,7 @@ public static class PhonebookCsv
         var i = 0;
         while (i < text.Length)
         {
+            if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
             var ch = text[i];
             if (inQuotes)
             {

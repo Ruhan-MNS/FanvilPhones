@@ -10,12 +10,14 @@ public sealed class UiFeedback : IDisposable
     private readonly CancellationTokenSource lifetime = new();
     private readonly List<Notice> notices = [];
     private TaskCompletionSource<DialogChoice>? pending;
+    private bool disposed;
     public event Action? Changed;
     public IReadOnlyList<Notice> Notices => notices;
     public Prompt? ActivePrompt { get; private set; }
 
     public void Notify(string message, string tone = "info")
     {
+        if (disposed) return;
         var id = Guid.NewGuid();
         notices.Add(new(id, message, tone));
         if (notices.Count > 4) notices.RemoveAt(0);
@@ -31,20 +33,27 @@ public sealed class UiFeedback : IDisposable
 
     public void Dismiss(Guid id)
     {
+        if (disposed) return;
         notices.RemoveAll(n => n.Id == id);
         Changed?.Invoke();
     }
 
-    public async Task<bool> ConfirmAsync(string title, string message, string action = "Continue", bool destructive = false)
-        => await ChooseAsync(title, message, action, destructive: destructive) == DialogChoice.Primary;
+    public async Task<bool> ConfirmAsync(string title, string message, string action = "Continue", bool destructive = false, CancellationToken ct = default)
+        => await ChooseAsync(title, message, action, destructive: destructive, ct: ct) == DialogChoice.Primary;
 
-    public Task<DialogChoice> ChooseAsync(string title, string message, string primary, string? secondary = null, bool destructive = false)
+    public async Task<DialogChoice> ChooseAsync(string title, string message, string primary, string? secondary = null, bool destructive = false, CancellationToken ct = default)
     {
-        if (pending is not null) return Task.FromResult(DialogChoice.Cancel);
-        pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        ct.ThrowIfCancellationRequested();
+        if (disposed || pending is not null) return DialogChoice.Cancel;
+        var completion = new TaskCompletionSource<DialogChoice>(TaskCreationOptions.RunContinuationsAsynchronously);
+        pending = completion;
         ActivePrompt = new(title, message, primary, secondary, destructive);
         Changed?.Invoke();
-        return pending.Task;
+        try { return await completion.Task.WaitAsync(ct); }
+        finally
+        {
+            if (ReferenceEquals(pending, completion)) Resolve(DialogChoice.Cancel);
+        }
     }
 
     public void Resolve(DialogChoice choice)
@@ -58,8 +67,12 @@ public sealed class UiFeedback : IDisposable
 
     public void Dispose()
     {
+        if (disposed) return;
+        disposed = true;
         lifetime.Cancel();
         lifetime.Dispose();
         pending?.TrySetResult(DialogChoice.Cancel);
+        pending = null;
+        ActivePrompt = null;
     }
 }

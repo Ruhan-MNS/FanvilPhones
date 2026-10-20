@@ -9,11 +9,11 @@ public static class PhonePolicies
 
 public interface IUserAccess
 {
-    Task RequireAuthenticatedAsync();
-    Task RequireAdministratorAsync();
+    Task RequireAuthenticatedAsync(CancellationToken ct = default);
+    Task RequireAdministratorAsync(CancellationToken ct = default);
 }
 
-public record FleetSummary(int PhoneCount, int ContactCount, DateTime? LastActivity);
+public record FleetSummary(int PhoneCount, int ContactCount, DateTime? LastActivity, int EnabledPhoneCount = 0);
 public record PhoneImportResult(int Added, int Updated);
 public record SyncResult(int PhoneId, string PhoneName, bool Success, int? HttpStatus, string Message);
 
@@ -24,7 +24,7 @@ public interface IPhoneDirectory
 {
     Task<List<Phone>> GetPhonesAsync(CancellationToken ct = default);
     Task<List<Contact>> GetContactsAsync(CancellationToken ct = default);
-    Task<List<SyncRun>> GetHistoryAsync(int limit, CancellationToken ct = default);
+    Task<List<SyncRun>> GetHistoryAsync(int limit, CancellationToken ct = default, string? action = null);
     Task<FleetSummary> GetSummaryAsync(CancellationToken ct = default);
     Task SavePhoneAsync(Phone phone, CancellationToken ct = default);
     Task SetPhoneEnabledAsync(int id, bool enabled, CancellationToken ct = default);

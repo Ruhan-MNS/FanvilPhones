@@ -11,37 +11,47 @@ public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUse
 {
     public async Task<List<Phone>> GetPhonesAsync(CancellationToken ct = default)
     {
-        await access.RequireAuthenticatedAsync();
+        await access.RequireAuthenticatedAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
         return await db.Phones.AsNoTracking().OrderBy(p => p.Name).ToListAsync(ct);
     }
 
     public async Task<List<Contact>> GetContactsAsync(CancellationToken ct = default)
     {
-        await access.RequireAuthenticatedAsync();
+        await access.RequireAuthenticatedAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
         return await db.Contacts.AsNoTracking().OrderBy(c => c.DisplayName).ToListAsync(ct);
     }
 
-    public async Task<List<SyncRun>> GetHistoryAsync(int limit, CancellationToken ct = default)
+    public async Task<List<SyncRun>> GetHistoryAsync(int limit, CancellationToken ct = default, string? action = null)
     {
-        await access.RequireAuthenticatedAsync();
+        await access.RequireAuthenticatedAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
-        return await db.SyncRuns.AsNoTracking().Include(r => r.Phone)
-            .OrderByDescending(r => r.StartedAt).Take(Math.Clamp(limit, 1, 500)).ToListAsync(ct);
+        var query = db.SyncRuns.AsNoTracking();
+        if (action is not null) query = query.Where(r => r.Action == action);
+        return await query.OrderByDescending(r => r.StartedAt).ThenByDescending(r => r.Id)
+            .Take(Math.Clamp(limit, 1, 500)).Select(r => new SyncRun
+            {
+                Id = r.Id, PhoneId = r.PhoneId, StartedAt = r.StartedAt, FinishedAt = r.FinishedAt,
+                Status = r.Status, Action = r.Action, HttpStatusCode = r.HttpStatusCode,
+                Message = r.Message, ContactCount = r.ContactCount,
+                Phone = r.Phone == null ? null : new Phone { Id = r.Phone.Id, Name = r.Phone.Name, IpAddress = r.Phone.IpAddress, Username = "", Password = "" }
+            }).ToListAsync(ct);
     }
 
     public async Task<FleetSummary> GetSummaryAsync(CancellationToken ct = default)
     {
-        await access.RequireAuthenticatedAsync();
+        await access.RequireAuthenticatedAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
-        return new(await db.Phones.CountAsync(ct), await db.Contacts.CountAsync(ct),
-            await db.SyncRuns.MaxAsync(r => (DateTime?)r.StartedAt, ct));
+        var phones = await db.Phones.GroupBy(p => 1)
+            .Select(g => new { Total = g.Count(), Enabled = g.Count(p => p.Enabled) }).SingleOrDefaultAsync(ct);
+        return new(phones?.Total ?? 0, await db.Contacts.CountAsync(ct),
+            await db.SyncRuns.MaxAsync(r => (DateTime?)r.StartedAt, ct), phones?.Enabled ?? 0);
     }
 
     public async Task SavePhoneAsync(Phone phone, CancellationToken ct = default)
     {
-        await access.RequireAdministratorAsync();
+        await access.RequireAdministratorAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
         var target = phone.Id == 0 ? new Phone() : await db.Phones.FindAsync([phone.Id], ct)
             ?? throw new InvalidOperationException("Phone no longer exists.");
@@ -54,40 +64,36 @@ public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUse
 
     public async Task SetPhoneEnabledAsync(int id, bool enabled, CancellationToken ct = default)
     {
-        await access.RequireAdministratorAsync();
+        await access.RequireAdministratorAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
-        var phone = await db.Phones.FindAsync([id], ct) ?? throw new InvalidOperationException("Phone no longer exists.");
-        phone.Enabled = enabled;
-        await db.SaveChangesAsync(ct);
+        if (await db.Phones.Where(p => p.Id == id).ExecuteUpdateAsync(setters => setters.SetProperty(p => p.Enabled, enabled), ct) == 0)
+            throw new InvalidOperationException("Phone no longer exists.");
         logger.LogInformation("Phone {PhoneId} fleet synchronization enabled: {Enabled}.", id, enabled);
     }
 
     public async Task DeletePhoneAsync(int id, CancellationToken ct = default)
     {
-        await access.RequireAdministratorAsync();
+        await access.RequireAdministratorAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
-        var phone = await db.Phones.FindAsync([id], ct);
-        if (phone is null) return;
-        db.Phones.Remove(phone);
-        await db.SaveChangesAsync(ct);
+        if (await db.Phones.Where(p => p.Id == id).ExecuteDeleteAsync(ct) == 0) return;
         logger.LogInformation("Phone {PhoneId} and its activity history deleted.", id);
     }
 
     public async Task<PhoneImportResult> ImportPhonesAsync(IReadOnlyList<Phone> phones, bool replace, CancellationToken ct = default)
     {
-        await access.RequireAdministratorAsync();
+        await access.RequireAdministratorAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if (replace)
         {
-            db.Phones.RemoveRange(await db.Phones.ToListAsync(ct));
-            await db.SaveChangesAsync(ct);
+            await db.Phones.ExecuteDeleteAsync(ct);
         }
         var byIp = (await db.Phones.ToListAsync(ct)).ToDictionary(p => p.IpAddress, StringComparer.OrdinalIgnoreCase);
         var added = 0;
         var updated = 0;
         foreach (var phone in phones)
         {
+            ct.ThrowIfCancellationRequested();
             if (!byIp.TryGetValue(phone.IpAddress, out var target))
             {
                 target = new Phone();
@@ -106,7 +112,7 @@ public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUse
 
     public async Task SaveContactAsync(Contact contact, CancellationToken ct = default)
     {
-        await access.RequireAdministratorAsync();
+        await access.RequireAdministratorAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
         var target = contact.Id == 0 ? new Contact() : await db.Contacts.FindAsync([contact.Id], ct)
             ?? throw new InvalidOperationException("Contact no longer exists.");
@@ -125,22 +131,18 @@ public sealed class PhoneDirectory(IDbContextFactory<AppDbContext> factory, IUse
 
     public async Task DeleteContactAsync(int id, CancellationToken ct = default)
     {
-        await access.RequireAdministratorAsync();
+        await access.RequireAdministratorAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
-        var contact = await db.Contacts.FindAsync([id], ct);
-        if (contact is null) return;
-        db.Contacts.Remove(contact);
-        await db.SaveChangesAsync(ct);
+        if (await db.Contacts.Where(c => c.Id == id).ExecuteDeleteAsync(ct) == 0) return;
         logger.LogInformation("Contact {ContactId} deleted.", id);
     }
 
     public async Task ReplaceContactsAsync(IReadOnlyList<Contact> contacts, CancellationToken ct = default)
     {
-        await access.RequireAdministratorAsync();
+        await access.RequireAdministratorAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        db.Contacts.RemoveRange(await db.Contacts.ToListAsync(ct));
-        await db.SaveChangesAsync(ct);
+        await db.Contacts.ExecuteDeleteAsync(ct);
         db.Contacts.AddRange(contacts);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);

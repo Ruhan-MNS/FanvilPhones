@@ -10,9 +10,11 @@ namespace FancilPhones.Application;
 /// </summary>
 public static class PhonesXlsx
 {
-    public static List<Phone> Parse(Stream stream)
+    public static List<Phone> Parse(Stream stream, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var wb = new XLWorkbook(stream);
+        ct.ThrowIfCancellationRequested();
         var ws = wb.Worksheets.FirstOrDefault()
                  ?? throw new InvalidOperationException("Workbook has no sheets.");
 
@@ -46,6 +48,7 @@ public static class PhonesXlsx
         var phones = new List<Phone>();
         foreach (var row in ws.RowsUsed().Skip(1))
         {
+            ct.ThrowIfCancellationRequested();
             var name = row.Cell(nameCol).GetString().Trim();
             var ip = row.Cell(ipCol).GetString().Trim();
             if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(ip)) continue;

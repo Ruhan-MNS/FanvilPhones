@@ -26,7 +26,7 @@ namespace FancilPhones.Authentication
             {
                 var logger = loggerFactory.CreateLogger(typeof(IdentityComponentsEndpointRouteBuilderExtensions).FullName!);
                 if (!await ValidateAntiforgeryAsync(context, antiforgery, logger)) return Results.BadRequest();
-                var form = await context.Request.ReadFormAsync();
+                var form = await context.Request.ReadFormAsync(context.RequestAborted);
                 var userName = form["Username"].ToString().Trim();
                 var password = form["Password"].ToString();
                 var rememberMe = string.Equals(form["RememberMe"], "true", StringComparison.OrdinalIgnoreCase)
@@ -82,7 +82,7 @@ namespace FancilPhones.Authentication
             {
                 var logger = loggerFactory.CreateLogger(typeof(IdentityComponentsEndpointRouteBuilderExtensions).FullName!);
                 if (!await ValidateAntiforgeryAsync(context, antiforgery, logger)) return Results.BadRequest();
-                var form = await context.Request.ReadFormAsync();
+                var form = await context.Request.ReadFormAsync(context.RequestAborted);
                 var returnUrl = form["ReturnUrl"].ToString();
                 var rememberMe = string.Equals(form["RememberMe"], "true", StringComparison.OrdinalIgnoreCase);
                 var rememberMachine = string.Equals(form["RememberMachine"], "true", StringComparison.OrdinalIgnoreCase)
@@ -128,7 +128,7 @@ namespace FancilPhones.Authentication
             {
                 var logger = loggerFactory.CreateLogger(typeof(IdentityComponentsEndpointRouteBuilderExtensions).FullName!);
                 if (!await ValidateAntiforgeryAsync(context, antiforgery, logger)) return Results.BadRequest();
-                var form = await context.Request.ReadFormAsync();
+                var form = await context.Request.ReadFormAsync(context.RequestAborted);
                 var returnUrl = form["ReturnUrl"].ToString();
                 var code = form["RecoveryCode"].ToString().Replace(" ", string.Empty);
 
@@ -168,7 +168,7 @@ namespace FancilPhones.Authentication
             {
                 var logger = loggerFactory.CreateLogger(typeof(IdentityComponentsEndpointRouteBuilderExtensions).FullName!);
                 if (!await ValidateAntiforgeryAsync(context, antiforgery, logger)) return Results.BadRequest();
-                var form = await context.Request.ReadFormAsync();
+                var form = await context.Request.ReadFormAsync(context.RequestAborted);
                 var returnUrl = form["ReturnUrl"].ToString();
                 var destination = returnUrl.StartsWith('/') ? returnUrl : $"/{returnUrl}";
                 await signInManager.SignOutAsync();

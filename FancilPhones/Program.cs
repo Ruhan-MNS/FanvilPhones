@@ -88,15 +88,21 @@ if (migrateOnly || importIndex >= 0 || builder.Configuration.GetValue("Database:
 {
     await using var scope = app.Services.CreateAsyncScope();
     var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
-    await using var db = await factory.CreateDbContextAsync();
+    var stopping = app.Lifetime.ApplicationStopping;
+    await using var db = await factory.CreateDbContextAsync(stopping);
     // Only the FancilPhones schema is migrated. Never migrate/seed the shared auth store.
     try
     {
         app.Logger.LogInformation("Checking phone store migrations for schema {Schema}.", AppDbContext.Schema);
-        await db.Database.MigrateAsync();
+        await db.Database.MigrateAsync(stopping);
         app.Logger.LogInformation("Phone store migrations completed.");
         if (importIndex >= 0)
-            await scope.ServiceProvider.GetRequiredService<LegacyPhoneDataImporter>().ImportAsync(args[importIndex + 1]);
+            await scope.ServiceProvider.GetRequiredService<LegacyPhoneDataImporter>().ImportAsync(args[importIndex + 1], stopping);
+    }
+    catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+    {
+        app.Logger.LogInformation("Phone store initialization cancelled during application shutdown.");
+        return;
     }
     catch (Exception ex)
     {

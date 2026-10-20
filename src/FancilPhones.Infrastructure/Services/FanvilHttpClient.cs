@@ -19,15 +19,14 @@ public sealed class FanvilResponse
     public string Body { get; init; } = "";
     public List<string> SetCookies { get; } = new();
 
-    /// <summary>First ~500 bytes of the raw response, control chars escaped (for diagnostics).</summary>
-    public string RawDump { get; init; } = "";
 }
 
-public sealed class FanvilHttpClient : IDisposable
+public sealed class FanvilHttpClient : IFanvilClient
 {
     private readonly string _host;
     private readonly int _port;
     private readonly bool _useTls;
+    private readonly TimeSpan _connectTimeout;
 
     /// <summary>Cookies accumulated across requests, resent on every call.</summary>
     private readonly Dictionary<string, string> _cookies = new(StringComparer.OrdinalIgnoreCase);
@@ -35,9 +34,10 @@ public sealed class FanvilHttpClient : IDisposable
     private TcpClient? _tcp;
     private Stream? _stream;
 
-    public FanvilHttpClient(string host, bool useTls, int? port = null)
+    public FanvilHttpClient(string host, bool useTls, int? port = null, TimeSpan? connectTimeout = null)
     {
         _host = host;
+        _connectTimeout = connectTimeout ?? TimeSpan.FromSeconds(10);
         _useTls = useTls;
         _port = port ?? (useTls ? 443 : 80);
     }
@@ -116,6 +116,7 @@ public sealed class FanvilHttpClient : IDisposable
         {
             await PostFormAsync("/title.htm", new Dictionary<string, string> { ["DefaultLogout"] = "Logout" }, ct);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch { /* best-effort */ }
         finally
         {
@@ -173,13 +174,20 @@ public sealed class FanvilHttpClient : IDisposable
 
         CloseConnection();
         _tcp = new TcpClient { ReceiveTimeout = 30000, SendTimeout = 30000, NoDelay = true };
-        await _tcp.ConnectAsync(_host, _port, ct);
+        using var connect = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        connect.CancelAfter(_connectTimeout);
+        try { await _tcp.ConnectAsync(_host, _port, connect.Token); }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested && connect.IsCancellationRequested)
+        {
+            throw new TimeoutException("Timed out connecting to the handset.");
+        }
 
         Stream s = _tcp.GetStream();
         if (_useTls)
         {
             var ssl = new SslStream(s, false, (_, _, _, _) => true);
-            await ssl.AuthenticateAsClientAsync(_host);
+            try { await ssl.AuthenticateAsClientAsync(new SslClientAuthenticationOptions { TargetHost = _host }, ct); }
+            catch { await ssl.DisposeAsync(); throw; }
             s = ssl;
         }
         _stream = s;
@@ -191,14 +199,21 @@ public sealed class FanvilHttpClient : IDisposable
         // server between requests.
         for (var attempt = 0; ; attempt++)
         {
+            ct.ThrowIfCancellationRequested();
             try
             {
                 await EnsureConnectedAsync(ct);
                 return await SendOnceAsync(method, path, contentType, body, ct);
             }
-            catch (Exception) when (attempt == 0)
+            catch (Exception ex) when (attempt == 0 && method == "GET" && !ct.IsCancellationRequested
+                && ex is IOException or SocketException)
             {
                 CloseConnection();
+            }
+            catch
+            {
+                CloseConnection();
+                throw;
             }
         }
     }
@@ -254,10 +269,14 @@ public sealed class FanvilHttpClient : IDisposable
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
+                if (ms.Length == 0 || (headerEnd >= 0 && contentLength >= 0 && ms.Length - headerEnd < contentLength))
+                    throw new TimeoutException("Timed out waiting for a complete handset response.");
                 break; // idle timeout - response finished
             }
 
             if (read <= 0) break; // connection closed by server
+            if (ms.Length + read > 4 * 1024 * 1024)
+                throw new InvalidDataException("Handset response exceeds the 4 MB limit.");
             ms.Write(buf, 0, read);
 
             if (headerEnd < 0)
@@ -269,8 +288,10 @@ public sealed class FanvilHttpClient : IDisposable
 
         if (ms.Length == 0)
             throw new Exception("Phone closed the connection without sending a response.");
+        if (headerEnd >= 0 && contentLength >= 0 && ms.Length - headerEnd < contentLength)
+            throw new IOException("Handset closed the connection before its response was complete.");
 
-        return Parse(ms.ToArray());
+        return Parse(ms.GetBuffer().AsSpan(0, checked((int)ms.Length)));
     }
 
     private static bool TryFindHeaderEnd(byte[] data, int len, out int headerEnd, out int contentLength)
@@ -308,7 +329,7 @@ public sealed class FanvilHttpClient : IDisposable
         return false;
     }
 
-    private FanvilResponse Parse(byte[] raw)
+    private FanvilResponse Parse(ReadOnlySpan<byte> raw)
     {
         var lines = new List<string>();
         var pos = 0;
@@ -318,7 +339,7 @@ public sealed class FanvilHttpClient : IDisposable
             var lineEnd = pos;
             while (lineEnd < raw.Length && raw[lineEnd] != (byte)'\n' && raw[lineEnd] != (byte)'\r')
                 lineEnd++;
-            var line = Encoding.ASCII.GetString(raw, pos, lineEnd - pos);
+            var line = Encoding.ASCII.GetString(raw.Slice(pos, lineEnd - pos));
 
             var next = lineEnd;
             if (next < raw.Length && raw[next] == (byte)'\r') next++;
@@ -330,7 +351,7 @@ public sealed class FanvilHttpClient : IDisposable
             if (next == lineEnd) break;
         }
 
-        var bodyBytes = bodyStart < raw.Length ? raw[bodyStart..] : Array.Empty<byte>();
+        ReadOnlySpan<byte> bodyBytes = bodyStart < raw.Length ? raw[bodyStart..] : [];
 
         var status = 0;
         if (lines.Count > 0)
@@ -340,25 +361,10 @@ public sealed class FanvilHttpClient : IDisposable
                 int.TryParse(parts[1], out status);
         }
 
-        var dumpLen = Math.Min(raw.Length, 500);
-        var dump = new StringBuilder();
-        for (var k = 0; k < dumpLen; k++)
-        {
-            var b = raw[k];
-            dump.Append(b switch
-            {
-                (byte)'\r' => "\\r",
-                (byte)'\n' => "\\n\n",
-                >= 32 and < 127 => ((char)b).ToString(),
-                _ => $"\\x{b:x2}"
-            });
-        }
-
         var resp = new FanvilResponse
         {
             StatusCode = status == 0 ? 200 : status,
-            Body = Encoding.UTF8.GetString(bodyBytes),
-            RawDump = dump.ToString()
+            Body = Encoding.UTF8.GetString(bodyBytes)
         };
 
         foreach (var line in lines.Skip(1))

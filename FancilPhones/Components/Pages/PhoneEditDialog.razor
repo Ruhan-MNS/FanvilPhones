@@ -1,3 +1,4 @@
+@inherits AsyncComponentBase
 @inject ILogger<PhoneEditDialog> Logger
 @inject IPhoneDirectory Directory
 @inject UiFeedback Feedback
@@ -34,11 +35,12 @@
     private string? _error;
     private async Task SaveAsync()
     {
-        if (_busy) return;
+        if (_busy || IsDisposed) return;
         if (Model.SipLineIndex is < 1 or > 16) { _error = "Choose a SIP line between 1 and 16."; return; }
         _busy = true; _error = null;
-        try { await Directory.SavePhoneAsync(Model); Feedback.Notify($"Saved {Model.Name}.", "success"); await OnSaved.InvokeAsync(); }
+        try { await Directory.SavePhoneAsync(Model, LifetimeToken); LifetimeToken.ThrowIfCancellationRequested(); Feedback.Notify($"Saved {Model.Name}.", "success"); await OnSaved.InvokeAsync(); }
         catch (DuplicatePhoneException ex) { _error = ex.Message; }
+        catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
         catch (Exception ex) { Logger.LogError(ex, "Failed to save phone {PhoneId}.", Model.Id); _error = "The phone could not be saved. Check its details and try again."; }
         finally { _busy = false; }
     }

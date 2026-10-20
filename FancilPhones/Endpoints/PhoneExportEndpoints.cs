@@ -10,7 +10,7 @@ public static class PhoneExportEndpoints
         endpoints.MapGet("/api/phonebook.csv", async (IPhoneDirectory directory, ILoggerFactory loggerFactory, CancellationToken ct) =>
         {
             var contacts = await directory.GetContactsAsync(ct);
-            var bytes = PhonebookCsv.Build(contacts);
+            var bytes = PhonebookCsv.Build(contacts, ct);
             loggerFactory.CreateLogger(typeof(PhoneExportEndpoints).FullName!)
                 .LogInformation("Phonebook CSV export generated with {ContactCount} contacts.", contacts.Count);
             return Results.File(bytes, "text/csv", "phonebook.csv");
@@ -37,6 +37,7 @@ public static class PhoneExportEndpoints
             int row = 2;
             foreach (var c in contacts)
             {
+                ct.ThrowIfCancellationRequested();
                 ws.Cell(row, 1).Value = c.DisplayName;
                 ws.Cell(row, 2).Value = c.OfficeNumber ?? "";
                 ws.Cell(row, 3).Value = c.MobileNumber ?? "";
@@ -53,7 +54,9 @@ public static class PhoneExportEndpoints
             ws.RangeUsed()?.SetAutoFilter();
 
             using var ms = new MemoryStream();
+            ct.ThrowIfCancellationRequested();
             wb.SaveAs(ms);
+            ct.ThrowIfCancellationRequested();
             loggerFactory.CreateLogger(typeof(PhoneExportEndpoints).FullName!)
                 .LogInformation("Phonebook Excel export generated with {ContactCount} contacts.", contacts.Count);
             var fileName = $"phonebook-{DateTime.Now:yyyyMMdd-HHmm}.xlsx";
@@ -88,6 +91,7 @@ public static class PhoneExportEndpoints
             int row = 2;
             foreach (var p in phones)
             {
+                ct.ThrowIfCancellationRequested();
                 ws.Cell(row, 1).Value = p.Name;
                 ws.Cell(row, 2).Value = p.IpAddress;
                 ws.Cell(row, 3).Value = p.Scheme;
@@ -108,7 +112,9 @@ public static class PhoneExportEndpoints
             ws.RangeUsed()?.SetAutoFilter();
 
             using var ms = new MemoryStream();
+            ct.ThrowIfCancellationRequested();
             wb.SaveAs(ms);
+            ct.ThrowIfCancellationRequested();
             loggerFactory.CreateLogger(typeof(PhoneExportEndpoints).FullName!)
                 .LogInformation("Fleet Excel export generated with {PhoneCount} phones.", phones.Count);
             var fileName = $"phones-{DateTime.Now:yyyyMMdd-HHmm}.xlsx";

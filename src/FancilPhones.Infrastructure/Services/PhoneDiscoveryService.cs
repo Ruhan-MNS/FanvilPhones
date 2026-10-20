@@ -1,10 +1,9 @@
-using System.Net;
-using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
 using FancilPhones.Application;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 
 namespace FancilPhones.Infrastructure.Services;
 
@@ -13,7 +12,8 @@ namespace FancilPhones.Infrastructure.Services;
 /// raw-socket probe (a Fanvil's embedded "Rapid Logic" server returns a login
 /// page containing "logonButton" and exposes a hex nonce at /key==nonce).
 /// </summary>
-public sealed class PhoneDiscoveryService(IUserAccess access, ILogger<PhoneDiscoveryService> logger) : IPhoneDiscoveryService
+public sealed class PhoneDiscoveryService(IUserAccess access, ILogger<PhoneDiscoveryService> logger, IFanvilClientFactory clients,
+    IHostApplicationLifetime application) : IPhoneDiscoveryService
 {
     /// <summary>
     /// Probe one host: TCP-connect port 80, then check for the Fanvil login page
@@ -27,22 +27,17 @@ public sealed class PhoneDiscoveryService(IUserAccess access, ILogger<PhoneDisco
         TimeSpan httpTimeout,
         CancellationToken ct)
     {
-        await access.RequireAdministratorAsync();
-        var alreadyKnown = knownIps.Contains(ip);
+        using var stopping = CancellationTokenSource.CreateLinkedTokenSource(ct, application.ApplicationStopping);
+        ct = stopping.Token;
+        await access.RequireAdministratorAsync(ct);
+        return await ProbeCoreAsync(ip, knownIps, tcpTimeout, httpTimeout, ct);
+    }
 
-        // Step 1: cheap TCP connect; skip dead hosts fast.
-        try
-        {
-            using var tcp = new TcpClient();
-            using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            connectCts.CancelAfter(tcpTimeout);
-            await tcp.ConnectAsync(ip, 80, connectCts.Token);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch
-        {
-            return new DiscoveredPhone(ip, false, alreadyKnown, "No HTTP on port 80");
-        }
+    private async Task<DiscoveredPhone> ProbeCoreAsync(string ip, HashSet<string> knownIps,
+        TimeSpan tcpTimeout, TimeSpan httpTimeout, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var alreadyKnown = knownIps.Contains(ip);
 
         // Step 2: multi-signal HTTP check. Fanvil web UI is frame-based:
         //   GET /          -> <frameset> shell (no login form text)
@@ -53,7 +48,7 @@ public sealed class PhoneDiscoveryService(IUserAccess access, ILogger<PhoneDisco
         // flaky; scanning a /24 with it would burn slots on real handsets in the fleet.
         try
         {
-            using var http = new FanvilHttpClient(ip, useTls: false);
+            using var http = clients.Create(ip, useTls: false, connectTimeout: tcpTimeout);
             using var reqCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             reqCts.CancelAfter(httpTimeout);
 
@@ -143,65 +138,29 @@ public sealed class PhoneDiscoveryService(IUserAccess access, ILogger<PhoneDisco
         TimeSpan? httpTimeout = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        await access.RequireAdministratorAsync();
+        await access.RequireAdministratorAsync(ct);
         var tcpT = tcpTimeout ?? TimeSpan.FromMilliseconds(600);
         var httpT = httpTimeout ?? TimeSpan.FromSeconds(4);
 
-        var channel = Channel.CreateUnbounded<DiscoveredPhone>(
-            new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-
-        var sem = new SemaphoreSlim(maxConcurrency);
-        var ips = PhoneNetworkRange.EnumerateIps(cidrOrRange).ToList();
+        if (maxConcurrency is < 1 or > 128) throw new ArgumentOutOfRangeException(nameof(maxConcurrency));
+        if (tcpT <= TimeSpan.Zero || httpT <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(tcpTimeout));
+        var ips = PhoneNetworkRange.EnumerateIps(cidrOrRange).Take(4097).ToArray();
+        if (ips.Length > 4096) throw new ArgumentException("Choose a range with 4,096 addresses or fewer.", nameof(cidrOrRange));
+        var known = new HashSet<string>(knownIps, StringComparer.OrdinalIgnoreCase);
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct, application.ApplicationStopping);
+        var token = stop.Token;
+        var channel = Channel.CreateBounded<DiscoveredPhone>(new BoundedChannelOptions(maxConcurrency * 2)
+        {
+            SingleReader = true, SingleWriter = false, FullMode = BoundedChannelFullMode.Wait
+        });
         using var scope = logger.BeginScope("DiscoveryId:{DiscoveryId}", Guid.NewGuid());
-        logger.LogInformation("Network discovery started for {AddressCount} addresses with concurrency {Concurrency}.", ips.Count, maxConcurrency);
+        logger.LogInformation("Network discovery started for {AddressCount} addresses with concurrency {Concurrency}.", ips.Length, maxConcurrency);
         var checkedCount = 0;
         var detectedCount = 0;
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var tasks = new List<Task>(ips.Count);
-                foreach (var ip in ips)
-                {
-                    if (ct.IsCancellationRequested) break;
-                    await sem.WaitAsync(ct);
-                    tasks.Add(Task.Run(async () =>
-                    {
-                        try
-                        {
-                            var result = await ProbeOneAsync(ip, knownIps, tcpT, httpT, ct);
-                            await channel.Writer.WriteAsync(result, ct);
-                        }
-                        catch (OperationCanceledException) { }
-                        catch (Exception ex)
-                        {
-                            logger.LogWarning(ex, "Network discovery worker failed for {IpAddress}.", ip);
-                            try { await channel.Writer.WriteAsync(
-                                new DiscoveredPhone(ip, false, knownIps.Contains(ip),
-                                    $"Probe error: {ex.Message}"), ct); }
-                            catch { }
-                        }
-                        finally { sem.Release(); }
-                    }, ct));
-                }
-                await Task.WhenAll(tasks);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Network discovery failed while scheduling probes.");
-                channel.Writer.TryComplete(ex);
-            }
-            finally
-            {
-                channel.Writer.TryComplete();
-            }
-        }, ct);
-
+        var producer = ProduceAsync();
         try
         {
-            await foreach (var item in channel.Reader.ReadAllAsync(ct))
+            await foreach (var item in channel.Reader.ReadAllAsync(token))
             {
                 checkedCount++;
                 if (item.IsFanvil) detectedCount++;
@@ -211,8 +170,34 @@ public sealed class PhoneDiscoveryService(IUserAccess access, ILogger<PhoneDisco
         }
         finally
         {
+            // Early consumer disposal is cancellation too: join all workers before returning.
+            await stop.CancelAsync();
+            await producer;
             if (ct.IsCancellationRequested)
                 logger.LogInformation("Network discovery canceled after {CheckedCount} addresses; detected: {DetectedCount}.", checkedCount, detectedCount);
+        }
+
+        async Task ProduceAsync()
+        {
+            Exception? failure = null;
+            try
+            {
+                await Parallel.ForEachAsync(ips, new ParallelOptions
+                {
+                    MaxDegreeOfParallelism = maxConcurrency, CancellationToken = token
+                }, async (ip, workerToken) =>
+                {
+                    var result = await ProbeCoreAsync(ip, known, tcpT, httpT, workerToken);
+                    await channel.Writer.WriteAsync(result, workerToken);
+                });
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                failure = ex;
+                logger.LogError(ex, "Network discovery failed.");
+            }
+            finally { channel.Writer.TryComplete(failure); }
         }
     }
 }

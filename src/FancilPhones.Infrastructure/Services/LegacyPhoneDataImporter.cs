@@ -38,7 +38,7 @@ public sealed class LegacyPhoneDataImporter(IDbContextFactory<AppDbContext> fact
         return (phones.Count, contacts.Count, logs.Count);
     }
 
-    private static async Task InsertAsync<T>(AppDbContext db, string table, List<T> rows, CancellationToken ct) where T : class
+    private async Task InsertAsync<T>(AppDbContext db, string table, List<T> rows, CancellationToken ct) where T : class
     {
         var (enable, disable) = table switch
         {
@@ -56,7 +56,12 @@ public sealed class LegacyPhoneDataImporter(IDbContextFactory<AppDbContext> fact
         }
         finally
         {
-            await db.Database.ExecuteSqlRawAsync(disable, CancellationToken.None);
+            using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            try { await db.Database.ExecuteSqlRawAsync(disable, cleanup.Token); }
+            catch (Exception ex) when (ct.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Identity insert cleanup did not complete after import cancellation.");
+            }
         }
     }
 }
