@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace FancilPhones.Data;
+namespace FancilPhones.Domain;
 
 public class SyncRun
 {

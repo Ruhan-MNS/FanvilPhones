@@ -3,7 +3,10 @@
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
             <NotAuthorized>
-                <RedirectToLogin />
+                <AuthorizeView Context="accessState">
+                    <Authorized><FancilPhones.Components.Pages.AccessDenied /></Authorized>
+                    <NotAuthorized><RedirectToLogin /></NotAuthorized>
+                </AuthorizeView>
             </NotAuthorized>
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1"/>

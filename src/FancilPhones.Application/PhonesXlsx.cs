@@ -1,7 +1,7 @@
 using ClosedXML.Excel;
-using FancilPhones.Data;
+using FancilPhones.Domain;
 
-namespace FancilPhones.Services;
+namespace FancilPhones.Application;
 
 /// <summary>
 /// Parses a Phones export XLSX (header row: Name, IP, Scheme, Username, Password,

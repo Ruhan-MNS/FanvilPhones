@@ -1,265 +1,120 @@
 using FancilPhones.Components;
-using FancilPhones.Data;
-using FancilPhones.Services;
+using FancilPhones.Application;
+using FancilPhones.Authentication;
+using FancilPhones.Endpoints;
+using FancilPhones.Infrastructure;
+using FancilPhones.Infrastructure.Data;
+using FancilPhones.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
+using System.Threading.RateLimiting;
 
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
-
+var migrateOnly = args.Contains("--migrate-database", StringComparer.OrdinalIgnoreCase);
+var importIndex = Array.FindIndex(args, a => string.Equals(a, "--import-sqlite", StringComparison.OrdinalIgnoreCase));
+if (importIndex >= 0 && (importIndex + 1 >= args.Length || args[importIndex + 1].StartsWith("--")))
+    throw new ArgumentException("--import-sqlite requires the path to the legacy database.");
+var hostArgs = args.Where((arg, index) => !string.Equals(arg, "--migrate-database", StringComparison.OrdinalIgnoreCase)
+    && index != importIndex && (importIndex < 0 || index != importIndex + 1)).ToArray();
+var builder = WebApplication.CreateBuilder(hostArgs);
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddMudServices();
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IUserAccess, CurrentUserAccess>();
 
-var connStr = builder.Configuration.GetConnectionString("Default")
-              ?? "Data Source=fancilphones.db";
-
-// EF: factory (used by Blazor pages) + scoped wrapper (used by Identity).
-builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite(connStr));
-builder.Services.AddScoped<AppDbContext>(sp =>
-    sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
-
-// Identity (cookie-based, no UI scaffolding — we render our own login).
-builder.Services
-    .AddIdentityCore<AppUser>(o =>
-    {
-        // Relaxed password policy: small in-house tool. Tighten if exposed publicly.
-        o.Password.RequiredLength = 4;
-        o.Password.RequireDigit = false;
-        o.Password.RequireNonAlphanumeric = false;
-        o.Password.RequireUppercase = false;
-        o.Password.RequireLowercase = false;
-        o.User.RequireUniqueEmail = false;
-    })
-    .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<AppDbContext>()
+// Identity settings and stores match BIDevHub's shared ASP_AUTH model.
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = IdentityConstants.ApplicationScheme;
+    options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+}).AddIdentityCookies();
+builder.Services.AddIdentityCore<AppUser>(options =>
+{
+    options.User.RequireUniqueEmail = false;
+    options.SignIn.RequireConfirmedAccount = false;
+    options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
+}).AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<AuthDbContext>()
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
-    .AddCookie(IdentityConstants.ApplicationScheme, o =>
+builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme, options =>
+{
+    // Separate app session: sharing the identity store does not imply sharing cookies or keys.
+    options.Cookie.Name = "FancilPhones.Identity";
+    options.LoginPath = "/login";
+    options.LogoutPath = "/auth/logout";
+    options.AccessDeniedPath = "/access-denied";
+    options.SlidingExpiration = true;
+    options.Events.OnRedirectToLogin = context =>
     {
-        o.LoginPath = "/login";
-        o.LogoutPath = "/auth/logout";
-        o.AccessDeniedPath = "/login";
-        o.ExpireTimeSpan = TimeSpan.FromDays(30);
-        o.SlidingExpiration = true;
-    });
-builder.Services.AddAuthorization();
-builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddHttpContextAccessor();
-
-builder.Services.AddScoped<PhoneSyncService>();
-builder.Services.AddScoped<PhoneDiscoveryService>();
+        if (context.Request.Path.StartsWithSegments("/api")) context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        else context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api")) context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        else context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
+});
+builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.TwoFactorUserIdScheme,
+    options => options.Cookie.Name = "FancilPhones.TwoFactor");
+builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.TwoFactorRememberMeScheme,
+    options => options.Cookie.Name = "FancilPhones.RememberDevice");
+builder.Services.AddAuthorization(options => options.AddPolicy(PhonePolicies.Administrator,
+    policy => policy.RequireAuthenticatedUser().RequireRole("BI-ADMIN", "IT_ADMIN")));
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("authentication", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
+        }));
+});
 
 var app = builder.Build();
-
-// Ensure DB + seed admin/admin + roles.
-using (var scope = app.Services.CreateScope())
+if (migrateOnly || importIndex >= 0 || builder.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true))
 {
-    var dbf = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
-    await using var db = await dbf.CreateDbContextAsync();
-    await db.Database.EnsureCreatedAsync();
-
-    // Additive columns on existing DBs (project uses EnsureCreated, no migrations).
-    // Check first via PRAGMA so re-runs don't log a failed ALTER on every startup.
-    async Task AddColumnIfMissing(string table, string column, string definition)
+    await using var scope = app.Services.CreateAsyncScope();
+    var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+    await using var db = await factory.CreateDbContextAsync();
+    // Only the FancilPhones schema is migrated. Never migrate/seed the shared auth store.
+    await db.Database.MigrateAsync();
+    if (importIndex >= 0)
     {
-        var conn = db.Database.GetDbConnection();
-        if (conn.State != System.Data.ConnectionState.Open)
-            await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"PRAGMA table_info({table})";
-        await using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
-                return;
-        }
-        await reader.CloseAsync();
-        await db.Database.ExecuteSqlRawAsync($"ALTER TABLE {table} ADD COLUMN {column} {definition}");
-    }
-
-    await AddColumnIfMissing("Phones",   "SipDisplayName",          "TEXT NULL");
-    await AddColumnIfMissing("Phones",   "SipLineIndex",            "INTEGER NOT NULL DEFAULT 1");
-    await AddColumnIfMissing("Phones",   "SipExtension",            "TEXT NULL");
-    await AddColumnIfMissing("Phones",   "SipRegistrationEnabled",  "INTEGER NOT NULL DEFAULT 1");
-    await AddColumnIfMissing("SyncRuns", "Action",                  "TEXT NOT NULL DEFAULT 'Sync'");
-
-    var rm = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    foreach (var role in new[] { "Admin", "Technician" })
-        if (!await rm.RoleExistsAsync(role))
-            await rm.CreateAsync(new IdentityRole(role));
-
-    var um = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-    if (await um.FindByNameAsync("admin") is null)
-    {
-        var u = new AppUser { UserName = "admin", MustChangePassword = true };
-        var created = await um.CreateAsync(u, "admin");
-        if (created.Succeeded)
-            await um.AddToRoleAsync(u, "Admin");
+        var result = await scope.ServiceProvider.GetRequiredService<LegacyPhoneDataImporter>()
+            .ImportAsync(args[importIndex + 1]);
+        app.Logger.LogInformation("Imported {Phones} phones, {Contacts} contacts, and {Logs} log entries.",
+            result.Phones, result.Contacts, result.Logs);
     }
 }
+if (migrateOnly || importIndex >= 0) return;
 
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
 }
-
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
-app.UseAntiforgery();
-
+app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-
+app.UseAntiforgery();
 app.MapStaticAssets();
-
-// CSV preview — leave open (it's just the master list, no secrets).
-app.MapGet("/api/phonebook.csv", async (IDbContextFactory<AppDbContext> dbf) =>
-{
-    await using var db = await dbf.CreateDbContextAsync();
-    var contacts = await db.Contacts.OrderBy(c => c.DisplayName).ToListAsync();
-    var bytes = PhonebookCsv.Build(contacts);
-    return Results.File(bytes, "text/csv", "phonebook.csv");
-});
-
-// XLSX export — same data, formatted as an Excel workbook.
-app.MapGet("/api/phonebook.xlsx", async (IDbContextFactory<AppDbContext> dbf) =>
-{
-    await using var db = await dbf.CreateDbContextAsync();
-    var contacts = await db.Contacts.OrderBy(c => c.DisplayName).ToListAsync();
-
-    using var wb = new ClosedXML.Excel.XLWorkbook();
-    var ws = wb.Worksheets.Add("Contacts");
-
-    string[] headers = { "Display name", "Office", "Mobile", "Other", "Group", "Ring", "Updated" };
-    for (int i = 0; i < headers.Length; i++)
-        ws.Cell(1, i + 1).Value = headers[i];
-
-    var header = ws.Range(1, 1, 1, headers.Length);
-    header.Style.Font.Bold = true;
-    header.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#E2231A");
-    header.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
-    header.Style.Alignment.Horizontal = ClosedXML.Excel.XLAlignmentHorizontalValues.Left;
-
-    int row = 2;
-    foreach (var c in contacts)
-    {
-        ws.Cell(row, 1).Value = c.DisplayName;
-        ws.Cell(row, 2).Value = c.OfficeNumber ?? "";
-        ws.Cell(row, 3).Value = c.MobileNumber ?? "";
-        ws.Cell(row, 4).Value = c.OtherNumber ?? "";
-        ws.Cell(row, 5).Value = c.Group ?? "";
-        ws.Cell(row, 6).Value = c.Ring ?? "";
-        ws.Cell(row, 7).Value = c.UpdatedAt.ToLocalTime();
-        ws.Cell(row, 7).Style.DateFormat.Format = "yyyy-mm-dd hh:mm";
-        row++;
-    }
-
-    ws.Columns().AdjustToContents();
-    ws.SheetView.FreezeRows(1);
-    ws.RangeUsed()?.SetAutoFilter();
-
-    using var ms = new MemoryStream();
-    wb.SaveAs(ms);
-    var fileName = $"phonebook-{DateTime.Now:yyyyMMdd-HHmm}.xlsx";
-    return Results.File(ms.ToArray(),
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        fileName);
-});
-
-// Phones XLSX export — backup/restore the fleet config.
-app.MapGet("/api/phones.xlsx", async (IDbContextFactory<AppDbContext> dbf) =>
-{
-    await using var db = await dbf.CreateDbContextAsync();
-    var phones = await db.Phones.OrderBy(p => p.Name).ToListAsync();
-
-    using var wb = new ClosedXML.Excel.XLWorkbook();
-    var ws = wb.Worksheets.Add("Phones");
-
-    string[] headers =
-    {
-        "Name", "IP", "Scheme", "Username", "Password",
-        "UploadPath", "UploadFieldName", "Enabled",
-        "SipDisplayName", "SipLineIndex", "SipExtension", "SipRegistrationEnabled"
-    };
-    for (int i = 0; i < headers.Length; i++)
-        ws.Cell(1, i + 1).Value = headers[i];
-
-    var header = ws.Range(1, 1, 1, headers.Length);
-    header.Style.Font.Bold = true;
-    header.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#E2231A");
-    header.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
-    header.Style.Alignment.Horizontal = ClosedXML.Excel.XLAlignmentHorizontalValues.Left;
-
-    int row = 2;
-    foreach (var p in phones)
-    {
-        ws.Cell(row, 1).Value = p.Name;
-        ws.Cell(row, 2).Value = p.IpAddress;
-        ws.Cell(row, 3).Value = p.Scheme;
-        ws.Cell(row, 4).Value = p.Username;
-        ws.Cell(row, 5).Value = p.Password;
-        ws.Cell(row, 6).Value = p.UploadPath;
-        ws.Cell(row, 7).Value = p.UploadFieldName;
-        ws.Cell(row, 8).Value = p.Enabled;
-        ws.Cell(row, 9).Value = p.SipDisplayName ?? "";
-        ws.Cell(row, 10).Value = p.SipLineIndex;
-        ws.Cell(row, 11).Value = p.SipExtension ?? "";
-        ws.Cell(row, 12).Value = p.SipRegistrationEnabled;
-        row++;
-    }
-
-    ws.Columns().AdjustToContents();
-    ws.SheetView.FreezeRows(1);
-    ws.RangeUsed()?.SetAutoFilter();
-
-    using var ms = new MemoryStream();
-    wb.SaveAs(ms);
-    var fileName = $"phones-{DateTime.Now:yyyyMMdd-HHmm}.xlsx";
-    return Results.File(ms.ToArray(),
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        fileName);
-}).RequireAuthorization();
-
-// ---- Auth endpoints (form-post; no antiforgery so the static-rendered login form works) ----
-app.MapPost("/auth/login", async (
-    HttpContext ctx,
-    SignInManager<AppUser> sm,
-    UserManager<AppUser> um,
-    [FromForm] string username,
-    [FromForm] string password,
-    [FromForm] string? returnUrl) =>
-{
-    var user = await um.FindByNameAsync(username ?? "");
-    if (user is null)
-        return Results.Redirect("/login?error=1");
-
-    var result = await sm.PasswordSignInAsync(user, password ?? "", isPersistent: true, lockoutOnFailure: false);
-    if (!result.Succeeded)
-        return Results.Redirect("/login?error=1");
-
-    if (user.MustChangePassword)
-        return Results.Redirect("/account/change-password");
-
-    var target = !string.IsNullOrWhiteSpace(returnUrl) && Uri.IsWellFormedUriString(returnUrl, UriKind.Relative)
-        ? returnUrl!
-        : "/";
-    return Results.Redirect(target);
-}).DisableAntiforgery();
-
-app.MapPost("/auth/logout", async (HttpContext ctx, SignInManager<AppUser> sm) =>
-{
-    await sm.SignOutAsync();
-    return Results.Redirect("/login");
-}).DisableAntiforgery();
-
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
-
+app.MapPhoneExportEndpoints();
+app.MapPhoneAccountEndpoints();
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 app.Run();
+
+public partial class Program;

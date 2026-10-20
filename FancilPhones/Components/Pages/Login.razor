@@ -18,36 +18,35 @@
         </div>
 
         <h1 class="fp-login-title">Sign in</h1>
-        <p class="fp-login-sub">Use your admin or technician account to continue.</p>
+        <p class="fp-login-sub">Use the same employee account you use for BIDevHub.</p>
 
         @if (HasError)
         {
             <div class="fp-login-error">
                 <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Small" Class="mr-1" />
-                Invalid username or password.
+                @ErrorMessage
             </div>
         }
 
         <form method="post" action="/auth/login" class="fp-login-form">
+            <AntiforgeryToken />
             <input type="hidden" name="returnUrl" value="@ReturnUrl" />
 
-            <label class="fp-login-label" for="username">Username</label>
+            <label class="fp-login-label" for="username">Employee ID</label>
             <input id="username" name="username" type="text" autocomplete="username"
-                   required autofocus class="fp-login-input" placeholder="admin" />
+                   required autofocus class="fp-login-input" placeholder="Employee ID" />
 
             <label class="fp-login-label" for="password">Password</label>
             <input id="password" name="password" type="password" autocomplete="current-password"
                    required class="fp-login-input" placeholder="••••••" />
 
+            <label><input type="checkbox" name="RememberMe" value="true" /> Remember me</label>
             <button type="submit" class="fp-login-btn">
                 Sign in
             </button>
         </form>
 
-        <p class="fp-login-hint">
-            First-time admin login? Default credentials are <code>admin / admin</code> —
-            you'll be asked to change them right after.
-        </p>
+        <p class="fp-login-hint">Account and password assistance is provided by your identity administrator.</p>
     </div>
 </div>
 
@@ -57,6 +56,10 @@
 
     [SupplyParameterFromQuery(Name = "error")]
     public string? Error { get; set; }
+
+    private string ErrorMessage => Error == "locked"
+        ? "Your account is temporarily locked. Try again later."
+        : "Invalid employee ID or password.";
 
     private bool HasError => !string.IsNullOrEmpty(Error);
 }

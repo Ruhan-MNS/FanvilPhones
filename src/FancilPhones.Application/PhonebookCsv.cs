@@ -1,7 +1,7 @@
 using System.Text;
-using FancilPhones.Data;
+using FancilPhones.Domain;
 
-namespace FancilPhones.Services;
+namespace FancilPhones.Application;
 
 /// <summary>
 /// Builds and parses the CSV phonebook format Fanvil phones import/export:

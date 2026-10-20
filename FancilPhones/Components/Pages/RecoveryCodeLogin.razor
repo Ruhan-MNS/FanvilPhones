@@ -1,0 +1,28 @@
+@page "/login/recovery-code"
+@attribute [AllowAnonymous]
+@layout EmptyLayout
+
+<PageTitle>Recovery code verification</PageTitle>
+<div class="fp-login-wrap">
+    <div class="fp-login-card">
+        <h1 class="fp-login-title">Recovery code</h1>
+        <p class="fp-login-sub">Enter one unused recovery code for your employee account.</p>
+        @if (!string.IsNullOrEmpty(Error))
+        {
+            <div class="fp-login-error" role="alert">Invalid recovery code. Try again.</div>
+        }
+        <form method="post" action="/auth/recovery-code" class="fp-login-form">
+            <AntiforgeryToken />
+            <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+            <label for="recovery" class="fp-login-label">Recovery code</label>
+            <input id="recovery" name="RecoveryCode" class="fp-login-input" autocomplete="off" required autofocus />
+            <button type="submit" class="fp-login-btn">Verify</button>
+        </form>
+        <p class="fp-login-hint"><a href="/login">Back to sign in</a></p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+}

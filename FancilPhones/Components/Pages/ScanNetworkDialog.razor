@@ -1,6 +1,6 @@
 @* Bulk-discover Fanvil phones by scanning an IP range. *@
-@inject PhoneDiscoveryService Discovery
-@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IPhoneDiscoveryService Discovery
+@inject IPhoneDirectory Directory
 @implements IDisposable
 
 <MudDialog Class="fp-phone-dialog">
@@ -142,12 +142,11 @@
         _selected.Clear();
         _names.Clear();
         _done = 0;
-        _total = PhoneDiscoveryService.EnumerateIps(_range).Count();
+        _total = PhoneNetworkRange.EnumerateIps(_range).Count();
         if (_total == 0) return;
 
-        await using var db = await DbFactory.CreateDbContextAsync();
         var known = new HashSet<string>(
-            await db.Phones.Select(p => p.IpAddress).ToListAsync(),
+            (await Directory.GetPhonesAsync()).Select(p => p.IpAddress),
             StringComparer.OrdinalIgnoreCase);
 
         _scanning = true;

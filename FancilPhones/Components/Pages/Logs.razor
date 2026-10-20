@@ -1,6 +1,6 @@
 @page "/logs"
 @attribute [Authorize]
-@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IPhoneDirectory Directory
 
 <PageTitle>Logs</PageTitle>
 
@@ -109,12 +109,7 @@
     private async Task LoadAsync()
     {
         _loading = true;
-        await using var db = await DbFactory.CreateDbContextAsync();
-        _runs = await db.SyncRuns
-            .Include(r => r.Phone)
-            .OrderByDescending(r => r.StartedAt)
-            .Take(500)
-            .ToListAsync();
+        _runs = await Directory.GetHistoryAsync(500);
         _loading = false;
     }
 

@@ -1,7 +1,7 @@
 @page "/phones"
 @attribute [Authorize]
-@inject IDbContextFactory<AppDbContext> DbFactory
-@inject PhoneSyncService SyncSvc
+@inject IPhoneDirectory Directory
+@inject IPhoneSyncService SyncSvc
 @inject ISnackbar Snackbar
 @inject IDialogService Dialogs
 
@@ -15,11 +15,11 @@
         </div>
     </div>
     <MudSpacer />
-    <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.TableView"
-               Href="api/phones.xlsx" Target="_blank" Class="me-2">
-        Export Excel
-    </MudButton>
-    <AuthorizeView Roles="Admin">
+    <AuthorizeView Policy="@PhonePolicies.Administrator">
+        <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.TableView"
+                   Href="api/phones.xlsx" Target="_blank" Class="me-2">
+            Export Excel
+        </MudButton>
         <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload"
                    HtmlTag="label" for="phonesXlsxUploadInput" Class="me-2">
             Import Excel
@@ -54,7 +54,7 @@
         <MudTd>@context.Username</MudTd>
         <MudTd><code>@context.UploadPath</code></MudTd>
         <MudTd>
-            <AuthorizeView Roles="Admin" Context="auth">
+            <AuthorizeView Policy="@PhonePolicies.Administrator" Context="auth">
                 <Authorized>
                     <MudSwitch T="bool" Value="context.Enabled" ValueChanged="@(v => ToggleEnabled(context, v))" Color="Color.Success" />
                 </Authorized>
@@ -82,7 +82,7 @@
         <MudTd Style="text-align:right">
             <MudIconButton Icon="@Icons.Material.Filled.Wifi" Size="Size.Small"
                            OnClick="@(() => ProbeAsync(context))" aria-label="Probe" />
-            <AuthorizeView Roles="Admin" Context="auth">
+            <AuthorizeView Policy="@PhonePolicies.Administrator" Context="auth">
                 <MudIconButton Icon="@Icons.Material.Filled.Sync" Size="Size.Small"
                                OnClick="@(() => SyncOneAsync(context))" aria-label="Sync this phone" />
                 <MudTooltip Text="@PushTooltip(context)">
@@ -120,9 +120,7 @@
     private async Task LoadAsync()
     {
         _loading = true;
-        await using var db = await DbFactory.CreateDbContextAsync();
-        _phones = await EntityFrameworkQueryableExtensions
-            .ToListAsync(db.Phones.OrderBy(p => p.Name));
+        _phones = await Directory.GetPhonesAsync();
         _loading = false;
     }
 
@@ -136,10 +134,8 @@
 
     private async Task ToggleEnabled(Phone p, bool v)
     {
-        await using var db = await DbFactory.CreateDbContextAsync();
+        await Directory.SetPhoneEnabledAsync(p.Id, v);
         p.Enabled = v;
-        db.Phones.Update(p);
-        await db.SaveChangesAsync();
     }
 
     private async Task AddNewAsync()
@@ -151,13 +147,11 @@
         {
             try
             {
-                await using var db = await DbFactory.CreateDbContextAsync();
-                db.Phones.Add(p);
-                await db.SaveChangesAsync();
+                await Directory.SavePhoneAsync(p);
                 Snackbar.Add($"Added {p.Name}", Severity.Success);
                 await LoadAsync();
             }
-            catch (DbUpdateException ex) when (IsUniqueIpViolation(ex))
+            catch (DuplicatePhoneException)
             {
                 Snackbar.Add($"A phone with IP {p.IpAddress} already exists.", Severity.Error);
             }
@@ -197,46 +191,8 @@
             });
             if (mode is null) return;
 
-            await using var db = await DbFactory.CreateDbContextAsync();
-            var added = 0;
-            var updated = 0;
-
-            if (mode == false)
-            {
-                db.Phones.RemoveRange(db.Phones);
-                await db.SaveChangesAsync();
-            }
-
-            var existing = await db.Phones.ToListAsync();
-            var byIp = existing.ToDictionary(p => p.IpAddress, StringComparer.OrdinalIgnoreCase);
-
-            foreach (var p in parsed)
-            {
-                if (byIp.TryGetValue(p.IpAddress, out var tracked))
-                {
-                    tracked.Name = p.Name;
-                    tracked.Scheme = p.Scheme;
-                    tracked.Username = p.Username;
-                    tracked.Password = p.Password;
-                    tracked.UploadPath = p.UploadPath;
-                    tracked.UploadFieldName = p.UploadFieldName;
-                    tracked.Enabled = p.Enabled;
-                    tracked.SipDisplayName = p.SipDisplayName;
-                    tracked.SipLineIndex = p.SipLineIndex;
-                    tracked.SipExtension = p.SipExtension;
-                    tracked.SipRegistrationEnabled = p.SipRegistrationEnabled;
-                    updated++;
-                }
-                else
-                {
-                    db.Phones.Add(p);
-                    byIp[p.IpAddress] = p;
-                    added++;
-                }
-            }
-            await db.SaveChangesAsync();
-
-            Snackbar.Add($"Imported: {added} added, {updated} updated.", Severity.Success);
+            var result = await Directory.ImportPhonesAsync(parsed, replace: mode == false);
+            Snackbar.Add($"Imported: {result.Added} added, {result.Updated} updated.", Severity.Success);
             await LoadAsync();
         }
         catch (Exception ex)
@@ -255,24 +211,20 @@
 
         var added = 0;
         var skipped = 0;
-        await using var db = await DbFactory.CreateDbContextAsync();
         foreach (var p in picks)
         {
             try
             {
-                db.Phones.Add(p);
-                await db.SaveChangesAsync();
+                await Directory.SavePhoneAsync(p);
                 added++;
             }
-            catch (DbUpdateException ex) when (IsUniqueIpViolation(ex))
+            catch (DuplicatePhoneException)
             {
                 skipped++;
-                db.Entry(p).State = EntityState.Detached;
             }
             catch (Exception ex)
             {
                 Snackbar.Add($"Could not add {p.IpAddress}: {ex.Message}", Severity.Error);
-                db.Entry(p).State = EntityState.Detached;
             }
         }
 
@@ -304,22 +256,11 @@
         {
             try
             {
-                await using var db = await DbFactory.CreateDbContextAsync();
-                var tracked = await db.Phones.FindAsync(p.Id);
-                if (tracked is null) return;
-                tracked.Name = p.Name; tracked.IpAddress = p.IpAddress;
-                tracked.Username = p.Username; tracked.Password = p.Password;
-                tracked.Scheme = p.Scheme; tracked.UploadPath = p.UploadPath;
-                tracked.UploadFieldName = p.UploadFieldName;
-                tracked.SipDisplayName = p.SipDisplayName;
-                tracked.SipLineIndex = p.SipLineIndex;
-                tracked.SipExtension = p.SipExtension;
-                tracked.SipRegistrationEnabled = p.SipRegistrationEnabled;
-                await db.SaveChangesAsync();
+                await Directory.SavePhoneAsync(p);
                 Snackbar.Add("Saved", Severity.Success);
                 await LoadAsync();
             }
-            catch (DbUpdateException ex) when (IsUniqueIpViolation(ex))
+            catch (DuplicatePhoneException)
             {
                 Snackbar.Add($"Another phone with IP {p.IpAddress} already exists.", Severity.Error);
             }
@@ -336,18 +277,8 @@
             $"Delete '{phone.Name}' ({phone.IpAddress})?",
             yesText: "Delete", cancelText: "Cancel");
         if (ok != true) return;
-        await using var db = await DbFactory.CreateDbContextAsync();
-        db.Phones.Remove(phone);
-        await db.SaveChangesAsync();
+        await Directory.DeletePhoneAsync(phone.Id);
         await LoadAsync();
-    }
-
-    private static bool IsUniqueIpViolation(DbUpdateException ex)
-    {
-        // SQLite reports unique violations via SqliteException with the constraint name in the message.
-        var msg = ex.InnerException?.Message ?? ex.Message;
-        return msg.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase)
-               && msg.Contains("IpAddress", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task ProbeAsync(Phone phone)

@@ -1,0 +1,32 @@
+@page "/login/two-factor"
+@attribute [AllowAnonymous]
+@layout EmptyLayout
+
+<PageTitle>Authenticator verification</PageTitle>
+<div class="fp-login-wrap">
+    <div class="fp-login-card">
+        <h1 class="fp-login-title">Authenticator verification</h1>
+        <p class="fp-login-sub">Enter the code from your authenticator app.</p>
+        @if (!string.IsNullOrEmpty(Error))
+        {
+            <div class="fp-login-error" role="alert">Invalid authenticator code. Try again.</div>
+        }
+        <form method="post" action="/auth/two-factor" class="fp-login-form">
+            <AntiforgeryToken />
+            <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+            <input type="hidden" name="RememberMe" value="@RememberMe" />
+            <label for="code" class="fp-login-label">Authenticator code</label>
+            <input id="code" name="TwoFactorCode" class="fp-login-input" autocomplete="one-time-code" inputmode="numeric" required autofocus />
+            <label><input type="checkbox" name="RememberMachine" value="true" /> Remember this device</label>
+            <button type="submit" class="fp-login-btn">Verify</button>
+        </form>
+        <p class="fp-login-hint"><a href="@RecoveryUrl">Use a recovery code</a> · <a href="/login">Back to sign in</a></p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public bool RememberMe { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    private string RecoveryUrl => "/login/recovery-code?ReturnUrl=" + Uri.EscapeDataString(ReturnUrl ?? "/");
+}

@@ -6,7 +6,7 @@
         <MudNavLink Href="contacts" Icon="@Icons.Material.Filled.ContactPhone">Contacts</MudNavLink>
         <MudNavLink Href="sync" Icon="@Icons.Material.Filled.CloudSync">Sync</MudNavLink>
         <MudNavLink Href="logs" Icon="@Icons.Material.Filled.Receipt">Logs</MudNavLink>
-        <AuthorizeView Roles="Admin">
+        <AuthorizeView Policy="@PhonePolicies.Administrator">
             <MudNavLink Href="users" Icon="@Icons.Material.Filled.People">Users</MudNavLink>
         </AuthorizeView>
     </MudNavMenu>

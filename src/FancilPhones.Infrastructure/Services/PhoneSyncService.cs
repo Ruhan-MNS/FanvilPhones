@@ -1,24 +1,28 @@
 using System.Text.RegularExpressions;
-using FancilPhones.Data;
+using FancilPhones.Domain;
+using FancilPhones.Infrastructure.Data;
+using FancilPhones.Application;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 
-namespace FancilPhones.Services;
+namespace FancilPhones.Infrastructure.Services;
 
-public record SyncResult(int PhoneId, string PhoneName, bool Success, int? HttpStatus, string Message);
-
-public class PhoneSyncService
+public class PhoneSyncService : IPhoneSyncService
 {
     private readonly IDbContextFactory<AppDbContext> _dbf;
     private readonly ILogger<PhoneSyncService> _log;
+    private readonly IUserAccess _access;
 
-    public PhoneSyncService(IDbContextFactory<AppDbContext> dbf, ILogger<PhoneSyncService> log)
+    public PhoneSyncService(IDbContextFactory<AppDbContext> dbf, ILogger<PhoneSyncService> log, IUserAccess access)
     {
         _dbf = dbf;
         _log = log;
+        _access = access;
     }
 
     public async Task<IReadOnlyList<SyncResult>> SyncAllAsync(CancellationToken ct = default)
     {
+        await _access.RequireAdministratorAsync();
         await using var db = await _dbf.CreateDbContextAsync(ct);
         var phones = await db.Phones.Where(p => p.Enabled).ToListAsync(ct);
         var contacts = await db.Contacts.OrderBy(c => c.DisplayName).ToListAsync(ct);
@@ -30,6 +34,7 @@ public class PhoneSyncService
 
     public async Task<SyncResult> SyncOneAsync(int phoneId, CancellationToken ct = default)
     {
+        await _access.RequireAdministratorAsync();
         await using var db = await _dbf.CreateDbContextAsync(ct);
         var phone = await db.Phones.FindAsync(new object?[] { phoneId }, ct);
         if (phone is null) return new SyncResult(phoneId, "?", false, null, "Phone not found");
@@ -127,6 +132,7 @@ public class PhoneSyncService
     /// </summary>
     public async Task<(bool ok, string message)> PushSipDisplayNameAsync(int phoneId, CancellationToken ct = default)
     {
+        await _access.RequireAdministratorAsync();
         await using var db = await _dbf.CreateDbContextAsync(ct);
         var phone = await db.Phones.FindAsync(new object?[] { phoneId }, ct);
         if (phone is null) return (false, "Phone not found");
@@ -484,6 +490,7 @@ public class PhoneSyncService
     public async Task<(bool reachable, int? status, string message)> ProbeAsync(
         Phone phone, CancellationToken ct = default)
     {
+        await _access.RequireAuthenticatedAsync();
         await using var db = await _dbf.CreateDbContextAsync(ct);
         var run = new SyncRun
         {

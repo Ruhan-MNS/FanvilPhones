@@ -1,6 +1,6 @@
 @page "/"
 @attribute [Authorize]
-@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IPhoneDirectory Directory
 @inject NavigationManager Nav
 
 <PageTitle>FancilPhones</PageTitle>
@@ -212,11 +212,11 @@
     {
         try
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            _phoneCount = await db.Phones.CountAsync();
-            _contactCount = await db.Contacts.CountAsync();
+            var summary = await Directory.GetSummaryAsync();
+            _phoneCount = summary.PhoneCount;
+            _contactCount = summary.ContactCount;
 
-            var phones = await db.Phones.ToListAsync();
+            var phones = await Directory.GetPhonesAsync();
             foreach (var p in phones)
             {
                 if (!p.Enabled) _disabledCount++;
@@ -233,10 +233,7 @@
                 }
             }
 
-            var last = await db.SyncRuns
-                .OrderByDescending(r => r.StartedAt)
-                .Select(r => (DateTime?)r.StartedAt)
-                .FirstOrDefaultAsync();
+            var last = summary.LastActivity;
             if (last.HasValue)
             {
                 var ago = DateTime.UtcNow - last.Value;

@@ -1,5 +1,5 @@
 @inherits LayoutComponentBase
-@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IPhoneDirectory Directory
 @implements IDisposable
 
 <MudThemeProvider Theme="_theme" IsDarkMode="false" />
@@ -41,15 +41,16 @@
                     </ActivatorContent>
                     <ChildContent>
                         <MudMenuItem Href="/account/change-password" Icon="@Icons.Material.Filled.Password">
-                            Change password
+                            Account information
                         </MudMenuItem>
-                        <AuthorizeView Roles="Admin" Context="adminCtx">
+                        <AuthorizeView Policy="@PhonePolicies.Administrator" Context="adminCtx">
                             <MudMenuItem Href="/users" Icon="@Icons.Material.Filled.People">
-                                Manage users
+                                Account administration
                             </MudMenuItem>
                         </AuthorizeView>
                         <MudDivider />
                         <form method="post" action="/auth/logout" style="margin: 0;">
+                            <AntiforgeryToken />
                             <button type="submit"
                                     style="all: unset; display: flex; align-items: center; gap: 12px;
                                            padding: 6px 16px; width: 100%; cursor: pointer; box-sizing: border-box;">
@@ -60,6 +61,7 @@
                     </ChildContent>
                 </MudMenu>
                 <form method="post" action="/auth/logout" style="margin: 0;" class="ml-2">
+                    <AntiforgeryToken />
                     <MudTooltip Text="Sign out">
                         <button type="submit" class="fp-logout-btn" aria-label="Sign out">
                             <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" />
@@ -185,9 +187,9 @@
     {
         try
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            _phoneCount = await db.Phones.CountAsync();
-            _contactCount = await db.Contacts.CountAsync();
+            var summary = await Directory.GetSummaryAsync();
+            _phoneCount = summary.PhoneCount;
+            _contactCount = summary.ContactCount;
         }
         catch { }
     }

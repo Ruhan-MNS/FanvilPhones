@@ -3,101 +3,17 @@ using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
-namespace FancilPhones.Services;
+using FancilPhones.Application;
 
-public sealed record DiscoveredPhone(
-    string Ip,
-    bool IsFanvil,
-    bool AlreadyKnown,
-    string Detail);
+namespace FancilPhones.Infrastructure.Services;
 
 /// <summary>
 /// Scans an IP range for Fanvil phones by reusing <see cref="FanvilHttpClient"/>'s
 /// raw-socket probe (a Fanvil's embedded "Rapid Logic" server returns a login
 /// page containing "logonButton" and exposes a hex nonce at /key==nonce).
 /// </summary>
-public sealed class PhoneDiscoveryService
+public sealed class PhoneDiscoveryService(IUserAccess access) : IPhoneDiscoveryService
 {
-    /// <summary>
-    /// Enumerate IPs from a CIDR ("192.168.55.0/24") or dotted range
-    /// ("192.168.55.1-254" or "192.168.55.10-192.168.55.40").
-    /// Network and broadcast addresses are excluded for /24 and smaller.
-    /// </summary>
-    public static IEnumerable<string> EnumerateIps(string cidrOrRange)
-    {
-        cidrOrRange = (cidrOrRange ?? "").Trim();
-        if (cidrOrRange.Length == 0) yield break;
-
-        if (cidrOrRange.Contains('/'))
-        {
-            var parts = cidrOrRange.Split('/', 2);
-            if (!IPAddress.TryParse(parts[0], out var baseIp) ||
-                !int.TryParse(parts[1], out var prefix) ||
-                baseIp.AddressFamily != AddressFamily.InterNetwork ||
-                prefix is < 0 or > 32)
-                yield break;
-
-            var baseBytes = baseIp.GetAddressBytes();
-            var baseInt = (uint)((baseBytes[0] << 24) | (baseBytes[1] << 16) | (baseBytes[2] << 8) | baseBytes[3]);
-            var hostBits = 32 - prefix;
-            var mask = hostBits == 32 ? 0u : 0xFFFFFFFFu << hostBits;
-            var network = baseInt & mask;
-            var broadcast = hostBits == 0 ? network : network | ~mask;
-
-            var first = prefix >= 31 ? network : network + 1;
-            var last = prefix >= 31 ? broadcast : broadcast - 1;
-            for (var x = first; x <= last && x >= first; x++)
-            {
-                yield return $"{(x >> 24) & 0xFF}.{(x >> 16) & 0xFF}.{(x >> 8) & 0xFF}.{x & 0xFF}";
-                if (x == 0xFFFFFFFFu) break;
-            }
-            yield break;
-        }
-
-        if (cidrOrRange.Contains('-'))
-        {
-            var dash = cidrOrRange.IndexOf('-');
-            var left = cidrOrRange[..dash].Trim();
-            var right = cidrOrRange[(dash + 1)..].Trim();
-
-            if (!IPAddress.TryParse(left, out var startIp) ||
-                startIp.AddressFamily != AddressFamily.InterNetwork)
-                yield break;
-
-            IPAddress endIp;
-            if (right.Contains('.'))
-            {
-                if (!IPAddress.TryParse(right, out var parsed)) yield break;
-                endIp = parsed;
-            }
-            else
-            {
-                if (!byte.TryParse(right, out var lastOctet)) yield break;
-                var sb = startIp.GetAddressBytes();
-                endIp = new IPAddress(new[] { sb[0], sb[1], sb[2], lastOctet });
-            }
-
-            uint ToUint(IPAddress ip)
-            {
-                var b = ip.GetAddressBytes();
-                return (uint)((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]);
-            }
-
-            var s = ToUint(startIp);
-            var e = ToUint(endIp);
-            if (e < s) (s, e) = (e, s);
-            for (var x = s; x <= e && x >= s; x++)
-            {
-                yield return $"{(x >> 24) & 0xFF}.{(x >> 16) & 0xFF}.{(x >> 8) & 0xFF}.{x & 0xFF}";
-                if (x == 0xFFFFFFFFu) break;
-            }
-            yield break;
-        }
-
-        if (IPAddress.TryParse(cidrOrRange, out _))
-            yield return cidrOrRange;
-    }
-
     /// <summary>
     /// Probe one host: TCP-connect port 80, then check for the Fanvil login page
     /// signature. Returns a result for every IP (including non-Fanvil / unreachable
@@ -110,6 +26,7 @@ public sealed class PhoneDiscoveryService
         TimeSpan httpTimeout,
         CancellationToken ct)
     {
+        await access.RequireAdministratorAsync();
         var alreadyKnown = knownIps.Contains(ip);
 
         // Step 1: cheap TCP connect; skip dead hosts fast.
@@ -221,6 +138,7 @@ public sealed class PhoneDiscoveryService
         TimeSpan? httpTimeout = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
+        await access.RequireAdministratorAsync();
         var tcpT = tcpTimeout ?? TimeSpan.FromMilliseconds(600);
         var httpT = httpTimeout ?? TimeSpan.FromSeconds(4);
 
@@ -228,7 +146,7 @@ public sealed class PhoneDiscoveryService
             new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
 
         var sem = new SemaphoreSlim(maxConcurrency);
-        var ips = EnumerateIps(cidrOrRange).ToList();
+        var ips = PhoneNetworkRange.EnumerateIps(cidrOrRange).ToList();
 
         _ = Task.Run(async () =>
         {

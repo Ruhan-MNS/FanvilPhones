@@ -1,6 +1,6 @@
 @page "/contacts"
 @attribute [Authorize]
-@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IPhoneDirectory Directory
 @inject ISnackbar Snackbar
 @inject IDialogService Dialogs
 
@@ -16,7 +16,7 @@
         </div>
     </div>
     <MudSpacer />
-    <AuthorizeView Roles="Admin">
+    <AuthorizeView Policy="@PhonePolicies.Administrator">
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddNewAsync">
             Add contact
         </MudButton>
@@ -59,7 +59,7 @@
         <MudTd>@context.OtherNumber</MudTd>
         <MudTd>@context.Group</MudTd>
         <MudTd Style="text-align:right">
-            <AuthorizeView Roles="Admin" Context="auth">
+            <AuthorizeView Policy="@PhonePolicies.Administrator" Context="auth">
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
                                OnClick="@(() => EditAsync(context))" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
@@ -93,9 +93,7 @@
     private async Task LoadAsync()
     {
         _loading = true;
-        await using var db = await DbFactory.CreateDbContextAsync();
-        _contacts = await EntityFrameworkQueryableExtensions
-            .ToListAsync(db.Contacts.OrderBy(c => c.DisplayName));
+        _contacts = await Directory.GetContactsAsync();
         _loading = false;
     }
 
@@ -119,10 +117,7 @@
                 yesText: "Replace all", cancelText: "Cancel");
             if (ok != true) return;
 
-            await using var db = await DbFactory.CreateDbContextAsync();
-            db.Contacts.RemoveRange(db.Contacts);
-            db.Contacts.AddRange(parsed);
-            await db.SaveChangesAsync();
+            await Directory.ReplaceContactsAsync(parsed);
             Snackbar.Add($"Imported {parsed.Count} contacts.", Severity.Success);
             await LoadAsync();
         }
@@ -139,10 +134,7 @@
         var res = await dlg.Result;
         if (res is { Canceled: false, Data: Contact c })
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            c.UpdatedAt = DateTime.UtcNow;
-            db.Contacts.Add(c);
-            await db.SaveChangesAsync();
+            await Directory.SaveContactAsync(c);
             await LoadAsync();
         }
     }
@@ -160,17 +152,7 @@
         var res = await dlg.Result;
         if (res is { Canceled: false, Data: Contact c })
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            var tracked = await db.Contacts.FindAsync(c.Id);
-            if (tracked is null) return;
-            tracked.DisplayName = c.DisplayName;
-            tracked.OfficeNumber = c.OfficeNumber;
-            tracked.MobileNumber = c.MobileNumber;
-            tracked.OtherNumber = c.OtherNumber;
-            tracked.Group = c.Group;
-            tracked.Ring = c.Ring;
-            tracked.UpdatedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync();
+            await Directory.SaveContactAsync(c);
             await LoadAsync();
         }
     }
@@ -180,9 +162,7 @@
         var ok = await Dialogs.ShowMessageBoxAsync("Delete", $"Delete '{c.DisplayName}'?",
             yesText: "Delete", cancelText: "Cancel");
         if (ok != true) return;
-        await using var db = await DbFactory.CreateDbContextAsync();
-        db.Contacts.Remove(c);
-        await db.SaveChangesAsync();
+        await Directory.DeleteContactAsync(c.Id);
         await LoadAsync();
     }
 }

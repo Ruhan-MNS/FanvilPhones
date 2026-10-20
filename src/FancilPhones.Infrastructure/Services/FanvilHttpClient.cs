@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace FancilPhones.Services;
+namespace FancilPhones.Infrastructure.Services;
 
 /// <summary>
 /// A deliberately lenient HTTP/1.1 client for Fanvil IP phones.
