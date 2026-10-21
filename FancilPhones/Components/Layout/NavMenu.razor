@@ -4,6 +4,7 @@
         <WorkspaceNavLink Href="/" Label="Overview" Description="Fleet health & recent activity" Icon="space_dashboard" OnNavigate="OnNavigate" Match="NavLinkMatch.All" />
         <WorkspaceNavLink Href="/phones" Label="Phone fleet" Description="Handsets & SIP settings" Icon="phone_in_talk" OnNavigate="OnNavigate" />
         <WorkspaceNavLink Href="/contacts" Label="Phonebook" Description="Your shared contact directory" Icon="contacts" OnNavigate="OnNavigate" />
+        <AuthorizeView Policy="@PhonePolicies.Administrator"><WorkspaceNavLink Href="/switchboards" Label="Switchboard keys" Description="Protected keys & alphabetical layouts" Icon="dialpad" OnNavigate="OnNavigate" /></AuthorizeView>
         <WorkspaceNavLink Href="/sync" Label="Synchronization" Description="Deliver the latest phonebook" Icon="sync" OnNavigate="OnNavigate" />
         <WorkspaceNavLink Href="/logs" Label="Activity log" Description="Syncs, probes & configuration" Icon="receipt_long" OnNavigate="OnNavigate" />
     </nav>

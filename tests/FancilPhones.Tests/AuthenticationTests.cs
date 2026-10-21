@@ -19,6 +19,27 @@ namespace FancilPhones.Tests;
 
 public sealed class AuthenticationTests
 {
+    [Theory]
+    [InlineData("BI-ADMIN", HttpStatusCode.OK)]
+    [InlineData("IT_ADMIN", HttpStatusCode.OK)]
+    [InlineData(null, HttpStatusCode.Redirect)]
+    public async Task SwitchboardPageRequiresAdministratorAndRendersItsWorkflow(string? role, HttpStatusCode expected)
+    {
+        await using var app = new PhoneWebApp();
+        await app.InitializeAsync(role);
+        using var client = app.CreateClient(Options);
+        await LoginAsync(client, "EMP001", "/");
+        var response = await client.GetAsync("/switchboards");
+        Assert.Equal(expected, response.StatusCode);
+        if (expected == HttpStatusCode.OK)
+        {
+            var html = await response.Content.ReadAsStringAsync();
+            Assert.Contains("Master key directory", html);
+            Assert.Contains("Delivery history and backups", html);
+            Assert.DoesNotContain("The operation could not be completed", html);
+        }
+    }
+
     [Fact]
     public async Task HandledPageFailuresAreLoggedWithoutExposingDiagnosticsToTheEmployee()
     {

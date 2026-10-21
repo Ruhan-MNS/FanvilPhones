@@ -2403,6 +2403,12 @@ progress::-webkit-progress-value {
     background: linear-gradient(90deg, var(--accent-soft), var(--accent), var(--accent-soft));
 }
 .run-progress progress { width: 100%; accent-color: var(--accent); }
+.switchboard-actions { display: flex; align-items: center; gap: 12px; padding-block: 14px; }
+.switchboard-overrides { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)) auto; gap: 16px; align-items: end; padding-bottom: 20px; }
+.switchboard-preview { max-height: 560px; overflow: auto; margin-bottom: 28px; }
+.switchboard-preview thead { position: sticky; top: 0; z-index: 1; background: var(--raised); }
+.switchboard-changed { background: var(--accent-soft); }
+@media (max-width: 1000px) { .switchboard-overrides { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
     .activity-status { inset-inline: 18px; bottom: 16px; max-width: none; }
 }

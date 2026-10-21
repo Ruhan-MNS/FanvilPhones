@@ -192,7 +192,7 @@ public sealed class PhoneDirectoryTests : IAsyncLifetime
     {
         using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
             .UseSqlServer("Server=unused;Database=MNSGlobalDev;Integrated Security=True").Options);
-        Assert.Equal(new[] { "Contacts", "Phones", "SyncRuns" }, db.Model.GetEntityTypes().Select(e => e.GetTableName()!).Order().ToArray());
+        Assert.Equal(new[] { "Contacts", "Phones", "SwitchboardDeployments", "SwitchboardMembers", "SwitchboardOverrides", "SwitchboardProfiles", "SyncRuns" }, db.Model.GetEntityTypes().Select(e => e.GetTableName()!).Order().ToArray());
         Assert.All(db.Model.GetEntityTypes(), e => Assert.Equal(AppDbContext.Schema, e.GetSchema()));
         Assert.Null(typeof(AppUser).GetProperty("MustChangePassword"));
     }

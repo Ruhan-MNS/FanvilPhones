@@ -27,6 +27,8 @@ public static class DependencyInjection
             .ValidateDataAnnotations().ValidateOnStart();
         services.AddSingleton<IFanvilClientFactory, FanvilClientFactory>();
         services.AddScoped<IPhoneSyncService, PhoneSyncService>();
+        services.AddSingleton<FanvilSwitchboardAdapter>();
+        services.AddScoped<ISwitchboardService, SwitchboardService>();
         services.AddScoped<IPhoneDiscoveryService, PhoneDiscoveryService>();
         services.AddScoped<LegacyPhoneDataImporter>();
         return services;

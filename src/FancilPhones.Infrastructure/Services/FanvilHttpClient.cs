@@ -257,6 +257,7 @@ public sealed class FanvilHttpClient : IFanvilClient
         var buf = new byte[8192];
         var headerEnd = -1;
         var contentLength = -1;
+        var chunked = false;
         while (true)
         {
             using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -269,7 +270,7 @@ public sealed class FanvilHttpClient : IFanvilClient
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
-                if (ms.Length == 0 || (headerEnd >= 0 && contentLength >= 0 && ms.Length - headerEnd < contentLength))
+                if (ms.Length == 0 || chunked || (headerEnd >= 0 && contentLength >= 0 && ms.Length - headerEnd < contentLength))
                     throw new TimeoutException("Timed out waiting for a complete handset response.");
                 break; // idle timeout - response finished
             }
@@ -280,7 +281,15 @@ public sealed class FanvilHttpClient : IFanvilClient
             ms.Write(buf, 0, read);
 
             if (headerEnd < 0)
+            {
                 TryFindHeaderEnd(ms.GetBuffer(), (int)ms.Length, out headerEnd, out contentLength);
+                if (headerEnd >= 0)
+                    chunked = Encoding.ASCII.GetString(ms.GetBuffer(), 0, headerEnd)
+                        .Split('\n').Any(h => h.Trim().Equals("Transfer-Encoding: chunked", StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (chunked && TryDecodeChunks(ms.GetBuffer().AsSpan(headerEnd, (int)ms.Length - headerEnd), out _))
+                break;
 
             if (headerEnd >= 0 && contentLength >= 0 && ms.Length - headerEnd >= contentLength)
                 break; // full body received
@@ -290,6 +299,8 @@ public sealed class FanvilHttpClient : IFanvilClient
             throw new Exception("Phone closed the connection without sending a response.");
         if (headerEnd >= 0 && contentLength >= 0 && ms.Length - headerEnd < contentLength)
             throw new IOException("Handset closed the connection before its response was complete.");
+        if (chunked && !TryDecodeChunks(ms.GetBuffer().AsSpan(headerEnd, (int)ms.Length - headerEnd), out _))
+            throw new IOException("Handset closed the connection before its chunked response was complete.");
 
         return Parse(ms.GetBuffer().AsSpan(0, checked((int)ms.Length)));
     }
@@ -352,6 +363,11 @@ public sealed class FanvilHttpClient : IFanvilClient
         }
 
         ReadOnlySpan<byte> bodyBytes = bodyStart < raw.Length ? raw[bodyStart..] : [];
+        if (lines.Any(h => h.Trim().Equals("Transfer-Encoding: chunked", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (!TryDecodeChunks(bodyBytes, out var decoded)) throw new IOException("Incomplete chunked handset response.");
+            bodyBytes = decoded;
+        }
 
         var status = 0;
         if (lines.Count > 0)
@@ -386,6 +402,40 @@ public sealed class FanvilHttpClient : IFanvilClient
     }
 
     private static string FormEncode(string s) => Uri.EscapeDataString(s).Replace("%20", "+");
+
+    private static bool TryDecodeChunks(ReadOnlySpan<byte> source, out byte[] decoded)
+    {
+        decoded = [];
+        using var output = new MemoryStream();
+        var offset = 0;
+        while (offset < source.Length)
+        {
+            var end = source[offset..].IndexOf("\r\n"u8);
+            if (end < 0) return false;
+            var sizeText = Encoding.ASCII.GetString(source.Slice(offset, end)).Split(';')[0];
+            if (!int.TryParse(sizeText, System.Globalization.NumberStyles.HexNumber,
+                System.Globalization.CultureInfo.InvariantCulture, out var size) || size < 0 || size > 4 * 1024 * 1024)
+                throw new InvalidDataException("Invalid handset chunk size.");
+            offset += end + 2;
+            if (size == 0)
+            {
+                // Consume optional trailers up to the terminating empty line.
+                while (true)
+                {
+                    end = source[offset..].IndexOf("\r\n"u8);
+                    if (end < 0) return false;
+                    offset += end + 2;
+                    if (end == 0) { decoded = output.ToArray(); return true; }
+                }
+            }
+            if (source.Length - offset < size + 2) return false;
+            if (!source.Slice(offset + size, 2).SequenceEqual("\r\n"u8))
+                throw new InvalidDataException("Invalid handset chunk terminator.");
+            output.Write(source.Slice(offset, size));
+            offset += size + 2;
+        }
+        return false;
+    }
 
     private static string Md5Hex(string s)
     {

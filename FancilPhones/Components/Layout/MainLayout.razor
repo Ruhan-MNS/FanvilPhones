@@ -43,7 +43,7 @@
     private string _location = "Overview";
     protected override void OnInitialized() { UpdateLocation(); Navigation.LocationChanged += LocationChanged; }
     private void UpdateLocation() => _location = new Uri(Navigation.Uri).AbsolutePath.Trim('/').ToLowerInvariant() switch
-    { "phones" => "Phone fleet", "contacts" => "Phonebook", "sync" => "Synchronization", "logs" => "Activity log", "users" => "Account administration", "account/change-password" => "My account", _ => "Overview" };
+    { "phones" => "Phone fleet", "contacts" => "Phonebook", "switchboards" => "Switchboard keys", "sync" => "Synchronization", "logs" => "Activity log", "users" => "Account administration", "account/change-password" => "My account", _ => "Overview" };
     private void CloseMobile() => _mobileOpen = false;
     private void HandleKey(KeyboardEventArgs args) { if (args.Key == "Escape") _mobileOpen = false; }
     private void LocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)

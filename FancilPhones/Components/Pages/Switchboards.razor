@@ -1,0 +1,180 @@
+@page "/switchboards"
+@inherits AsyncComponentBase
+@attribute [Authorize(Policy = PhonePolicies.Administrator)]
+@inject ISwitchboardService Keys
+@inject UiFeedback Feedback
+@inject ILogger<Switchboards> Logger
+
+<PageTitle>Switchboard keys · Fanvil Phones</PageTitle>
+<PageHeader Title="Switchboard keys" Description="Maintain one directory and preview alphabetical key layouts for the five switchboards.">
+    <AsyncButton Text="Refresh" Icon="refresh" Busy="_busy" OnClick="RefreshAsync" />
+    <button class="button button--primary" disabled="@Disabled" @onclick="() => _editing = new Contact()">Add contact</button>
+</PageHeader>
+@if (_error is not null) { <div class="alert alert--danger" role="alert">@_error</div> }
+<LoadingState Visible="_busy" Text="@_working" />
+<aside class="help-note"><RadzenIcon Icon="lock" aria-hidden="true" /><div><strong>F1 and F2 stay fixed on Page 1</strong><p>Reception keeps Line and Override Day/Night (*271). The other four keep Line and Reception (201). Contacts fill the remaining 58 positions across five pages. Standard handsets are excluded.</p></div></aside>
+
+<section class="section-block">
+    <div class="section-heading"><div><h2>Switchboards</h2><p>Capture and import each phone before the first deployment. Captures read settings without changing keys.</p></div></div>
+    <div class="table-wrap"><table><thead><tr><th>Select</th><th>Phone</th><th>Template</th><th>Last capture</th><th>Actions</th></tr></thead><tbody>
+    @foreach (var phone in _state.Phones)
+    {
+        <tr @key="phone.Id"><td><input type="checkbox" aria-label="@($"Select {phone.Name}")" checked="@_selected.Contains(phone.Id)" disabled="@Disabled" @onchange="e => SelectPhone(phone.Id, e.Value is true)" /></td><td><strong>@phone.Name</strong><small class="mono">@phone.IpAddress</small></td><td>@(phone.IpAddress == "192.168.55.101" ? "Reception · Day/Night" : "Switchboard · Reception")@if (phone.ConfigurationWarning is not null) { <small role="status">@phone.ConfigurationWarning</small> }</td><td>@(phone.CapturedAt is null ? "Not captured" : UiFormat.Date(phone.CapturedAt))</td><td><div class="row-actions">
+            <AsyncButton Text="Capture" Disabled="_busy" OnClick="() => CaptureAsync(phone)" />
+            <AsyncButton Text="Import contacts" Disabled="@(_busy || phone.CapturedAt is null)" OnClick="() => ImportAsync(phone)" />
+            <AsyncButton Text="Preview" Disabled="@(_busy || phone.CapturedAt is null)" OnClick="() => PreviewAsync([phone.Id])" />
+            @if (phone.ConfigurationWarning?.Contains("F2") == true) { <AsyncButton Text="Preview F2 setup" Disabled="_busy" OnClick="() => SetupAsync(phone.Id)" /> }
+        </div></td></tr>
+    }
+    @if (_state.Phones.Count == 0) { <tr><td colspan="5" class="empty-cell">Add the five designated switchboards in Phone fleet to begin.</td></tr> }
+    </tbody></table></div>
+    <div class="switchboard-actions"><AsyncButton Text="Preview selected phones" Icon="preview" Disabled="@(_busy || _selected.Count == 0)" OnClick="() => PreviewAsync(_selected.ToArray())" /><span class="muted">@_selected.Count selected</span></div>
+</section>
+
+@if (_previews.Count > 0)
+{
+    <section class="section-block" aria-label="Deployment preview">
+        <div class="section-heading"><div><h2>Review key changes</h2><p>All positions are shown. Changed rows are marked; protected keys are locked. Previews expire after 30 minutes.</p></div><AsyncButton Class="button button--primary" Text="Deploy reviewed previews" Icon="send" Disabled="@(_busy || _previews.Any(p => p.Status != "Preview"))" OnClick="DeployAsync" /></div>
+        @if (_delivering) { <AsyncButton Text="Stop delivery" Icon="stop" OnClick="CancelDelivery" /> }
+        @foreach (var preview in _previews)
+        {
+            var before = SwitchboardLayout.FromJson(preview.BeforeJson);
+            var target = SwitchboardLayout.FromJson(preview.TargetJson);
+            <h3>@PhoneName(preview.PhoneId) · @preview.IpAddress <span class="badge">@preview.Status</span></h3>
+            <p>@preview.Message</p>
+            <div class="table-wrap switchboard-preview"><table><thead><tr><th>Position</th><th>Change</th><th>Previous settings</th><th>Type</th><th>New name</th><th>Value</th><th>Value2</th><th>Subtype</th><th>SIP line</th><th>Media / pickup / icon</th></tr></thead><tbody>
+            @foreach (var key in target.Keys)
+            {
+                var old = before.Keys.Single(k => k.Page == key.Page && k.Slot == key.Slot);
+                var changed = Changed(old, key);
+                <tr class="@(changed ? "switchboard-changed" : "")"><td>@($"Page {key.Page} · F{key.Slot}")</td><td>@(key.Protected ? changed && preview.Purpose == "TemplateSetup" ? "F2 setup" : "Locked" : changed ? "Changed" : "Unchanged")</td><td>@old.Name <small>@old.Extension @(old.Value2.Length > 0 ? $" / {old.Value2}" : "")</small><small>@old.TypeLabel · @Subtype(old) · SIP line @old.Get("Line")</small></td><td>@key.TypeLabel</td><td>@key.Name</td><td class="mono">@key.Extension</td><td class="mono">@key.Value2</td><td>@Subtype(key)</td><td>@key.Get("Line")</td><td>@key.Get("MediaType") / @key.Get("PICKUP") / @key.Get("IconType")</td></tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
+}
+
+<section class="section-block">
+    <div class="section-heading"><div><h2>Master key directory <span class="count-label">@_state.Members.Count / 58</span></h2><p>Uses the shared phonebook. Include contacts here; edit their names and office numbers once for all switchboards.</p></div></div>
+    <label class="search-field"><RadzenIcon Icon="search" /><input type="search" placeholder="Search contacts…" aria-label="Search switchboard contacts" @bind="_search" @bind:event="oninput" @bind:after="ResetPage" /></label>
+    <div class="table-wrap"><table><thead><tr><th>Include</th><th>Contact</th><th>Office number</th><th>Sort name (optional)</th><th>Actions</th></tr></thead><tbody>
+    @foreach (var contact in PagedContacts)
+    {
+        var included = _state.Members.Any(m => m.ContactId == contact.Id);
+        <tr @key="contact.Id"><td><input type="checkbox" checked="@included" aria-label="@($"Include {contact.DisplayName}")" disabled="@Disabled" @onchange="e => SetMemberAsync(contact.Id, e.Value is true)" /></td><td>@contact.DisplayName</td><td class="mono">@contact.OfficeNumber</td><td><label class="field"><input aria-label="@($"Sort name for {contact.DisplayName}")" maxlength="128" disabled="@Disabled" @bind="_sortNames[contact.Id]" /></label></td><td><div class="row-actions"><AsyncButton Text="Save sort" Disabled="@(_busy || !included)" OnClick="() => SetMemberAsync(contact.Id, true)" /><button class="button" disabled="@Disabled" @onclick="() => EditContact(contact)">Edit contact</button></div></td></tr>
+    }
+    </tbody></table></div>
+    <TablePager Total="@FilteredContacts.Count()" @bind-Page="_directoryPage" @bind-PageSize="_directoryPageSize" />
+</section>
+
+<section class="section-block">
+    <div class="section-heading"><div><h2>Phone-specific numbers</h2><p>Imported differences appear here. A blank extension uses the master office number. Secondary values are independent for each phone.</p></div></div>
+    <div class="switchboard-overrides">
+        <label class="field">Phone<select @bind="_overridePhone" disabled="@Disabled" @bind:after="LoadOverride"><option value="0">Choose phone</option>@foreach (var p in _state.Phones) { <option value="@p.Id">@p.Name (@p.IpAddress)</option> }</select></label>
+        <label class="field">Contact<select @bind="_overrideContact" disabled="@Disabled" @bind:after="LoadOverride"><option value="0">Choose contact</option>@foreach (var m in _state.Members.OrderBy(m => m.Contact.DisplayName)) { <option value="@m.ContactId">@m.Contact.DisplayName</option> }</select></label>
+        <label class="field">Extension override<input maxlength="31" disabled="@Disabled" @bind="_extension" /></label>
+        <label class="field">Value2<input maxlength="31" disabled="@Disabled" @bind="_secondary" /></label>
+        <AsyncButton Text="Save numbers" Disabled="@(_busy || _overridePhone == 0 || _overrideContact == 0)" OnClick="SaveOverrideAsync" />
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Phone</th><th>Contact</th><th>Extension override</th><th>Value2</th></tr></thead><tbody>
+    @foreach (var item in _state.Overrides.Where(o => o.Extension is not null || !string.IsNullOrEmpty(o.Value2)))
+    { <tr><td>@PhoneName(item.PhoneId)</td><td>@ContactName(item.ContactId)</td><td>@(item.Extension ?? "Use master")</td><td>@item.Value2</td></tr> }
+    </tbody></table></div>
+</section>
+
+<section class="section-block"><div class="section-heading"><div><h2>Delivery history and backups</h2><p>Delivery can stop between pages. Failed, interrupted or timed-out operations require inspection; restoration also uses a preview.</p></div></div>
+    <div class="table-wrap"><table><thead><tr><th>Created</th><th>Phone</th><th>Status</th><th>Details</th><th>Backup</th></tr></thead><tbody>
+    @foreach (var item in _state.History)
+    { <tr><td>@UiFormat.Date(item.CreatedAt)</td><td>@PhoneName(item.PhoneId)</td><td><StatusBadge Status="@item.Status" /></td><td>@item.Purpose · @item.Message</td><td>@if (item.Purpose != "TemplateSetup" && item.Status is "Success" or "Failed" or "Cancelled" or "TimedOut" or "Applying") { <AsyncButton Text="Preview restoration" Disabled="_busy" OnClick="() => RestoreAsync(item.Id)" /> }</td></tr> }
+    </tbody></table></div>
+</section>
+@if (_editing is not null) { <ContactEditDialog Model="_editing" OnSaved="ContactSavedAsync" OnCancel="() => _editing = null" /> }
+
+@code {
+    private SwitchboardState _state = new([], [], [], [], []);
+    private readonly HashSet<int> _selected = [];
+    private readonly Dictionary<int, string> _sortNames = [];
+    private readonly List<SwitchboardDeployment> _previews = [];
+    private bool _busy = true;
+    private bool _delivering;
+    private CancellationTokenSource? _deliveryCancellation;
+    private string? _error;
+    private string _working = "Loading switchboards…", _search = "", _extension = "", _secondary = "";
+    private int _overridePhone, _overrideContact;
+    private int _directoryPage = 1, _directoryPageSize = 25;
+    private Contact? _editing;
+    private bool Disabled => _busy || !RendererInfo.IsInteractive;
+    private IEnumerable<Contact> FilteredContacts => _state.Contacts.Where(c => string.IsNullOrWhiteSpace(_search) || c.DisplayName.Contains(_search, StringComparison.OrdinalIgnoreCase) || c.OfficeNumber?.Contains(_search, StringComparison.OrdinalIgnoreCase) == true);
+    private IEnumerable<Contact> PagedContacts => FilteredContacts.Skip((Math.Clamp(_directoryPage, 1, Math.Max(1, (int)Math.Ceiling((double)FilteredContacts.Count() / _directoryPageSize))) - 1) * _directoryPageSize).Take(_directoryPageSize);
+    private void ResetPage() => _directoryPage = 1;
+    protected override async Task OnInitializedAsync() { _busy = false; await RefreshAsync(); }
+    private Task RefreshAsync() => RunAsync("Loading switchboards…", ReloadAsync, false);
+    private async Task ReloadAsync()
+    {
+        _state = await Keys.GetStateAsync(LifetimeToken);
+        _selected.IntersectWith(_state.Phones.Select(p => p.Id));
+        foreach (var c in _state.Contacts) _sortNames[c.Id] = _state.Members.FirstOrDefault(m => m.ContactId == c.Id)?.SortName ?? "";
+        LoadOverride();
+    }
+    private void SelectPhone(int id, bool selected) { if (selected) _selected.Add(id); else _selected.Remove(id); }
+    private Task CaptureAsync(SwitchboardPhone phone) => RunAsync($"Capturing {phone.Name}…", async () => { await Keys.CaptureAsync(phone.Id, LifetimeToken); await ReloadAsync(); Feedback.Notify($"Captured all five pages for {phone.Name}.", "success"); });
+    private Task ImportAsync(SwitchboardPhone phone) => RunAsync("Importing captured contacts…", async () =>
+    {
+        if (!await Feedback.ConfirmAsync("Import captured contacts", $"Merge {phone.Name}'s captured contacts into the shared phonebook and switchboard directory? Its differing extensions and Value2 settings will be saved as phone-specific values. Existing master contacts are retained.", "Import contacts", ct: LifetimeToken)) return;
+        await Keys.ImportContactsAsync(phone.Id, LifetimeToken); await ReloadAsync();
+    });
+    private Task SetMemberAsync(int id, bool included) => RunAsync("Saving switchboard directory…", async () => { await Keys.SetMemberAsync(id, included, _sortNames.GetValueOrDefault(id), LifetimeToken); await ReloadAsync(); });
+    private void EditContact(Contact c) => _editing = new() { Id = c.Id, DisplayName = c.DisplayName, OfficeNumber = c.OfficeNumber, MobileNumber = c.MobileNumber, OtherNumber = c.OtherNumber, Group = c.Group, Ring = c.Ring };
+    private async Task ContactSavedAsync() { _editing = null; _previews.Clear(); await RefreshAsync(); }
+    private void LoadOverride()
+    {
+        var item = _state.Overrides.SingleOrDefault(o => o.PhoneId == _overridePhone && o.ContactId == _overrideContact);
+        _extension = item?.Extension ?? ""; _secondary = item?.Value2 ?? "";
+    }
+    private Task SaveOverrideAsync() => RunAsync("Saving phone-specific numbers…", async () => { await Keys.SaveOverrideAsync(_overridePhone, _overrideContact, _extension, _secondary, LifetimeToken); await ReloadAsync(); });
+    private Task PreviewAsync(int[] ids) => RunAsync("Reading phones and preparing previews…", async () =>
+    {
+        _previews.Clear();
+        foreach (var id in ids) { LifetimeToken.ThrowIfCancellationRequested(); _previews.Add(await Keys.PreviewAsync(id, LifetimeToken)); await InvokeAsync(StateHasChanged); }
+        await ReloadAsync();
+    }, false);
+    private Task RestoreAsync(Guid id) => RunAsync("Preparing restoration preview…", async () => { _previews.Clear(); _previews.Add(await Keys.PreviewRestoreAsync(id, LifetimeToken)); await ReloadAsync(); }, false);
+    private Task SetupAsync(int id) => RunAsync("Preparing F2 setup preview…", async () => { _previews.Clear(); _previews.Add(await Keys.PreviewTemplateSetupAsync(id, LifetimeToken)); await ReloadAsync(); }, false);
+    private Task DeployAsync() => RunAsync("Delivering and verifying switchboard keys…", async () =>
+    {
+        var details = _previews.Any(p => p.Purpose == "TemplateSetup")
+            ? "This setup explicitly corrects F2 to the required template. F1 and all other keys are preserved. The original configuration is retained for audit; automatic restoration of an invalid F2 is blocked."
+            : "Protected keys are preserved. An interrupted delivery may leave some pages updated.";
+        if (!await Feedback.ConfirmAsync("Deploy switchboard keys", $"Apply the reviewed layouts to {_previews.Count} phone(s)? Each layout is backed up and verified. {details}", "Deploy keys", ct: LifetimeToken)) return;
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(LifetimeToken);
+        _deliveryCancellation = stop; _delivering = true;
+        try
+        {
+            for (var i = 0; i < _previews.Count; i++)
+            {
+                if (stop.IsCancellationRequested) break;
+                _previews[i] = await Keys.DeployAsync(_previews[i].Id, stop.Token);
+                await InvokeAsync(StateHasChanged);
+                if (_previews[i].Status != "Success") { Feedback.Notify("Deployment stopped. Review the result and backup before continuing.", "warning"); break; }
+            }
+        }
+        finally { _delivering = false; _deliveryCancellation = null; }
+        await ReloadAsync();
+    }, false);
+    private void CancelDelivery() => _deliveryCancellation?.Cancel();
+    private async Task RunAsync(string message, Func<Task> action, bool invalidate = true)
+    {
+        if (_busy || IsDisposed) return;
+        _busy = true; _error = null; _working = message;
+        if (invalidate) _previews.Clear();
+        using var activity = BeginActivity(message);
+        try { await action(); }
+        catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
+        catch (Exception ex) { Logger.LogError(ex, "Switchboard operation failed."); _error = ex is InvalidOperationException or InvalidDataException ? ex.Message : "The operation could not be completed. Review the connection and try again."; }
+        finally { _busy = false; }
+    }
+    private string PhoneName(int id) => _state.Phones.FirstOrDefault(p => p.Id == id)?.Name ?? $"Phone {id}";
+    private string ContactName(int id) => _state.Contacts.FirstOrDefault(c => c.Id == id)?.DisplayName ?? $"Contact {id}";
+    private static bool Changed(SwitchboardKey a, SwitchboardKey b) => !a.Fields.OrderBy(f => f.Key).SequenceEqual(b.Fields.OrderBy(f => f.Key));
+    private static string Subtype(SwitchboardKey k) => k.Get("MemorySubType") switch { "91" => "BLF/BXFER", "92" => "BLF/AXFER", "21" or "" => "None", var value => value };
+}
