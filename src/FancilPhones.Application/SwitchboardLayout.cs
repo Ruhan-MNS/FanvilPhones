@@ -7,6 +7,8 @@ using FancilPhones.Domain;
 
 namespace FancilPhones.Application;
 
+public sealed class SwitchboardValidationException(string message) : InvalidOperationException(message);
+
 public sealed record SwitchboardKey(int Page, int Slot, Dictionary<string, string> Fields)
 {
     public string Get(string field) => Fields.GetValueOrDefault(field, "");
@@ -31,6 +33,7 @@ public sealed record SwitchboardLayout(List<SwitchboardKey> Keys, Dictionary<str
 
 public static class SwitchboardRules
 {
+    public const string EmptyDirectoryMessage = "Import contacts from a captured phone, or select Include beside at least one contact in the Master key directory before previewing.";
     public static readonly IReadOnlySet<string> SupportedIps = new HashSet<string>(StringComparer.Ordinal)
     { "192.168.55.101", "192.168.55.113", "192.168.55.133", "192.168.55.147", "192.168.55.150" };
     public static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
@@ -67,7 +70,7 @@ public static class SwitchboardRules
         IReadOnlyList<SwitchboardOverride> overrides)
     {
         Validate(ip, baseline);
-        if (members.Count == 0) throw new InvalidOperationException("Select at least one switchboard contact before generating a layout.");
+        if (members.Count == 0) throw new SwitchboardValidationException(EmptyDirectoryMessage);
         if (members.Count > 58) throw new InvalidOperationException("The switchboard has capacity for 58 contacts after its two protected keys.");
         if (members.Select(m => NameKey(m.Contact.DisplayName)).Distinct().Count() != members.Count)
             throw new InvalidOperationException("Switchboard contact names must be unique.");

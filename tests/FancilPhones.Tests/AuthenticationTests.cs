@@ -35,6 +35,8 @@ public sealed class AuthenticationTests
         {
             var html = await response.Content.ReadAsStringAsync();
             Assert.Contains("Master key directory", html);
+            Assert.Contains("Choose your switchboard contacts", html);
+            Assert.Contains("Preview becomes available once contacts are selected.", html);
             Assert.Contains("Delivery history and backups", html);
             Assert.DoesNotContain("The operation could not be completed", html);
         }

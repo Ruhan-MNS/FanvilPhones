@@ -62,7 +62,7 @@ public sealed class SwitchboardLayoutTests
         var layout = SwitchboardFixture.Layout();
         var member = new SwitchboardMember { ContactId = 1, Contact = new() { DisplayName = "Test", OfficeNumber = "200" } };
         Assert.Throws<InvalidOperationException>(() => SwitchboardRules.Generate("192.168.55.136", layout, [member], []));
-        Assert.Throws<InvalidOperationException>(() => SwitchboardRules.Generate("192.168.55.133", layout, [], []));
+        Assert.Throws<SwitchboardValidationException>(() => SwitchboardRules.Generate("192.168.55.133", layout, [], []));
         Assert.Throws<InvalidOperationException>(() => SwitchboardRules.Generate("192.168.55.133", layout, Enumerable.Repeat(member, 59).ToList(), []));
         Assert.Throws<InvalidOperationException>(() => SwitchboardRules.Generate("192.168.55.133", layout, [member, member], []));
         layout.Keys[12].Fields["Type"] = "3";
@@ -136,6 +136,23 @@ public sealed class SwitchboardServiceTests : IAsyncLifetime
     public Task DisposeAsync() => connection.DisposeAsync().AsTask();
     private async Task ReadyAsync()
     { await Service().CaptureAsync(1); await Service().ImportContactsAsync(1); }
+
+    [Fact]
+    public async Task EmptyDirectoryExplainsHowToProceedWithoutContactingThePhoneOrSavingAPreview()
+    {
+        await Service().CaptureAsync(1);
+        var logins = device.Logins;
+        var error = await Assert.ThrowsAsync<SwitchboardValidationException>(() => Service().PreviewAsync(1));
+        Assert.Contains("Import contacts", error.Message);
+        Assert.Contains("Include", error.Message);
+        Assert.Equal(logins, device.Logins);
+        Assert.Equal(0, device.Writes);
+        await using (var db = factory.CreateDbContext()) Assert.Empty(await db.SwitchboardDeployments.ToListAsync());
+
+        await Service().ImportContactsAsync(1);
+        Assert.Equal("Preview", (await Service().PreviewAsync(1)).Status);
+        Assert.Equal(0, device.Writes);
+    }
 
     [Fact]
     public async Task NonAdministratorsAndStandardHandsetsNeverReachTheDevice()

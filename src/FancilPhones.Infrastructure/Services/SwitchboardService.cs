@@ -141,11 +141,12 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
         var phone = await PhoneAsync(db, phoneId, ct);
         var profile = await ProfileAsync(db, phoneId, ct);
         EnsureIdle(profile);
+        var members = await db.SwitchboardMembers.AsNoTracking().Include(m => m.Contact).ToListAsync(ct);
+        if (members.Count == 0) throw new SwitchboardValidationException(SwitchboardRules.EmptyDirectoryMessage);
         var baseline = SwitchboardLayout.FromJson(profile.BaselineJson);
         var current = await OnPhoneAsync(phone, (client, token) => adapter.ReadAsync(client, token), ct);
         if (current.Fingerprint() != baseline.Fingerprint())
             throw new InvalidOperationException("The handset differs from its capture. Capture it again and review/import its contacts before previewing.");
-        var members = await db.SwitchboardMembers.AsNoTracking().Include(m => m.Contact).ToListAsync(ct);
         var overrides = await db.SwitchboardOverrides.AsNoTracking().Where(o => o.PhoneId == phoneId).ToListAsync(ct);
         // Import each phone before ordering; otherwise its differing numbers could be overwritten.
         foreach (var key in baseline.Keys.Where(k => !k.Protected && k.Name.Length > 0))

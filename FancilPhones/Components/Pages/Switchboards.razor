@@ -11,8 +11,13 @@
     <button class="button button--primary" disabled="@Disabled" @onclick="() => _editing = new Contact()">Add contact</button>
 </PageHeader>
 @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error</div> }
+@if (_validationMessage is not null) { <div class="alert alert--warning" role="status">@_validationMessage</div> }
 <LoadingState Visible="_busy" Text="@_working" />
 <aside class="help-note"><RadzenIcon Icon="lock" aria-hidden="true" /><div><strong>F1 and F2 stay fixed on Page 1</strong><p>Reception keeps Line and Override Day/Night (*271). The other four keep Line and Reception (201). Contacts fill the remaining 58 positions across five pages. Standard handsets are excluded.</p></div></aside>
+@if (!_busy && _state.Members.Count == 0)
+{
+    <aside class="help-note" role="status"><RadzenIcon Icon="playlist_add" aria-hidden="true" /><div><strong>Choose your switchboard contacts</strong><p>Capture a phone, then use its <strong>Import contacts</strong> action. You can also select <strong>Include</strong> beside contacts in the <a href="#switchboard-directory">Master key directory</a>. Preview becomes available once contacts are selected.</p></div></aside>
+}
 
 <section class="section-block">
     <div class="section-heading"><div><h2>Switchboards</h2><p>Capture and import each phone before the first deployment. Captures read settings without changing keys.</p></div></div>
@@ -22,13 +27,13 @@
         <tr @key="phone.Id"><td><input type="checkbox" aria-label="@($"Select {phone.Name}")" checked="@_selected.Contains(phone.Id)" disabled="@Disabled" @onchange="e => SelectPhone(phone.Id, e.Value is true)" /></td><td><strong>@phone.Name</strong><small class="mono">@phone.IpAddress</small></td><td>@(phone.IpAddress == "192.168.55.101" ? "Reception · Day/Night" : "Switchboard · Reception")@if (phone.ConfigurationWarning is not null) { <small role="status">@phone.ConfigurationWarning</small> }</td><td>@(phone.CapturedAt is null ? "Not captured" : UiFormat.Date(phone.CapturedAt))</td><td><div class="row-actions">
             <AsyncButton Text="Capture" Disabled="_busy" OnClick="() => CaptureAsync(phone)" />
             <AsyncButton Text="Import contacts" Disabled="@(_busy || phone.CapturedAt is null)" OnClick="() => ImportAsync(phone)" />
-            <AsyncButton Text="Preview" Disabled="@(_busy || phone.CapturedAt is null)" OnClick="() => PreviewAsync([phone.Id])" />
+            <AsyncButton Text="Preview" Disabled="@(_busy || phone.CapturedAt is null || _state.Members.Count == 0)" OnClick="() => PreviewAsync([phone.Id])" />
             @if (phone.ConfigurationWarning?.Contains("F2") == true) { <AsyncButton Text="Preview F2 setup" Disabled="_busy" OnClick="() => SetupAsync(phone.Id)" /> }
         </div></td></tr>
     }
     @if (_state.Phones.Count == 0) { <tr><td colspan="5" class="empty-cell">Add the five designated switchboards in Phone fleet to begin.</td></tr> }
     </tbody></table></div>
-    <div class="switchboard-actions"><AsyncButton Text="Preview selected phones" Icon="preview" Disabled="@(_busy || _selected.Count == 0)" OnClick="() => PreviewAsync(_selected.ToArray())" /><span class="muted">@_selected.Count selected</span></div>
+    <div class="switchboard-actions"><AsyncButton Text="Preview selected phones" Icon="preview" Disabled="@(_busy || _selected.Count == 0 || _state.Members.Count == 0 || _state.Phones.Any(p => _selected.Contains(p.Id) && p.CapturedAt is null))" OnClick="() => PreviewAsync(_selected.ToArray())" /><span class="muted">@_selected.Count selected</span></div>
 </section>
 
 @if (_previews.Count > 0)
@@ -54,7 +59,7 @@
     </section>
 }
 
-<section class="section-block">
+<section class="section-block" id="switchboard-directory">
     <div class="section-heading"><div><h2>Master key directory <span class="count-label">@_state.Members.Count / 58</span></h2><p>Uses the shared phonebook. Include contacts here; edit their names and office numbers once for all switchboards.</p></div></div>
     <label class="search-field"><RadzenIcon Icon="search" /><input type="search" placeholder="Search contacts…" aria-label="Search switchboard contacts" @bind="_search" @bind:event="oninput" @bind:after="ResetPage" /></label>
     <div class="table-wrap"><table><thead><tr><th>Include</th><th>Contact</th><th>Office number</th><th>Sort name (optional)</th><th>Actions</th></tr></thead><tbody>
@@ -99,6 +104,7 @@
     private bool _delivering;
     private CancellationTokenSource? _deliveryCancellation;
     private string? _error;
+    private string? _validationMessage;
     private string _working = "Loading switchboards…", _search = "", _extension = "", _secondary = "";
     private int _overridePhone, _overrideContact;
     private int _directoryPage = 1, _directoryPageSize = 25;
@@ -135,6 +141,7 @@
     private Task PreviewAsync(int[] ids) => RunAsync("Reading phones and preparing previews…", async () =>
     {
         _previews.Clear();
+        if (_state.Members.Count == 0) throw new SwitchboardValidationException(SwitchboardRules.EmptyDirectoryMessage);
         foreach (var id in ids) { LifetimeToken.ThrowIfCancellationRequested(); _previews.Add(await Keys.PreviewAsync(id, LifetimeToken)); await InvokeAsync(StateHasChanged); }
         await ReloadAsync();
     }, false);
@@ -165,11 +172,12 @@
     private async Task RunAsync(string message, Func<Task> action, bool invalidate = true)
     {
         if (_busy || IsDisposed) return;
-        _busy = true; _error = null; _working = message;
+        _busy = true; _error = null; _validationMessage = null; _working = message;
         if (invalidate) _previews.Clear();
         using var activity = BeginActivity(message);
         try { await action(); }
         catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
+        catch (SwitchboardValidationException ex) { _validationMessage = ex.Message; Logger.LogInformation("Switchboard operation requires input: {Reason}", ex.Message); }
         catch (Exception ex) { Logger.LogError(ex, "Switchboard operation failed."); _error = ex is InvalidOperationException or InvalidDataException ? ex.Message : "The operation could not be completed. Review the connection and try again."; }
         finally { _busy = false; }
     }
