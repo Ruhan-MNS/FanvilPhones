@@ -1,3 +1,4 @@
+using MNS.SingleSignOn;
 using FancilPhones.Components;
 using FancilPhones.Application;
 using FancilPhones.Authentication;
@@ -84,6 +85,8 @@ builder.Services.AddRateLimiter(options =>
         }));
 });
 
+builder.Services.AddMnsSingleSignOn<AuthDbContext>(builder.Configuration, builder.Environment);
+
 var app = builder.Build();
 if (migrateOnly || importIndex >= 0 || builder.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true))
 {
@@ -123,6 +126,7 @@ app.UseHttpsRedirection();
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMnsSingleSignOnLoginRedirect("/login", "/");
 app.UseAuthorization();
 app.UseAntiforgery();
 app.MapStaticAssets();

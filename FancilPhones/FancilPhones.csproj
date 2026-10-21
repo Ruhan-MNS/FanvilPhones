@@ -16,4 +16,7 @@
     <ItemGroup>
         <ProjectReference Include="../src/FancilPhones.Infrastructure/FancilPhones.Infrastructure.csproj" />
     </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Shared\MNS_SingleSignOn\MNS_SingleSignOn.csproj" />
+  </ItemGroup>
 </Project>

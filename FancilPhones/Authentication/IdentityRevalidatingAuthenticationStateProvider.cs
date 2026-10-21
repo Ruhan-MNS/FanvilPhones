@@ -1,3 +1,4 @@
+using MNS.SingleSignOn;
 using FancilPhones.Infrastructure.Data;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
@@ -9,21 +10,24 @@ using Microsoft.EntityFrameworkCore;
 namespace FancilPhones.Authentication
 {
     // This is a server-side AuthenticationStateProvider that revalidates the security stamp for the connected user
-    // every 30 minutes an interactive circuit is connected.
+    // at the configured SSO interval, or every 30 minutes when SSO is disabled.
     internal sealed class IdentityRevalidatingAuthenticationStateProvider(
             ILoggerFactory loggerFactory,
             IServiceScopeFactory scopeFactory,
+            IOptions<SingleSignOnOptions> ssoOptions,
             IOptions<IdentityOptions> options,
             ILogger<IdentityRevalidatingAuthenticationStateProvider> logger)
         : RevalidatingServerAuthenticationStateProvider(loggerFactory)
     {
-        protected override TimeSpan RevalidationInterval => TimeSpan.FromMinutes(30);
+        protected override TimeSpan RevalidationInterval => ssoOptions.Value.Enabled ? TimeSpan.FromSeconds(ssoOptions.Value.CircuitRevalidationSeconds) : TimeSpan.FromMinutes(30);
 
         protected override async Task<bool> ValidateAuthenticationStateAsync(
             AuthenticationState authenticationState, CancellationToken cancellationToken)
         {
             // Get the user manager from a new scope to ensure it fetches fresh data
             await using var scope = scopeFactory.CreateAsyncScope();
+            if (!await scope.ServiceProvider.GetRequiredService<SingleSignOnSessionValidator>()
+                .IsActiveAsync(authenticationState.User, cancellationToken)) return false;
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
             var principal = authenticationState.User;
             var userId = userManager.GetUserId(principal);
