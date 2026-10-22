@@ -1,36 +1,30 @@
-<AppDialog Open="true" Title="@($"Edit Page {Key.Page} · F{Key.Slot}")" Description="Choose a key type, then configure its settings. Changes are applied only after a reviewed sync." OnClose="OnCancel">
-    <div class="dialog-body">
+<AppDialog Open="true" Title="@($"All key settings · Page {Key.Page} · F{Key.Slot}")" Description="Edit this key in one place. Use key updates your layout; changes reach the phone after you review and sync." OnClose="OnCancel">
+    <div class="dialog-body key-settings">
         @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error</div> }
-        <div class="form-grid">
+        <fieldset><legend>Key identity</legend><div class="form-grid">
             <div class="field"><span>Type</span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Types, "Type")" Value="@_key.Get("Type")" ValueChanged="SetType" Label="Key type" /></div>
-            <label class="field">Name<input maxlength="63" value="@_key.Name" @oninput='e => Set("Title", e)' /></label>
-            @if (SwitchboardKeyOptions.SubtypeField(_key).Length > 0)
-            {
-                <div class="field field--wide"><span>@SubtypeCaption</span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Subtypes(_key), SwitchboardKeyOptions.SubtypeField(_key))" Value="@_key.Get(SwitchboardKeyOptions.SubtypeField(_key))" ValueChanged="SetSubtype" Label="Key subtype" /></div>
-            }
+            <label class="field">Name<input maxlength="63" value="@_key.Name" @oninput='e => Set("Title", e)' /><small>The label shown beside the key.</small></label>
+        </div></fieldset>
+        <fieldset><legend>Key action</legend><div class="form-grid">
+            <div class="field field--wide"><span>@SubtypeCaption</span><WorkspaceSelect TValue="string" Options="SubtypeOptions" Value="@SubtypeValue" ValueChanged="SetSubtype" Label="Key subtype" Disabled="@(SwitchboardKeyOptions.SubtypeField(_key).Length == 0)" />
+                @if (SwitchboardKeyOptions.SubtypeField(_key).Length == 0) { <small>This key type has no subtype.</small> }
+            </div>
             @if (SwitchboardKeyOptions.DetailField(_key).Length > 0)
             {
                 <div class="field field--wide"><span>@(SwitchboardKeyOptions.DetailField(_key) == "PttSubTypeValue" ? "Multicast codec" : "Contact group")</span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Details(_key), SwitchboardKeyOptions.DetailField(_key))" Value="@_key.Get(SwitchboardKeyOptions.DetailField(_key))" ValueChanged="SetDetail" Label="Key subtype details" /></div>
             }
-            @if (SwitchboardKeyOptions.HasValue(_key))
-            {
-                <label class="field">@ValueCaption<input maxlength="@SwitchboardKeyOptions.ValueLimit(_key)" value="@_key.Extension" placeholder="@ValuePlaceholder" @oninput="e => SetNumber(e, false)" /></label>
-                <label class="field">Value2<input maxlength="@SwitchboardKeyOptions.ValueLimit(_key)" value="@_key.Value2" @oninput="e => SetNumber(e, true)" /><small>Optional secondary value.</small></label>
-            }
-            @if (SwitchboardKeyOptions.HasLine(_key))
-            {
-                <div class="field"><span>SIP line</span><WorkspaceSelect TValue="string" Options="LineOptions" Value="@_key.Get("Line")" ValueChanged='v => SetValue("Line", v)' Label="Key SIP line" /><small>Primary-line assignments adapt to each target phone. Explicit SIP lines and Auto are retained.</small></div>
-            }
-            @if (_key.Get("Type") == "1")
-            {
-                <div class="field"><span>Media</span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Media, "MediaType")" Value="@_key.Get("MediaType")" ValueChanged='v => SetValue("MediaType", v)' Label="Key media" /></div>
-                <label class="field">Pickup number<input maxlength="31" value="@_key.Get("PICKUP")" @oninput='e => Set("PICKUP", e)' /></label>
-            }
-            <div class="field"><span>Icon color</span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Icons, "IconType")" Value="@_key.Get("IconType")" ValueChanged='v => SetValue("IconType", v)' Label="Key icon color" /></div>
-        </div>
-        <p class="field-hint key-editor-hint">Name: 63 UTF-8 bytes. @(SwitchboardKeyOptions.ValueLimit(_key) == 127 ? "URL values: up to 127 bytes each." : "Value and Value2 combined: 31 bytes.")</p>
+            <label class="field">@ValueCaption<input maxlength="@SwitchboardKeyOptions.ValueLimit(_key)" value="@_key.Extension" disabled="@(!SwitchboardKeyOptions.HasValue(_key))" placeholder="@ValuePlaceholder" @oninput="e => SetNumber(e, false)" /><small>@(SwitchboardKeyOptions.HasValue(_key) ? "The number, sequence or destination for this action." : "This key type does not use a value.")</small></label>
+            <label class="field">Value2<input maxlength="@SwitchboardKeyOptions.ValueLimit(_key)" value="@_key.Value2" disabled="@(!SwitchboardKeyOptions.HasValue(_key))" @oninput="e => SetNumber(e, true)" /><small>Optional secondary value, when used by this action.</small></label>
+        </div></fieldset>
+        <fieldset><legend>Calling and appearance</legend><div class="form-grid">
+            <div class="field"><span>SIP line</span><WorkspaceSelect TValue="string" Options="LineOptions" Value="@_key.Get("Line")" ValueChanged='v => SetValue("Line", v)' Label="Key SIP line" Disabled="@(!SwitchboardKeyOptions.HasLine(_key))" /><small>@(SwitchboardKeyOptions.HasLine(_key) ? "Primary-line assignments adapt to the target phone during sync. Other line selections are kept." : "This key type does not use a SIP line.")</small></div>
+            <div class="field"><span>Media</span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Media, "MediaType")" Value="@_key.Get("MediaType")" ValueChanged='v => SetValue("MediaType", v)' Label="Key media" Disabled="@(!IsMemoryKey)" /><small>@(IsMemoryKey ? "Default, Audio or Video for this Memory Key." : "Media selection applies to Memory Keys.")</small></div>
+            <label class="field">Pickup number<input maxlength="31" value="@_key.Get("PICKUP")" disabled="@(!IsMemoryKey)" @oninput='e => Set("PICKUP", e)' /><small>@(IsMemoryKey ? "Optional number used for call pickup." : "Pickup numbers apply to Memory Keys.")</small></label>
+            <div class="field"><span>Icon color</span><div class="key-icon-control"><span class="key-icon-swatch @IconClass" aria-hidden="true"></span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Icons, "IconType")" Value="@_key.Get("IconType")" ValueChanged='v => SetValue("IconType", v)' Label="Key icon color" /></div><small>@(_key.Get("IconType") == "Custom" ? "Uses the custom icon already configured on this phone." : "Choose the key's indicator color.")</small></div>
+        </div></fieldset>
+        <p class="field-hint key-editor-hint">Name: 63 UTF-8 bytes. @(SwitchboardKeyOptions.ValueLimit(_key) == 127 ? "URL values: up to 127 bytes each." : "Value and Value2 combined: 31 bytes.") Pickup number: 31 bytes.</p>
     </div>
-    <footer class="dialog-footer"><button type="button" class="button" @onclick="OnCancel">Cancel</button><button type="button" class="button button--primary" @onclick="Save">Use key</button></footer>
+    <footer class="dialog-footer"><button type="button" class="button key-reset" @onclick="Reset">Reset changes</button><button type="button" class="button" @onclick="OnCancel">Cancel</button><button type="button" class="button button--primary" @onclick="Save">Use key</button></footer>
 </AppDialog>
 @code {
     [Parameter, EditorRequired] public SwitchboardKey Key { get; set; } = null!;
@@ -40,9 +34,14 @@
     private SwitchboardKey _key = null!;
     private string? _error;
     private bool _invalidValue, _invalidValue2;
-    protected override void OnInitialized() => _key = Key with { Fields = new(Key.Fields) };
+    private bool IsMemoryKey => _key.Get("Type") == "1";
+    protected override void OnInitialized() => Reset();
+    private void Reset() { _key = Key with { Fields = new(Key.Fields) }; _error = null; _invalidValue = _invalidValue2 = false; }
     private IEnumerable<SelectOption<string>> Options(IEnumerable<KeyOption> options, string field) => options.Select(o => new SelectOption<string>(o.Value, o.Text)).Concat(options.Any(o => o.Value == _key.Get(field)) ? [] : new[] { new SelectOption<string>(_key.Get(field), string.IsNullOrEmpty(_key.Get(field)) ? "None (captured)" : $"Captured ({_key.Get(field)})") });
-    private IEnumerable<SelectOption<string>> LineOptions => new[] { new SelectOption<string>("-1", "Auto") }.Concat(Enumerable.Range(1, 20).Select(n => new SelectOption<string>(n.ToString(), $"SIP {n}" + (n.ToString() == Line ? " (primary)" : "")))).Append(new("23", "Mobile"));
+    private IEnumerable<SelectOption<string>> LineOptions => Options(new[] { new KeyOption("-1", "Auto") }.Concat(Enumerable.Range(1, 20).Select(n => new KeyOption(n.ToString(), $"SIP {n}" + (n.ToString() == Line ? " (primary)" : "")))).Append(new("23", "Mobile")), "Line");
+    private string SubtypeValue => SwitchboardKeyOptions.SubtypeField(_key) is { Length: > 0 } subtypeField ? _key.Get(subtypeField) : "";
+    private IEnumerable<SelectOption<string>> SubtypeOptions => SwitchboardKeyOptions.SubtypeField(_key) is { Length: > 0 } subtypeField ? Options(SwitchboardKeyOptions.Subtypes(_key), subtypeField) : [new("", "None")];
+    private string IconClass => _key.Get("IconType") switch { "Green" => "is-green", "Blue" => "is-blue", "Yellow" => "is-yellow", "Red" => "is-red", "Purple" => "is-purple", _ => "is-custom" };
     private string SubtypeCaption => _key.Get("Type") switch { "3" => "Key event", "14" => "Multicast codec", "20" => "HTTP method", "24" => "PTT mode", _ => "Subtype" };
     private string ValueCaption => _key.Get("Type") is "7" or "20" or "21" ? "URL" : _key.Get("Type") is "14" or "22" || _key.Get("Type") == "24" && _key.Get("PttSubType") == "14" ? "Multicast address" : _key.Get("Type") == "4" ? "DTMF sequence" : "Value";
     private string ValuePlaceholder => ValueCaption switch { "URL" => "https://…", "Multicast address" => "Multicast IP address:port", _ => "" };
@@ -62,11 +61,9 @@
     private Task Save()
     {
         if (SwitchboardKeyOptions.HasValue(_key) && (_invalidValue || _invalidValue2)) { _error = "Enter Value and Value2 separately, without pipe characters."; return Task.CompletedTask; }
-        if (_error is not null) return Task.CompletedTask;
-        if (_key.Get("Type") == "1" && string.IsNullOrWhiteSpace(_key.Name)) _error = "Enter a name for this Memory Key.";
-        else if (SwitchboardKeyOptions.HasValue(_key) && string.IsNullOrWhiteSpace(_key.Extension)) _error = $"Enter a {ValueCaption.ToLowerInvariant()} for this key.";
-        else if (System.Text.Encoding.UTF8.GetByteCount(_key.Name) > 63 || System.Text.Encoding.UTF8.GetByteCount(_key.Get("Value")) > SwitchboardKeyOptions.CombinedValueLimit(_key) || System.Text.Encoding.UTF8.GetByteCount(_key.Get("PICKUP")) > 31)
-            _error = "The name or value exceeds this key type's field limit. Shorten it before continuing.";
-        return _error is null ? OnSaved.InvokeAsync(_key) : Task.CompletedTask;
+        try { SwitchboardEditing.ValidateKey(Key, _key); }
+        catch (SwitchboardValidationException ex) { _error = ex.Message; return Task.CompletedTask; }
+        _error = null;
+        return OnSaved.InvokeAsync(_key);
     }
 }

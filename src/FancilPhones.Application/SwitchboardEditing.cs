@@ -26,33 +26,44 @@ public static class SwitchboardEditing
         foreach (var key in draft.Keys)
         {
             var old = baseline.Keys.Single(k => k.Page == key.Page && k.Slot == key.Slot);
-            if (!key.Fields.Keys.Order().SequenceEqual(old.Fields.Keys.Order()))
-                throw new SwitchboardValidationException("The layout contains fields that do not match this phone's firmware.");
-            if (SameKey(old, key)) continue; // Unrecognized, unchanged key types remain intact.
-            if (!SwitchboardKeyOptions.Types.Any(t => t.Value == key.Get("Type")))
-                throw new SwitchboardValidationException($"Page {key.Page} F{key.Slot}: unsupported key types can only be retained unchanged.");
-            if (SwitchboardKeyOptions.HasLine(key) && key.Get("Line") != "-1" && key.Get("Line") != "23" && (!int.TryParse(key.Get("Line"), out var line) || line is < 1 or > 20))
-                throw new SwitchboardValidationException("Choose Auto, a SIP line from 1 to 20, or Mobile.");
-            if (key.Fields.Values.Any(v => v is null || v.Any(char.IsControl)))
-                throw new SwitchboardValidationException("Key fields cannot contain control characters.");
-            if (Encoding.UTF8.GetByteCount(key.Name) > 63 || Encoding.UTF8.GetByteCount(key.Get("Value")) > SwitchboardKeyOptions.CombinedValueLimit(key)
-                || Encoding.UTF8.GetByteCount(key.Extension) > SwitchboardKeyOptions.ValueLimit(key) || Encoding.UTF8.GetByteCount(key.Value2) > SwitchboardKeyOptions.ValueLimit(key)
-                || Encoding.UTF8.GetByteCount(key.Get("PICKUP")) > 31 || key.Get("Value").Count(c => c == '|') > 1)
-                throw new SwitchboardValidationException($"Page {key.Page} F{key.Slot}: name, value or pickup number exceeds the limit for this key type, or contains an extra pipe character.");
-            if (key.Get("Type") == "1" && (string.IsNullOrWhiteSpace(key.Name) || string.IsNullOrWhiteSpace(key.Extension)))
-                throw new SwitchboardValidationException($"Page {key.Page} F{key.Slot}: a Memory Key needs a name and a value.");
-            if (SwitchboardKeyOptions.HasValue(key) && string.IsNullOrWhiteSpace(key.Extension))
-                throw new SwitchboardValidationException($"Page {key.Page} F{key.Slot}: enter a value for {key.TypeLabel}.");
-            foreach (var field in new[] { SwitchboardKeyOptions.SubtypeField(key), SwitchboardKeyOptions.DetailField(key) }.Where(f => f.Length > 0))
-            {
-                var options = field == SwitchboardKeyOptions.SubtypeField(key) ? SwitchboardKeyOptions.Subtypes(key) : SwitchboardKeyOptions.Details(key);
-                if ((key.Get("Type") != old.Get("Type") || key.Get(field) != old.Get(field))
-                    && !(field == "MemorySubType" && key.Get(field) == "") && !options.Any(o => o.Value == key.Get(field)))
-                    throw new SwitchboardValidationException($"Page {key.Page} F{key.Slot}: choose a valid subtype for {key.TypeLabel}.");
-            }
+            ValidateKey(old, key);
         }
         if (draft.Keys.Where(k => k.Get("Type") == "1").GroupBy(k => SwitchboardRules.NameKey(k.Name)).Any(g => g.Count() > 1))
             throw new SwitchboardValidationException("Give each Memory Key a unique name so phone-specific numbers can be matched reliably.");
+    }
+
+    public static void ValidateKey(SwitchboardKey old, SwitchboardKey key)
+    {
+        if (old.Page != key.Page || old.Slot != key.Slot)
+            throw new SwitchboardValidationException("The key position cannot change in key settings.");
+        if (!key.Fields.Keys.Order().SequenceEqual(old.Fields.Keys.Order()))
+            throw new SwitchboardValidationException("The layout contains fields that do not match this phone's firmware.");
+        if (SameKey(old, key)) return; // Unrecognized, unchanged key types remain intact.
+        if (!SwitchboardKeyOptions.Types.Any(t => t.Value == key.Get("Type")))
+            throw new SwitchboardValidationException($"Page {key.Page} F{key.Slot}: unsupported key types can only be retained unchanged.");
+        if (SwitchboardKeyOptions.HasLine(key) && key.Get("Line") != "-1" && key.Get("Line") != "23" && (!int.TryParse(key.Get("Line"), out var line) || line is < 1 or > 20))
+            throw new SwitchboardValidationException("Choose Auto, a SIP line from 1 to 20, or Mobile.");
+        if (key.Fields.Values.Any(v => v is null || v.Any(char.IsControl)))
+            throw new SwitchboardValidationException("Key fields cannot contain control characters.");
+        if (Encoding.UTF8.GetByteCount(key.Name) > 63 || Encoding.UTF8.GetByteCount(key.Get("Value")) > SwitchboardKeyOptions.CombinedValueLimit(key)
+            || Encoding.UTF8.GetByteCount(key.Extension) > SwitchboardKeyOptions.ValueLimit(key) || Encoding.UTF8.GetByteCount(key.Value2) > SwitchboardKeyOptions.ValueLimit(key)
+            || Encoding.UTF8.GetByteCount(key.Get("PICKUP")) > 31 || key.Get("Value").Count(c => c == '|') > 1)
+            throw new SwitchboardValidationException($"Page {key.Page} F{key.Slot}: name, value or pickup number exceeds the limit for this key type, or contains an extra pipe character.");
+        if (key.Get("Type") == "1" && (string.IsNullOrWhiteSpace(key.Name) || string.IsNullOrWhiteSpace(key.Extension)))
+            throw new SwitchboardValidationException($"Page {key.Page} F{key.Slot}: a Memory Key needs a name and a value.");
+        if (SwitchboardKeyOptions.HasValue(key) && string.IsNullOrWhiteSpace(key.Extension))
+            throw new SwitchboardValidationException($"Page {key.Page} F{key.Slot}: enter a value for {key.TypeLabel}.");
+        foreach (var field in new[] { SwitchboardKeyOptions.SubtypeField(key), SwitchboardKeyOptions.DetailField(key) }.Where(f => f.Length > 0))
+        {
+            var options = field == SwitchboardKeyOptions.SubtypeField(key) ? SwitchboardKeyOptions.Subtypes(key) : SwitchboardKeyOptions.Details(key);
+            if ((key.Get("Type") != old.Get("Type") || key.Get(field) != old.Get(field))
+                && !(field == "MemorySubType" && key.Get(field) == "") && !options.Any(o => o.Value == key.Get(field)))
+                throw new SwitchboardValidationException($"Page {key.Page} F{key.Slot}: choose a valid subtype for {key.TypeLabel}.");
+        }
+        if (key.Get("MediaType") != old.Get("MediaType") && key.Get("MediaType").Length > 0 && !SwitchboardKeyOptions.Media.Any(o => o.Value == key.Get("MediaType")))
+            throw new SwitchboardValidationException("Choose Default, Audio or Video for media.");
+        if (key.Get("IconType") != old.Get("IconType") && !SwitchboardKeyOptions.Icons.Any(o => o.Value == key.Get("IconType")))
+            throw new SwitchboardValidationException("Choose an available icon color, or Custom.");
     }
 
     public static SwitchboardLayout Sort(SwitchboardLayout draft)

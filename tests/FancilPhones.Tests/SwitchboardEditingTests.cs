@@ -39,6 +39,8 @@ public sealed class SwitchboardEditingTests
     [InlineData("duplicate")]
     [InlineData("control")]
     [InlineData("field")]
+    [InlineData("media")]
+    [InlineData("icon")]
     public void UnsafeDraftsAreRejected(string reason)
     {
         var baseline = SwitchboardFixture.Layout(); var draft = SwitchboardEditing.Clone(baseline);
@@ -51,6 +53,8 @@ public sealed class SwitchboardEditingTests
             case "duplicate": draft.Keys[2].Fields["Title"] = "Alpha"; break;
             case "control": draft.Keys[2].Fields["Value"] = "200\n"; break;
             case "field": draft.Keys[2].Fields["Injected"] = "value"; break;
+            case "media": draft.Keys[2].Fields["MediaType"] = "999"; break;
+            case "icon": draft.Keys[2].Fields["IconType"] = "Invalid color"; break;
         }
         Assert.Throws<SwitchboardValidationException>(() => SwitchboardEditing.ValidateDraft("192.168.55.133", baseline, draft));
     }

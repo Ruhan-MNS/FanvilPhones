@@ -1,1 +1,14 @@
 .key-editor-hint { margin: 18px 0 0; }
+.key-settings fieldset { margin-bottom: 22px; }
+.key-settings fieldset:last-of-type { margin-bottom: 0; }
+.key-icon-control { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.key-icon-control ::deep .rz-dropdown { flex: 1; min-width: 0; }
+.key-icon-swatch { flex: 0 0 14px; width: 14px; height: 14px; border: 1px solid var(--border); }
+.key-icon-swatch.is-green { background: #6bbf8d; }
+.key-icon-swatch.is-blue { background: #74a9ed; }
+.key-icon-swatch.is-yellow { background: #e7c466; }
+.key-icon-swatch.is-red { background: #df7a7a; }
+.key-icon-swatch.is-purple { background: #b394df; }
+.key-icon-swatch.is-custom { background: repeating-linear-gradient(135deg, var(--surface) 0 4px, var(--muted) 4px 5px); }
+.key-reset { margin-right: auto; }
+@media (max-width: 600px) { .key-reset { margin-right: 0; } }

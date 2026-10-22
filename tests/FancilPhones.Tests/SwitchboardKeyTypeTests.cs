@@ -4,6 +4,37 @@ namespace FancilPhones.Tests;
 
 public sealed partial class SwitchboardServiceTests
 {
+    [Theory]
+    [InlineData("0", "Green", "7")]
+    [InlineData("1", "Blue", "-1")]
+    [InlineData("2", "Yellow", "23")]
+    [InlineData("0", "Red", "7")]
+    [InlineData("1", "Purple", "-1")]
+    [InlineData("2", "Custom", "23")]
+    public async Task AllMemoryKeySettingsSurviveSavePreviewDeliveryAndRestoration(string media, string icon, string line)
+    {
+        await Service().CaptureAsync(1); var original = device.Layout.Fingerprint();
+        var editor = await Service().GetEditorAsync(1); var key = editor.Layout.Keys.Single(k => k.Page == 5 && k.Slot == 12);
+        SwitchboardKeyOptions.ChangeType(key, "1", "1");
+        key.Fields["Title"] = "Night desk"; key.Fields["Value"] = "812|0123456789";
+        key.Fields["MemorySubType"] = "92"; key.Fields["Line"] = line;
+        key.Fields["MediaType"] = media; key.Fields["PICKUP"] = "*8812"; key.Fields["IconType"] = icon;
+        var expected = new Dictionary<string, string>(key.Fields);
+        SwitchboardEditing.ValidateKey(editor.Baseline.Keys.Single(k => k.Page == 5 && k.Slot == 12), key);
+        await Service().SaveDraftAsync(1, editor.Revision, editor.Layout, false);
+        var saved = (await Service().GetEditorAsync(1)).Layout.Keys.Single(k => k.Page == 5 && k.Slot == 12);
+        Assert.Equal(expected, saved.Fields);
+        var preview = await Service().PreviewDraftAsync(1, 1, false);
+        Assert.Equal(expected, SwitchboardLayout.FromJson(preview.TargetJson).Keys.Single(k => k.Page == 5 && k.Slot == 12).Fields);
+        Assert.Equal("Success", (await Service().DeployAsync(preview.Id)).Status);
+        Assert.Equal(expected, device.Layout.Keys.Single(k => k.Page == 5 && k.Slot == 12).Fields);
+        var posted = FancilPhones.Infrastructure.Services.FanvilSwitchboardAdapter.BuildFields(device.Layout.Keys.Where(k => k.Page == 5).ToList());
+        Assert.Equal(media, posted["SIDE_Key_MediaType_RW(12)"]); Assert.Equal(icon, posted["SIDE_Key_IconType_RW(12)"]);
+        Assert.Equal("*8812", posted["SIDE_Key_PICKUP_RW(12)"]);
+        Assert.Equal("Success", (await Service().DeployAsync((await Service().PreviewRestoreAsync(preview.Id)).Id)).Status);
+        Assert.Equal(original, device.Layout.Fingerprint());
+    }
+
     [Fact]
     public async Task AnExplicitLineOnF1DoesNotReplaceThePrimaryLineOnOtherKeysDuringLaterSync()
     {
