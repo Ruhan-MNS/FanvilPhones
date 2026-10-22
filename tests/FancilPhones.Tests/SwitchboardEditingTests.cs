@@ -10,7 +10,7 @@ public sealed class SwitchboardEditingTests
     public void AlphabeticalInsertionMovesWholeRowsAcrossAllPagesWithoutMovingLineKeys()
     {
         var layout = SwitchboardFixture.Layout();
-        foreach (var key in layout.Keys.Where(k => !k.Protected))
+        foreach (var key in layout.Keys.Where(k => !SwitchboardRules.LegacyDirectoryReserved(k)))
         {
             key.Fields["Type"] = "1"; key.Fields["Title"] = $"Contact {61 - (key.Page - 1) * 12 - key.Slot:00}";
             key.Fields["Value"] = $"{200 + key.Page * 12 + key.Slot}";
@@ -32,7 +32,7 @@ public sealed class SwitchboardEditingTests
     }
 
     [Theory]
-    [InlineData("protected")]
+    [InlineData("subtype")]
     [InlineData("settings")]
     [InlineData("line")]
     [InlineData("length")]
@@ -44,9 +44,9 @@ public sealed class SwitchboardEditingTests
         var baseline = SwitchboardFixture.Layout(); var draft = SwitchboardEditing.Clone(baseline);
         switch (reason)
         {
-            case "protected": draft.Keys[0].Fields["Type"] = "0"; break;
+            case "subtype": SwitchboardKeyOptions.ChangeType(draft.Keys[0], "3", "1"); draft.Keys[0].Fields["KeyeventSubType"] = "999"; break;
             case "settings": draft.Settings["DSS_Key_Home_Page_RW"] = "4"; break;
-            case "line": draft.Keys[2].Fields["Line"] = "7"; break;
+            case "line": draft.Keys[2].Fields["Line"] = "99"; break;
             case "length": draft.Keys[2].Fields["Title"] = new string('é', 32); break;
             case "duplicate": draft.Keys[2].Fields["Title"] = "Alpha"; break;
             case "control": draft.Keys[2].Fields["Value"] = "200\n"; break;
@@ -58,6 +58,45 @@ public sealed class SwitchboardEditingTests
 
 public sealed partial class SwitchboardServiceTests
 {
+    [Theory]
+    [InlineData("10.26.7.44")]
+    [InlineData("198.51.100.42")]
+    [InlineData("203.0.113.88")]
+    public async Task FleetAddressesAndCapturedKeyValuesDriveTheEntireEditingWorkflow(string ip)
+    {
+        await using (var db = factory.CreateDbContext())
+        {
+            var phone = await db.Phones.SingleAsync(p => p.Id == 1);
+            phone.IpAddress = ip; phone.Name = "Operations desk"; await db.SaveChangesAsync();
+        }
+        SwitchboardKeyOptions.ChangeType(device.Layout.Keys[0], "3", "1");
+        SwitchboardKeyOptions.ChangeSubtype(device.Layout.Keys[0], "1");
+        device.Layout.Keys[0].Fields["Title"] = "Desk DND";
+        device.Layout.Keys[1].Fields["Title"] = "After-hours support";
+        device.Layout.Keys[1].Fields["Value"] = "812|0123456789";
+        device.Layout.Keys[1].Fields["MemorySubType"] = "92";
+        var original = device.Layout.Fingerprint();
+        await Service().CaptureAsync(1);
+        var phoneState = (await Service().GetStateAsync()).Phones.Single();
+        Assert.Equal(ip, phoneState.IpAddress); Assert.Equal("Operations desk", phoneState.Name);
+        Assert.Null(phoneState.ConfigurationWarning);
+        var editor = await Service().GetEditorAsync(1);
+        Assert.Equal(original, editor.Layout.Fingerprint());
+        editor.Layout.Keys[1].Fields["Title"] = "Night support";
+        editor.Layout.Keys[1].Fields["Value"] = "813|0123456789";
+        await Service().SaveDraftAsync(1, editor.Revision, editor.Layout, false);
+        var preview = await Service().PreviewDraftAsync(1, 1, false);
+        Assert.Equal(ip, preview.IpAddress); Assert.Equal(0, device.Writes);
+        Assert.Equal("Success", (await Service().DeployAsync(preview.Id)).Status);
+        Assert.Equal("Desk DND", device.Layout.Keys[0].Name);
+        Assert.Equal("3", device.Layout.Keys[0].Get("Type"));
+        Assert.Equal("Night support", device.Layout.Keys[1].Name);
+        Assert.Equal("813|0123456789", device.Layout.Keys[1].Get("Value"));
+        Assert.Equal("92", device.Layout.Keys[1].Get("MemorySubType"));
+        Assert.Equal("Success", (await Service().DeployAsync((await Service().PreviewRestoreAsync(preview.Id)).Id)).Status);
+        Assert.Equal(original, device.Layout.Fingerprint());
+    }
+
     [Fact]
     public async Task DraftsPersistWithoutHandsetWritesAndRejectStaleEditors()
     {
@@ -71,7 +110,7 @@ public sealed partial class SwitchboardServiceTests
         Assert.Equal("299", (await Service().GetEditorAsync(1)).Layout.Keys[2].Extension);
         Assert.True((await Service().GetStateAsync()).Phones.Single().HasDraft);
         await Assert.ThrowsAsync<SwitchboardValidationException>(() => Service().SaveDraftAsync(1, editor.Revision, editor.Layout));
-        editor.Layout.Keys[0].Fields["Type"] = "0";
+        editor.Layout.Keys[0].Fields["Line"] = "99";
         await Assert.ThrowsAsync<SwitchboardValidationException>(() => Service().SaveDraftAsync(1, saved.Revision, editor.Layout));
         await Service().CaptureAsync(1);
         Assert.Equal(before, (await Service().GetEditorAsync(1)).Layout.Fingerprint());
@@ -104,7 +143,7 @@ public sealed partial class SwitchboardServiceTests
     }
 
     [Fact]
-    public async Task SelectedPhoneSyncCopiesEveryPageAndPreservesReceptionKeysLineAndOptionalNumbers()
+    public async Task SelectedPhoneSyncCopiesEveryPageAndCopiesF1F2WhilePreservingTargetLineAndOptionalNumbers()
     {
         await Service().CaptureAsync(1); var reception = await AddReceptionAsync();
         var editor = await Service().GetEditorAsync(1);
@@ -115,7 +154,7 @@ public sealed partial class SwitchboardServiceTests
         var own = await Service().PreviewDraftAsync(1, 1, true);
         var other = await Service().PreviewDraftAsync(1, 3, true);
         var target = SwitchboardLayout.FromJson(other.TargetJson);
-        Assert.Equal(reception.Keys[0].Fields, target.Keys[0].Fields); Assert.Equal(reception.Keys[1].Fields, target.Keys[1].Fields);
+        Assert.Equal(reception.Keys[0].Fields, target.Keys[0].Fields); Assert.Equal("Reception", target.Keys[1].Name); Assert.Equal("201", target.Keys[1].Extension);
         Assert.Equal("905|0821111111", target.Keys[3].Get("Value"));
         Assert.All(target.Keys, k => Assert.Equal("2", k.Get("Line")));
         Assert.Equal("Workshop", target.Keys[^1].Name); Assert.Equal("*8225", target.Keys[^1].Get("PICKUP")); Assert.Equal("Red", target.Keys[^1].Get("IconType"));
@@ -180,14 +219,14 @@ public sealed partial class SwitchboardServiceTests
     }
 
     [Fact]
-    public async Task AnExplicitEmptyDraftCanClearAllEditablePositionsWhileKeepingReservedKeys()
+    public async Task AnExplicitEmptyDraftCanClearAllSixtyPositionsIncludingF1AndF2()
     {
         await Service().CaptureAsync(1); var editor = await Service().GetEditorAsync(1);
-        foreach (var key in editor.Layout.Keys.Where(k => !k.Protected)) { key.Fields["Type"] = "0"; key.Fields["Title"] = ""; key.Fields["Value"] = ""; }
+        foreach (var key in editor.Layout.Keys) { key.Fields["Type"] = "0"; key.Fields["Title"] = ""; key.Fields["Value"] = ""; }
         await Service().SaveDraftAsync(1, editor.Revision, editor.Layout);
         var preview = await Service().PreviewDraftAsync(1, 1, true);
         Assert.Equal("Success", (await Service().DeployAsync(preview.Id)).Status);
-        Assert.All(device.Layout.Keys.Where(k => !k.Protected), k => Assert.Equal("0", k.Get("Type")));
-        Assert.Equal("2", device.Layout.Keys[0].Get("Type")); Assert.Equal("Reception", device.Layout.Keys[1].Name);
+        Assert.All(device.Layout.Keys, k => Assert.Equal("0", k.Get("Type")));
+        Assert.All(device.Layout.Keys, k => Assert.Equal("", k.Name));
     }
 }

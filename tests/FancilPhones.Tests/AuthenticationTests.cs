@@ -20,6 +20,37 @@ namespace FancilPhones.Tests;
 public sealed class AuthenticationTests
 {
     [Theory]
+    [InlineData("IT_ADMIN", true)]
+    [InlineData(null, false)]
+    public async Task SynchronizationShowsPersistedFailuresAndRestrictsRetryActionsToAdministrators(string? role, bool canSync)
+    {
+        await using var app = new PhoneWebApp(); await app.InitializeAsync(role);
+        using (var scope = app.Services.CreateScope())
+        {
+            await using var db = await scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
+            var phone = new FancilPhones.Domain.Phone { Name = "Delivery demo", IpAddress = "198.51.100.41", Password = "DO-NOT-RENDER" };
+            db.Phones.Add(phone); await db.SaveChangesAsync();
+            db.SyncRuns.Add(new() { PhoneId = phone.Id, Status = "Failed", Message = "Demo upload failed" });
+            await db.SaveChangesAsync();
+        }
+        using var client = app.CreateClient(Options); await LoginAsync(client, "EMP001", "/sync");
+        var response = await client.GetAsync("/sync"); Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Delivery demo", html); Assert.Contains("Demo upload failed", html);
+        Assert.DoesNotContain("DO-NOT-RENDER", html);
+        if (canSync)
+        {
+            Assert.Contains("Retry failed phones (1)", html);
+            Assert.Contains("aria-label=\"Sync phonebook to Delivery demo\"", html);
+        }
+        else
+        {
+            Assert.DoesNotContain("Retry failed phones (1)", html);
+            Assert.DoesNotContain("aria-label=\"Sync phonebook to Delivery demo\"", html);
+        }
+    }
+
+    [Theory]
     [InlineData("BI-ADMIN", HttpStatusCode.OK)]
     [InlineData("IT_ADMIN", HttpStatusCode.OK)]
     [InlineData(null, HttpStatusCode.Redirect)]

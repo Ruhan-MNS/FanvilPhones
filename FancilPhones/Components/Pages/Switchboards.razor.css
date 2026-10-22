@@ -58,11 +58,8 @@
 .sb-key-table ::deep .rz-dropdown-trigger { width: 28px; }
 .sb-key-table td small { font-size: .65rem; margin-left: 9px; margin-top: 4px; }
 .sb-key-number { display: block; text-align: center; font-size: .71rem; font-variant-numeric: tabular-nums; color: var(--muted); }
-.sb-key-table td:first-child ::deep .rzi { display: block; text-align: center; font-size: 12px; margin-top: 4px; color: var(--subtle); }
-.is-protected { background: #ffffff02; }
 .sb-key-table .icon-button { width: 28px; min-width: 28px; height: 30px; }
 .sb-key-table .icon-button ::deep .rzi { font-size: 17px; }
-.sb-locked { color: var(--subtle); font-size: .65rem; }
 .sb-editor-options { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 24px; }
 .sb-editor-options .check-row { padding: 0; border: 0; background: transparent; gap: 10px; align-items: flex-start; margin: 0; font-size: .75rem; }
 .sb-editor-options small { display: block; color: var(--subtle); font-size: .68rem; margin-top: 4px; }

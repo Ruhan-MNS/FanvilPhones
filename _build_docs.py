@@ -475,7 +475,7 @@ para("PushSipDisplayNameAsync is more delicate: the phone's /lines.htm form echo
 
 h3("PhoneDiscoveryService.cs")
 para("Scans an IP range to find Fanvil phones on the network, used by the Scan Network dialog.")
-bullet("EnumerateIps — expands a CIDR (192.168.55.0/24) or a dotted range (192.168.55.1-254) into individual addresses, excluding network/broadcast for /24 and smaller.")
+bullet("EnumerateIps — expands a user-entered IPv4 address, CIDR subnet or hyphen-separated range into individual addresses, excluding network/broadcast for /24 and smaller. Discovery requires the operator to enter the intended range.")
 bullet("ProbeOneAsync — cheaply TCP-connects to port 80, then fetches / and /login.htm and checks for Fanvil signatures (e.g. logonButton, RapidLogic, frame markers). Deliberately avoids the nonce endpoint so scanning doesn't burn session slots on live handsets.")
 bullet("ScanAsync — streams results as each probe completes, using a bounded-concurrency worker pool (default 32) and a channel so the UI can show progress live.")
 

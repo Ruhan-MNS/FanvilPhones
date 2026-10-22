@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace FancilPhones.Tests;
 
-public sealed class AsyncOperationTests : IAsyncLifetime
+public sealed partial class AsyncOperationTests : IAsyncLifetime
 {
     private readonly string database = Path.Combine(Path.GetTempPath(), $"fanvil-async-{Guid.NewGuid():N}.db");
     private Factory factory = null!;
@@ -247,9 +247,9 @@ public sealed class AsyncOperationTests : IAsyncLifetime
     {
         public void Report(T value) => report(value);
     }
-    private sealed class Access : IUserAccess
+    private sealed class Access(bool administrator = true) : IUserAccess
     {
         public Task RequireAuthenticatedAsync(CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); return Task.CompletedTask; }
-        public Task RequireAdministratorAsync(CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); return Task.CompletedTask; }
+        public Task RequireAdministratorAsync(CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); return administrator ? Task.CompletedTask : Task.FromException(new UnauthorizedAccessException()); }
     }
 }

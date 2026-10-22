@@ -25,7 +25,7 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
         {
             var captured = profiles.SingleOrDefault(c => c.PhoneId == p.Id);
             if (captured is null) return p;
-            try { SwitchboardRules.ValidateReserved(p.IpAddress, SwitchboardLayout.FromJson(captured.BaselineJson)); return p with { HasDraft = captured.DraftJson is not null }; }
+            try { SwitchboardRules.ValidateGeometry(p.IpAddress, SwitchboardLayout.FromJson(captured.BaselineJson)); return p with { HasDraft = captured.DraftJson is not null }; }
             catch (InvalidOperationException ex) { return p with { ConfigurationWarning = ex.Message, HasDraft = captured.DraftJson is not null }; }
         }).ToList();
         // Snapshot contents are loaded only through a specific preview, not the history listing.
@@ -111,16 +111,15 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
         var source = await ProfileAsync(db, sourcePhoneId, ct); EnsureIdle(source);
         var draft = SwitchboardLayout.FromJson(source.DraftJson ?? source.BaselineJson);
         SwitchboardEditing.ValidateDraft(sourcePhone.IpAddress, SwitchboardLayout.FromJson(source.BaselineJson), draft);
-        SwitchboardRules.ValidateReserved(sourcePhone.IpAddress, draft);
         var phone = await PhoneAsync(db, targetPhoneId, ct);
         var profile = await ProfileAsync(db, targetPhoneId, ct); EnsureIdle(profile);
         var baseline = SwitchboardLayout.FromJson(profile.BaselineJson);
         var current = await OnPhoneAsync(phone, (client, token) => adapter.ReadAsync(client, token), ct);
         if (current.Fingerprint() != baseline.Fingerprint())
             throw new SwitchboardValidationException($"{phone.Name} changed since it was read. Read its keys again before syncing.");
-        var target = sourcePhoneId == targetPhoneId ? SwitchboardEditing.Clone(draft) : SwitchboardEditing.Copy(draft, baseline, keepTargetNumbers);
+        var target = sourcePhoneId == targetPhoneId ? SwitchboardEditing.Clone(draft) : SwitchboardEditing.Copy(draft, baseline, keepTargetNumbers, SwitchboardEditing.PhoneLine(SwitchboardLayout.FromJson(source.BaselineJson)));
         SwitchboardEditing.ValidateDraft(phone.IpAddress, baseline, target);
-        SwitchboardRules.ValidateReserved(phone.IpAddress, target);
+        SwitchboardRules.ValidateGeometry(phone.IpAddress, target);
         var preview = new SwitchboardDeployment { PhoneId = phone.Id, IpAddress = phone.IpAddress, ProfileRevision = profile.Revision,
             SourcePhoneId = sourcePhoneId, SourceRevision = source.DraftRevision, Purpose = "CustomLayout",
             BeforeJson = current.ToJson(), TargetJson = target.ToJson(), Message = "Five-page layout preview ready" };
@@ -139,7 +138,7 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
         var contacts = await db.Contacts.ToListAsync(ct);
         var members = await db.SwitchboardMembers.ToListAsync(ct);
         var overrides = await db.SwitchboardOverrides.Where(o => o.PhoneId == phoneId).ToListAsync(ct);
-        foreach (var key in layout.Keys.Where(k => !k.Protected && k.Name.Length > 0 && k.Extension.Length > 0))
+        foreach (var key in layout.Keys.Where(k => !SwitchboardRules.LegacyDirectoryReserved(k) && k.Name.Length > 0 && k.Extension.Length > 0))
         {
             var matches = contacts.Where(c => SwitchboardRules.NameKey(c.DisplayName) == SwitchboardRules.NameKey(key.Name)).ToList();
             if (matches.Count > 1) throw new InvalidOperationException("The shared phonebook contains ambiguous names. Reconcile duplicate names before importing.");
@@ -214,7 +213,7 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
             throw new InvalidOperationException("The handset differs from its capture. Capture it again and review/import its contacts before previewing.");
         var overrides = await db.SwitchboardOverrides.AsNoTracking().Where(o => o.PhoneId == phoneId).ToListAsync(ct);
         // Import each phone before ordering; otherwise its differing numbers could be overwritten.
-        foreach (var key in baseline.Keys.Where(k => !k.Protected && k.Name.Length > 0))
+        foreach (var key in baseline.Keys.Where(k => !SwitchboardRules.LegacyDirectoryReserved(k) && k.Name.Length > 0))
         {
             var member = members.SingleOrDefault(m => SwitchboardRules.NameKey(m.Contact.DisplayName) == SwitchboardRules.NameKey(key.Name));
             if (member is not null && key.Extension != member.Contact.OfficeNumber
@@ -230,7 +229,6 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
         await access.RequireAdministratorAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
         var saved = await db.SwitchboardDeployments.AsNoTracking().SingleAsync(p => p.Id == deploymentId, ct);
-        if (saved.Purpose == "TemplateSetup") throw new InvalidOperationException("Template setup backups are retained for audit; restoring an invalid protected key is not permitted.");
         if (saved.Status is not ("Success" or "Failed" or "Cancelled" or "TimedOut" or "Applying"))
             throw new InvalidOperationException("Only an attempted deployment has a restoration backup.");
         var phone = await PhoneAsync(db, saved.PhoneId, ct);
@@ -238,32 +236,8 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
         var profile = await ProfileAsync(db, phone.Id, ct); EnsureIdle(profile);
         var target = SwitchboardLayout.FromJson(saved.BeforeJson);
         var current = await OnPhoneAsync(phone, (client, token) => adapter.ReadAsync(client, token), ct);
-        SwitchboardRules.ValidateReserved(phone.IpAddress, target);
-        if (!current.Keys.Where(k => k.Protected).SequenceEqual(target.Keys.Where(k => k.Protected), KeyComparer.Instance))
-            throw new InvalidOperationException("Protected keys differ from the backup. Review the handset before restoration.");
+        SwitchboardRules.ValidateGeometry(phone.IpAddress, target);
         return await SavePreviewAsync(db, phone, profile, current, target, ct, "Restoration preview ready");
-    }
-
-    public async Task<SwitchboardDeployment> PreviewTemplateSetupAsync(int phoneId, CancellationToken ct = default)
-    {
-        await access.RequireAdministratorAsync(ct);
-        await using var db = await factory.CreateDbContextAsync(ct);
-        var phone = await PhoneAsync(db, phoneId, ct);
-        var profile = await ProfileAsync(db, phoneId, ct); EnsureIdle(profile);
-        var before = await OnPhoneAsync(phone, (client, token) => adapter.ReadAsync(client, token), ct);
-        if (before.Fingerprint() != SwitchboardLayout.FromJson(profile.BaselineJson).Fingerprint())
-            throw new InvalidOperationException("The handset changed since capture. Capture it again before setting up F2.");
-        var target = SwitchboardLayout.FromJson(before.ToJson());
-        var second = target.Keys.Single(k => k.Page == 1 && k.Slot == 2);
-        second.Fields["Type"] = "1";
-        second.Fields["Title"] = phone.IpAddress == "192.168.55.101" ? "Overide Day/Night" : "Reception";
-        second.Fields["Value"] = phone.IpAddress == "192.168.55.101" ? "*271" : "201";
-        second.Fields["MemorySubType"] = phone.IpAddress == "192.168.55.101" ? "" : "91";
-        second.Fields["Line"] = target.Keys.Single(k => k.Page == 1 && k.Slot == 1).Get("Line");
-        second.Fields["MediaType"] = "0";
-        SwitchboardRules.ValidateReserved(phone.IpAddress, target);
-        var preview = await SavePreviewAsync(db, phone, profile, before, target, ct, "F2 setup preview: only the reserved second key will change.");
-        preview.Purpose = "TemplateSetup"; await db.SaveChangesAsync(ct); return preview;
     }
 
     private async Task<SwitchboardDeployment> SavePreviewAsync(AppDbContext db, Phone phone, SwitchboardProfile profile,
@@ -283,6 +257,9 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
         var profile = await ProfileAsync(db, phone.Id, ct);
         if (preview.Status != "Preview" || preview.CreatedAt < DateTime.UtcNow.AddMinutes(-30))
             throw new InvalidOperationException("This preview expired or was already attempted. Generate a new preview.");
+        // Retire old automatic F2 corrections without deleting their restoration backups.
+        if (preview.Purpose == "TemplateSetup")
+            throw new InvalidOperationException("This automatic F2 correction is no longer supported. Review the phone's editable layout and generate a new preview.");
         var sourceRevision = preview.SourcePhoneId is int sourceId
             ? await db.SwitchboardProfiles.Where(p => p.PhoneId == sourceId).Select(p => (Guid?)p.DraftRevision).SingleOrDefaultAsync(ct) : null;
         if (phone.IpAddress != preview.IpAddress || profile.Revision != preview.ProfileRevision
@@ -292,14 +269,7 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
         var before = SwitchboardLayout.FromJson(preview.BeforeJson);
         var target = SwitchboardLayout.FromJson(preview.TargetJson);
         if (preview.Purpose == "CustomLayout") SwitchboardEditing.ValidateDraft(phone.IpAddress, before, target);
-        SwitchboardRules.ValidateReserved(phone.IpAddress, target);
-        if (preview.Purpose == "TemplateSetup")
-        {
-            if (!before.Keys.Where(k => !(k.Page == 1 && k.Slot == 2)).SequenceEqual(target.Keys.Where(k => !(k.Page == 1 && k.Slot == 2)), KeyComparer.Instance))
-                throw new InvalidOperationException("F2 setup cannot change any other key.");
-        }
-        else if (!before.Keys.Where(k => k.Protected).SequenceEqual(target.Keys.Where(k => k.Protected), KeyComparer.Instance))
-            throw new InvalidOperationException("A deployment cannot change protected keys.");
+        SwitchboardRules.ValidateGeometry(phone.IpAddress, target);
         var leaseId = Guid.NewGuid(); var now = DateTime.UtcNow;
         var lease = await db.SwitchboardProfiles.Where(p => p.PhoneId == phone.Id && p.Revision == preview.ProfileRevision && (p.LeaseUntil == null || p.LeaseUntil < now))
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.LeaseId, leaseId).SetProperty(p => p.LeaseUntil, now.AddSeconds(options.Value.TimeoutSeconds + 30)), ct);
@@ -352,18 +322,9 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
                     await finish.SwitchboardProfiles.Where(p => p.PhoneId == phone.Id && p.LeaseId == leaseId).ExecuteUpdateAsync(s => s
                         .SetProperty(p => p.BaselineJson, target.ToJson()).SetProperty(p => p.CapturedAt, DateTime.UtcNow)
                         .SetProperty(p => p.Revision, Guid.NewGuid()), cleanup.Token);
-                    if (preview.Purpose != "TemplateSetup" && (preview.Purpose != "CustomLayout" || preview.SourcePhoneId != phone.Id))
+                    if (preview.Purpose != "CustomLayout" || preview.SourcePhoneId != phone.Id)
                         await finish.SwitchboardProfiles.Where(p => p.PhoneId == phone.Id && p.LeaseId == leaseId).ExecuteUpdateAsync(s => s
                             .SetProperty(p => p.DraftJson, (string?)null).SetProperty(p => p.DraftRevision, Guid.NewGuid()), cleanup.Token);
-                    if (preview.Purpose == "TemplateSetup" && profile.DraftJson is not null)
-                    {
-                        var draft = SwitchboardLayout.FromJson(profile.DraftJson);
-                        var second = draft.Keys.Single(k => k.Page == 1 && k.Slot == 2);
-                        second.Fields.Clear();
-                        foreach (var field in target.Keys.Single(k => k.Page == 1 && k.Slot == 2).Fields) second.Fields[field.Key] = field.Value;
-                        await finish.SwitchboardProfiles.Where(p => p.PhoneId == phone.Id && p.LeaseId == leaseId).ExecuteUpdateAsync(s => s
-                            .SetProperty(p => p.DraftJson, draft.ToJson()).SetProperty(p => p.DraftRevision, Guid.NewGuid()), cleanup.Token);
-                    }
                 }
             }
             await using var release = await factory.CreateDbContextAsync(cleanup.Token);
@@ -415,11 +376,4 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
             members = directory.OrderBy(m => m.ContactId).Select(m => new { m.ContactId, m.SortName, m.Contact.DisplayName, m.Contact.OfficeNumber }),
             overrides = phoneOverrides.OrderBy(o => o.ContactId).Select(o => new { o.ContactId, o.Extension, o.Value2, o.CapturedKeyJson })
         }));
-    private sealed class KeyComparer : IEqualityComparer<SwitchboardKey>
-    {
-        public static readonly KeyComparer Instance = new();
-        public bool Equals(SwitchboardKey? x, SwitchboardKey? y) => x is not null && y is not null
-            && new SwitchboardLayout([x], []).Fingerprint() == new SwitchboardLayout([y], []).Fingerprint();
-        public int GetHashCode(SwitchboardKey obj) => obj.Page * 12 + obj.Slot;
-    }
 }

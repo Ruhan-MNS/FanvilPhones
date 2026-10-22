@@ -15,8 +15,7 @@ public sealed record SwitchboardKey(int Page, int Slot, Dictionary<string, strin
     public string Name => Get("Title");
     public string Extension => Get("Value").Split('|', 2)[0];
     public string Value2 => Get("Value").Split('|', 2).ElementAtOrDefault(1) ?? "";
-    public bool Protected => Page == 1 && Slot <= 2;
-    public string TypeLabel => Get("Type") switch { "0" => "None", "1" => "Memory Key", "2" => "Line", _ => Get("Type") };
+    public string TypeLabel => SwitchboardKeyOptions.TypeLabel(Get("Type"));
 }
 
 public sealed record SwitchboardLayout(List<SwitchboardKey> Keys, Dictionary<string, string> Settings)
@@ -33,10 +32,10 @@ public sealed record SwitchboardLayout(List<SwitchboardKey> Keys, Dictionary<str
 
 public static class SwitchboardRules
 {
+    // Only the retained legacy shared-directory generator reserves these positions.
+    // The current per-phone editor and sync workflow can edit every position.
+    public static bool LegacyDirectoryReserved(SwitchboardKey key) => key.Page == 1 && key.Slot <= 2;
     public const string EmptyDirectoryMessage = "Import contacts from a captured phone, or select Include beside at least one contact in the Master key directory before previewing.";
-    // These addresses retain their existing F2 policy; enrollment is capability-based.
-    public static readonly IReadOnlySet<string> ReservedProfileIps = new HashSet<string>(StringComparer.Ordinal)
-    { "192.168.55.101", "192.168.55.113", "192.168.55.133", "192.168.55.147", "192.168.55.150" };
     public static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     public static string NameKey(string name) => Regex.Replace(name.Trim(), @"\s+", " ", RegexOptions.None, TimeSpan.FromSeconds(1)).ToUpperInvariant();
 
@@ -49,26 +48,11 @@ public static class SwitchboardRules
 
     public static void Validate(string ip, SwitchboardLayout layout)
     {
-        ValidateReserved(ip, layout);
-        if (layout.Keys.Any(k => !k.Protected && k.Get("Type") is not ("0" or "1")))
-            throw new InvalidOperationException("An editable position contains a special key. It must be reviewed before automatic ordering.");
-        var duplicate = layout.Keys.Where(k => !k.Protected && k.Name.Length > 0).GroupBy(k => NameKey(k.Name)).FirstOrDefault(g => g.Count() > 1);
-        if (duplicate is not null) throw new InvalidOperationException("Duplicate contact names on this handset must be reconciled before ordering.");
-    }
-
-    public static void ValidateReserved(string ip, SwitchboardLayout layout)
-    {
         ValidateGeometry(ip, layout);
-        var first = layout.Keys.Single(k => k.Page == 1 && k.Slot == 1);
-        var second = layout.Keys.Single(k => k.Page == 1 && k.Slot == 2);
-        if (first.Get("Type") != "2" || !int.TryParse(first.Get("Line"), out var lineIndex) || lineIndex < 1)
-            throw new InvalidOperationException("Page 1 F1 must be a configured Line key.");
-        var reception = ip == "192.168.55.101";
-        var expectedName = reception ? NameKey(second.Name) is "OVERIDE DAY/NIGHT" or "OVERRIDE DAY/NIGHT" : NameKey(second.Name) == "RECEPTION";
-        if (ReservedProfileIps.Contains(ip) && (second.Get("Type") != "1" || second.Get("Value") != (reception ? "*271" : "201") || !expectedName
-            || second.Get("Line") != first.Get("Line")
-            || (reception ? second.Get("MemorySubType") is not ("" or "21") : second.Get("MemorySubType") != "91")))
-            throw new InvalidOperationException("Page 1 F2 does not match the required Day/Night or Reception profile. Review the F2 setup preview before ordering contacts.");
+        if (layout.Keys.Any(k => !LegacyDirectoryReserved(k) && k.Get("Type") is not ("0" or "1")))
+            throw new InvalidOperationException("An editable position contains a special key. It must be reviewed before automatic ordering.");
+        var duplicate = layout.Keys.Where(k => !LegacyDirectoryReserved(k) && k.Name.Length > 0).GroupBy(k => NameKey(k.Name)).FirstOrDefault(g => g.Count() > 1);
+        if (duplicate is not null) throw new InvalidOperationException("Duplicate contact names on this handset must be reconciled before ordering.");
     }
 
     public static SwitchboardLayout Generate(string ip, SwitchboardLayout baseline, IReadOnlyList<SwitchboardMember> members,
@@ -76,20 +60,20 @@ public static class SwitchboardRules
     {
         Validate(ip, baseline);
         if (members.Count == 0) throw new SwitchboardValidationException(EmptyDirectoryMessage);
-        if (members.Count > 58) throw new InvalidOperationException("The switchboard has capacity for 58 contacts after its two protected keys.");
+        if (members.Count > 58) throw new InvalidOperationException("The shared-directory layout has capacity for 58 contacts after its two existing header keys.");
         if (members.Select(m => NameKey(m.Contact.DisplayName)).Distinct().Count() != members.Count)
             throw new InvalidOperationException("Switchboard contact names must be unique.");
-        var line = baseline.Keys.Single(k => k.Page == 1 && k.Slot == 1).Get("Line");
-        var existing = baseline.Keys.Where(k => !k.Protected && k.Name.Length > 0).ToDictionary(k => NameKey(k.Name));
+        var line = SwitchboardEditing.PhoneLine(baseline);
+        var existing = baseline.Keys.Where(k => !LegacyDirectoryReserved(k) && k.Name.Length > 0).ToDictionary(k => NameKey(k.Name));
         var ordered = members.OrderBy(m => string.IsNullOrWhiteSpace(m.SortName) ? m.Contact.DisplayName : m.SortName,
             StringComparer.Create(CultureInfo.GetCultureInfo("en-ZA"), true)).ThenBy(m => m.ContactId).ToList();
         var result = new List<SwitchboardKey>();
-        var empty = baseline.Keys.FirstOrDefault(k => !k.Protected && k.Get("Type") == "0");
-        var standard = baseline.Keys.FirstOrDefault(k => !k.Protected && k.Get("Type") == "1" && k.Get("MemorySubType") is "91" or "92");
+        var empty = baseline.Keys.FirstOrDefault(k => !LegacyDirectoryReserved(k) && k.Get("Type") == "0");
+        var standard = baseline.Keys.FirstOrDefault(k => !LegacyDirectoryReserved(k) && k.Get("Type") == "1" && k.Get("MemorySubType") is "91" or "92");
         var index = 0;
         foreach (var position in baseline.Keys.OrderBy(k => k.Page).ThenBy(k => k.Slot))
         {
-            if (position.Protected) { result.Add(position with { Fields = new(position.Fields) }); continue; }
+            if (LegacyDirectoryReserved(position)) { result.Add(position with { Fields = new(position.Fields) }); continue; }
             var fields = empty is null ? position.Fields.ToDictionary(f => f.Key, f => f.Key == "ActionURLSubType" ? "0" : "") : new(empty.Fields);
             fields["Type"] = "0"; fields["Line"] = line; fields["IconType"] = "Green";
             if (index < ordered.Count)
@@ -138,7 +122,6 @@ public interface ISwitchboardService
     Task SetMemberAsync(int contactId, bool included, string? sortName, CancellationToken ct = default);
     Task SaveOverrideAsync(int phoneId, int contactId, string? extension, string? value2, CancellationToken ct = default);
     Task<SwitchboardDeployment> PreviewAsync(int phoneId, CancellationToken ct = default);
-    Task<SwitchboardDeployment> PreviewTemplateSetupAsync(int phoneId, CancellationToken ct = default);
     Task<SwitchboardDeployment> PreviewRestoreAsync(Guid deploymentId, CancellationToken ct = default);
     Task<SwitchboardDeployment> DeployAsync(Guid previewId, CancellationToken ct = default);
 }

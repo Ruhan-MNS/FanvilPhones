@@ -38,7 +38,7 @@ public sealed class SwitchboardLayoutTests
         Assert.Equal(baseline.Keys[1].Fields, result.Keys[1].Fields);
         Assert.NotSame(baseline.Keys[0].Fields, result.Keys[0].Fields);
         Assert.Equal(baseline.Settings, result.Settings);
-        Assert.All(result.Keys.Where(k => !k.Protected), k => Assert.Equal("1", k.Get("Line")));
+        Assert.All(result.Keys.Where(k => !SwitchboardRules.LegacyDirectoryReserved(k)), k => Assert.Equal("1", k.Get("Line")));
     }
 
     [Fact]
@@ -283,25 +283,71 @@ public sealed partial class SwitchboardServiceTests : IAsyncLifetime
         Assert.Equal("777", SwitchboardLayout.FromJson(preview.TargetJson).Keys.Single(k => k.Name == "Alpha").Extension);
     }
 
-    [Fact]
-    public async Task F2SetupRequiresItsOwnPreviewAndLeavesEveryOtherKeyUntouched()
+    [Theory]
+    [InlineData("192.168.55.101")]
+    [InlineData("192.168.55.113")]
+    [InlineData("192.168.55.133")]
+    [InlineData("192.168.55.147")]
+    [InlineData("192.168.55.150")]
+    public async Task CustomHeaderKeysDoNotWarnOrRequireAnIpSpecificCorrection(string ip)
     {
+        await using (var db = factory.CreateDbContext())
+        { (await db.Phones.SingleAsync(p => p.Id == 1)).IpAddress = ip; await db.SaveChangesAsync(); }
+        SwitchboardKeyOptions.ChangeType(device.Layout.Keys[0], "3", "1");
+        SwitchboardKeyOptions.ChangeSubtype(device.Layout.Keys[0], "1");
+        device.Layout.Keys[1].Fields["Title"] = "Support";
+        device.Layout.Keys[1].Fields["Value"] = "299";
         device.Layout.Keys[1].Fields["MemorySubType"] = "";
         device.Layout.Keys[1].Fields["Line"] = "-1";
         var before = device.Layout.ToJson();
         await ReadyAsync();
-        Assert.Contains("F2", (await Service().GetStateAsync()).Phones.Single().ConfigurationWarning);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Service().PreviewAsync(1));
-        var setup = await Service().PreviewTemplateSetupAsync(1);
-        Assert.Equal("TemplateSetup", setup.Purpose); Assert.Equal(0, device.Writes);
-        var target = SwitchboardLayout.FromJson(setup.TargetJson);
-        Assert.Equal("91", target.Keys[1].Get("MemorySubType")); Assert.Equal("1", target.Keys[1].Get("Line"));
-        Assert.Equal("Success", (await Service().DeployAsync(setup.Id)).Status);
-        var original = SwitchboardLayout.FromJson(before);
-        foreach (var key in device.Layout.Keys.Where(k => k.Page != 1 || k.Slot != 2))
-            Assert.Equal(original.Keys.Single(k => k.Page == key.Page && k.Slot == key.Slot).Fields, key.Fields);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Service().PreviewRestoreAsync(setup.Id));
         Assert.Null((await Service().GetStateAsync()).Phones.Single().ConfigurationWarning);
+        var preview = await Service().PreviewAsync(1);
+        Assert.Equal("Preview", preview.Status); Assert.Equal(0, device.Writes);
+        var target = SwitchboardLayout.FromJson(preview.TargetJson);
+        var original = SwitchboardLayout.FromJson(before);
+        Assert.Equal(original.Keys[0].Fields, target.Keys[0].Fields);
+        Assert.Equal(original.Keys[1].Fields, target.Keys[1].Fields);
+        Assert.All(target.Keys.Skip(2), k => Assert.Equal("1", k.Get("Line")));
+        Assert.Equal("Success", (await Service().DeployAsync(preview.Id)).Status);
+        Assert.Null((await Service().GetStateAsync()).Phones.Single().ConfigurationWarning);
+    }
+
+    [Fact]
+    public async Task RetiredF2CorrectionsCannotBeAppliedButHistoricalBackupsCanBeRestored()
+    {
+        await ReadyAsync(); var preview = await Service().PreviewAsync(1);
+        await using (var db = factory.CreateDbContext())
+        { (await db.SwitchboardDeployments.SingleAsync()).Purpose = "TemplateSetup"; await db.SaveChangesAsync(); }
+        var logins = device.Logins;
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => Service().DeployAsync(preview.Id));
+        Assert.Contains("no longer supported", error.Message);
+        Assert.Equal(logins, device.Logins); Assert.Equal(0, device.Writes);
+        await using (var db = factory.CreateDbContext())
+        {
+            (await db.SwitchboardDeployments.SingleAsync()).Status = "Success";
+            await db.SaveChangesAsync();
+            Assert.Null((await db.SwitchboardProfiles.SingleAsync()).LeaseId);
+        }
+        var before = device.Layout.Fingerprint();
+        var restore = await Service().PreviewRestoreAsync(preview.Id);
+        Assert.Equal("Success", (await Service().DeployAsync(restore.Id)).Status);
+        Assert.Equal(before, device.Layout.Fingerprint());
+    }
+
+    [Fact]
+    public async Task AnIncompleteCapturedLayoutStillShowsAnActionableWarning()
+    {
+        await Service().CaptureAsync(1);
+        await using (var db = factory.CreateDbContext())
+        {
+            var profile = await db.SwitchboardProfiles.SingleAsync();
+            var layout = SwitchboardLayout.FromJson(profile.BaselineJson);
+            layout.Keys.RemoveAt(59); profile.BaselineJson = layout.ToJson();
+            await db.SaveChangesAsync();
+        }
+        Assert.Contains("five-page, twelve-key", (await Service().GetStateAsync()).Phones.Single().ConfigurationWarning);
+        Assert.Equal(0, device.Writes);
     }
 
     [Theory]
@@ -352,7 +398,7 @@ internal static class SwitchboardFixture
     {
         var keys = Enumerable.Range(0, 60).Select(i => new SwitchboardKey(i / 12 + 1, i % 12 + 1,
             new() { ["Type"] = "0", ["Title"] = "", ["Value"] = "", ["MemorySubType"] = "", ["Line"] = "1",
-                ["MediaType"] = "", ["PICKUP"] = "", ["IconType"] = "Green", ["KeyeventSubType"] = "", ["ActionURLSubType"] = "0" })).ToList();
+                ["MediaType"] = "", ["PICKUP"] = "", ["IconType"] = "Green", ["KeyeventSubType"] = "", ["ActionURLSubType"] = "0", ["CodecSubType"] = "", ["PttSubType"] = "", ["PttSubTypeValue"] = "", ["LdapSubType"] = "", ["XmlSubType"] = "", ["BWSubType"] = "" })).ToList();
         keys[0].Fields["Type"] = "2";
         keys[1].Fields["Type"] = "1";
         keys[1].Fields["Title"] = ip.EndsWith(".101") ? "Override Day/Night" : "Reception";

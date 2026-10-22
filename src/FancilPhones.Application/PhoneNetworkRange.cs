@@ -6,8 +6,8 @@ namespace FancilPhones.Application;
 public static class PhoneNetworkRange
 {
     /// <summary>
-    /// Enumerate IPs from a CIDR ("192.168.55.0/24") or dotted range
-    /// ("192.168.55.1-254" or "192.168.55.10-192.168.55.40").
+    /// Enumerate IPv4 addresses from a caller-supplied address, CIDR subnet,
+    /// or hyphen-separated range of addresses (the end may be a final octet).
     /// Network and broadcast addresses are excluded for /24 and smaller.
     /// </summary>
     public static IEnumerable<string> EnumerateIps(string cidrOrRange)

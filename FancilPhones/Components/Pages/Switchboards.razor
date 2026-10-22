@@ -34,25 +34,22 @@
     {
         var phone = _state.Phones.Single(p => p.Id == _editor.PhoneId);
         <header class="sb-editor-heading"><div><span class="sb-kicker">02 / EDIT LAYOUT</span><h2 id="sb-editor-title">@phone.Name</h2><p class="mono">@phone.IpAddress <span>· Read @UiFormat.Date(phone.CapturedAt)</span></p></div><span class="sb-draft-state @(Dirty ? "is-dirty" : "")"><span></span>@(Dirty ? "Unsaved changes" : _editor.Layout.Fingerprint() != _editor.Baseline.Fingerprint() ? "Saved · not synced" : "Matches last read")</span></header>
-        @if (phone.ConfigurationWarning is not null)
-        {
-            <div class="sb-warning"><RadzenIcon Icon="warning" aria-hidden="true" /><div><strong>Check the protected keys</strong><p>@phone.ConfigurationWarning</p>@if (phone.ConfigurationWarning.Contains("F2")) { <AsyncButton Text="Review F2 correction" Icon="build" Disabled="@(Disabled || Dirty)" OnClick="() => SetupAsync(phone.Id)" /> }</div></div>
-        }
+        @if (phone.ConfigurationWarning is not null) { <div class="sb-warning"><RadzenIcon Icon="warning" aria-hidden="true" /><div><strong>Check this layout</strong><p>@phone.ConfigurationWarning</p></div></div> }
         <div class="sb-editor-toolbar"><div class="sb-pages" aria-label="Key pages">@for (var n = 1; n <= 5; n++) { var p = n; <button type="button" disabled="@(!RendererInfo.IsInteractive)" class="@(_page == p ? "is-active" : "")" aria-pressed="@(_page == p)" @onclick="() => _page = p">Page @p</button> }</div><div class="sb-tools"><button type="button" class="button" disabled="@(Disabled || !HasEmpty)" @onclick="AddKey"><RadzenIcon Icon="add" aria-hidden="true" />Add key</button><button type="button" class="button" disabled="@Disabled" @onclick="SortKeys"><RadzenIcon Icon="sort_by_alpha" aria-hidden="true" />Sort A–Z</button></div></div>
-        <div class="sb-layout-hint"><RadzenIcon Icon="lock" aria-hidden="true" /><span>Page 1 F1 and F2 stay protected. Each phone keeps its own SIP line.</span></div>
+        <div class="sb-layout-hint"><RadzenIcon Icon="tune" aria-hidden="true" /><span>All 60 keys are editable, including F1 and F2. Use key settings for type-specific options.</span></div>
         <div class="table-wrap sb-key-table"><table><thead><tr><th>Key</th><th>Type</th><th>Name</th><th>Value</th><th>Value2</th><th class="align-right">Edit</th></tr></thead><tbody>
         @foreach (var key in _editor.Layout.Keys.Where(k => k.Page == _page).OrderBy(k => k.Slot))
         {
-            <tr @key="(key.Page, key.Slot)" class="@(key.Protected ? "is-protected" : "")"><td><span class="sb-key-number">@($"F{key.Slot}")</span>@if (key.Protected) { <RadzenIcon Icon="lock" aria-hidden="true" /> }</td>
-                <td>@if (key.Protected) { <span>@key.TypeLabel</span> } else { <WorkspaceSelect TValue="string" Options="TypeOptions(key)" Value="@key.Get("Type")" ValueChanged="v => ChangeType(key, v)" Label="@($"Page {key.Page} F{key.Slot} type")" Disabled="@Disabled" /> }</td>
-                <td><input aria-label="@($"Page {key.Page} F{key.Slot} name")" value="@key.Name" maxlength="63" placeholder="@(key.Protected ? "" : key.Get("Type") == "0" ? "Empty key" : "Name")" disabled="@(Disabled || key.Protected || key.Get("Type") is not ("1" or "2"))" @oninput='e => ChangeText(key, "Title", e)' /></td>
-                <td><input aria-label="@($"Page {key.Page} F{key.Slot} value")" value="@key.Extension" maxlength="31" disabled="@(Disabled || key.Protected || key.Get("Type") != "1")" @oninput="e => ChangeNumber(key, e, false)" /></td>
-                <td><input aria-label="@($"Page {key.Page} F{key.Slot} Value2")" value="@key.Value2" maxlength="31" disabled="@(Disabled || key.Protected || key.Get("Type") != "1")" @oninput="e => ChangeNumber(key, e, true)" /></td>
-                <td><div class="row-actions">@if (!key.Protected) { <button type="button" class="icon-button" aria-label="@($"More settings for Page {key.Page} F{key.Slot}")" title="All key settings" disabled="@Disabled" @onclick="() => _editingKey = key"><RadzenIcon Icon="tune" aria-hidden="true" /></button><button type="button" class="icon-button" aria-label="@($"Clear Page {key.Page} F{key.Slot}")" title="Clear key" disabled="@(Disabled || key.Get("Type") == "0")" @onclick='() => ChangeType(key, "0")'><RadzenIcon Icon="close" aria-hidden="true" /></button> } else { <span class="sb-locked">Protected</span> }</div></td>
+            <tr @key="(key.Page, key.Slot)" ><td><span class="sb-key-number">@($"F{key.Slot}")</span></td>
+                <td><WorkspaceSelect TValue="string" Options="TypeOptions(key)" Value="@key.Get("Type")" ValueChanged="v => ChangeType(key, v)" Label="@($"Page {key.Page} F{key.Slot} type")" Disabled="@Disabled" /></td>
+                <td><input aria-label="@($"Page {key.Page} F{key.Slot} name")" value="@key.Name" maxlength="63" placeholder="@(key.Get("Type") == "0" ? "Empty key" : "Name")" disabled="@(Disabled)" @oninput='e => ChangeText(key, "Title", e)' /></td>
+                <td><input aria-label="@($"Page {key.Page} F{key.Slot} value")" value="@key.Extension" maxlength="@SwitchboardKeyOptions.ValueLimit(key)" disabled="@(Disabled || !SwitchboardKeyOptions.HasValue(key))" @oninput="e => ChangeNumber(key, e, false)" /></td>
+                <td><input aria-label="@($"Page {key.Page} F{key.Slot} Value2")" value="@key.Value2" maxlength="@SwitchboardKeyOptions.ValueLimit(key)" disabled="@(Disabled || !SwitchboardKeyOptions.HasValue(key))" @oninput="e => ChangeNumber(key, e, true)" /></td>
+                <td><div class="row-actions"><button type="button" class="icon-button" aria-label="@($"More settings for Page {key.Page} F{key.Slot}")" title="All key settings" disabled="@Disabled" @onclick="() => _editingKey = key"><RadzenIcon Icon="tune" aria-hidden="true" /></button><button type="button" class="icon-button" aria-label="@($"Clear Page {key.Page} F{key.Slot}")" title="Clear key" disabled="@(Disabled || key.Get("Type") == "0")" @onclick='() => ChangeType(key, "0")'><RadzenIcon Icon="close" aria-hidden="true" /></button></div></td>
             </tr>
         }
         </tbody></table></div>
-        <div class="sb-editor-options"><label class="check-row"><input type="checkbox" @bind="_alphabetical" @bind:after="Invalidate" disabled="@Disabled" /><span>Sort Memory Keys A–Z when saving <small>Reorders all five pages. Extra Line keys stay in place.</small></span></label><span>@_editor.Layout.Keys.Count(k => !k.Protected && k.Get("Type") != "0") / 58 positions used</span></div>
+        <div class="sb-editor-options"><label class="check-row"><input type="checkbox" @bind="_alphabetical" @bind:after="Invalidate" disabled="@Disabled" /><span>Sort Memory Keys A–Z when saving <small>Reorders all five pages. F1/F2, Line and special keys stay in place.</small></span></label><span>@_editor.Layout.Keys.Count(k => k.Get("Type") != "0") / 60 positions used</span></div>
         <footer class="sb-editor-footer"><div class="sb-tools"><AsyncButton Text="Read from phone" Icon="download" Disabled="@(Disabled || Dirty)" OnClick="ReadPhoneAsync" /><AsyncButton Text="Remove" Icon="remove_circle" Disabled="@(Disabled || Dirty)" OnClick="RemovePhoneAsync" /></div><div class="sb-tools"><AsyncButton Text="Discard edits" Disabled="@(Disabled || !Dirty)" OnClick="DiscardAsync" /><AsyncButton Text="Save layout" Icon="save" Disabled="@(Disabled || !Dirty)" OnClick="SaveAsync" /><AsyncButton Text="Preview this phone" Icon="preview" Class="button button--primary" Disabled="@Disabled" OnClick="() => ReviewAsync([_editor.PhoneId])" /></div></footer>
     }
     else { <div class="sb-editor-welcome"><span class="sb-kicker">YOUR KEY WORKSPACE</span><RadzenIcon Icon="dialpad" aria-hidden="true" /><h2 id="sb-editor-title">A simpler way to manage every key.</h2><p>Add a switchboard from Phone fleet to edit its five pages here. Save changes for one phone or sync the same layout to a selected group.</p><div><span>01 <strong>Add a phone</strong></span><span>02 <strong>Edit its keys</strong></span><span>03 <strong>Review &amp; sync</strong></span></div></div> }
@@ -75,19 +72,19 @@
         @foreach (var key in target.Keys.Where(k => k.Page == page).OrderBy(k => k.Slot))
         {
             var old = before.Keys.Single(k => k.Page == key.Page && k.Slot == key.Slot);
-            <tr class="@(Changed(key, old) ? "sb-key-changed" : "")"><td>@($"F{key.Slot}")</td><td><strong>@Display(old.Name)</strong><small class="mono">@Display(old.Get("Value"))</small><small>@old.TypeLabel · @Subtype(old)</small></td><td><strong>@Display(key.Name)</strong><small class="mono">@Display(key.Extension)</small></td><td class="mono">@Display(key.Value2)</td><td>@key.TypeLabel<small>@Subtype(key)</small></td><td>@key.Get("Line")</td><td><small>Media: @Display(key.Get("MediaType"))</small><small>Pickup: @Display(key.Get("PICKUP"))</small><small>Icon: @Display(key.Get("IconType"))</small></td><td><span class="@(Changed(key, old) ? "sb-changed-label" : "muted")">@(key.Protected && !Changed(key, old) ? "Protected" : Changed(key, old) ? "Changed" : "Unchanged")</span></td></tr>
+            <tr class="@(Changed(key, old) ? "sb-key-changed" : "")"><td>@($"F{key.Slot}")</td><td><strong>@Display(old.Name)</strong><small class="mono">@Display(old.Get("Value"))</small><small>@old.TypeLabel · @Subtype(old)</small></td><td><strong>@Display(key.Name)</strong><small class="mono">@Display(key.Extension)</small></td><td class="mono">@Display(key.Value2)</td><td>@key.TypeLabel<small>@Subtype(key)</small></td><td>@key.Get("Line")</td><td><small>Media: @Display(key.Get("MediaType"))</small><small>Pickup: @Display(key.Get("PICKUP"))</small><small>Icon: @Display(key.Get("IconType"))</small></td><td><span class="@(Changed(key, old) ? "sb-changed-label" : "muted")">@(Changed(key, old) ? "Changed" : "Unchanged")</span></td></tr>
         }
         </tbody></table></div></article>
     }
     </section>
 }
 <details class="sb-history" open="@(_state.History.Count > 0)"><summary><span>Delivery history and backups <span class="count-label">@_state.History.Count</span></span><RadzenIcon Icon="expand_more" aria-hidden="true" /></summary>
-    @if (_state.History.Count > 0) { <div class="table-wrap"><table><thead><tr><th>Created</th><th>Phone</th><th>Result</th><th>Details</th><th>Backup</th></tr></thead><tbody>@foreach (var item in _state.History) { <tr><td>@UiFormat.Date(item.CreatedAt)</td><td><strong>@PhoneName(item.PhoneId)</strong><small class="mono">@item.IpAddress</small></td><td><StatusBadge Status="@item.Status" /></td><td class="sb-history-message">@item.Message</td><td>@if (item.Purpose != "TemplateSetup" && item.Status is "Success" or "Failed" or "Cancelled" or "TimedOut" or "Applying") { <AsyncButton Text="Preview restoration" Icon="restore" Disabled="@(Disabled || Dirty)" OnClick="() => RestoreAsync(item.Id)" /> } else { <span class="muted">—</span> }</td></tr> }</tbody></table></div> }
+    @if (_state.History.Count > 0) { <div class="table-wrap"><table><thead><tr><th>Created</th><th>Phone</th><th>Result</th><th>Details</th><th>Backup</th></tr></thead><tbody>@foreach (var item in _state.History) { <tr><td>@UiFormat.Date(item.CreatedAt)</td><td><strong>@PhoneName(item.PhoneId)</strong><small class="mono">@item.IpAddress</small></td><td><StatusBadge Status="@item.Status" /></td><td class="sb-history-message">@item.Message</td><td>@if (item.Status is "Success" or "Failed" or "Cancelled" or "TimedOut" or "Applying") { <AsyncButton Text="Preview restoration" Icon="restore" Disabled="@(Disabled || Dirty)" OnClick="() => RestoreAsync(item.Id)" /> } else { <span class="muted">—</span> }</td></tr> }</tbody></table></div> }
     else { <p class="sb-sidebar-note">Reviewed syncs and their backups will appear here.</p> }
     <footer class="sb-history-note"><RadzenIcon Icon="info" aria-hidden="true" /><span>A stopped sync may have updated earlier pages. Review the result before retrying or restoring.</span></footer>
 </details>
 </div>
-@if (_editingKey is not null && _editor is not null) { <SwitchboardKeyDialog Key="_editingKey" Line="@_editor.Layout.Keys.Single(k => k.Page == 1 && k.Slot == 1).Get("Line")" OnSaved="UseKey" OnCancel="() => _editingKey = null" /> }
+@if (_editingKey is not null && _editor is not null) { <SwitchboardKeyDialog Key="_editingKey" Line="@SwitchboardEditing.PhoneLine(_editor.Baseline)" OnSaved="UseKey" OnCancel="() => _editingKey = null" /> }
 
 @code {
     private SwitchboardState _state = new([], [], [], [], []);
@@ -103,10 +100,10 @@
     private readonly Dictionary<Guid, int> _previewPages = [];
     private bool Disabled => _busy || !RendererInfo.IsInteractive;
     private bool Dirty => _editor is not null && (_editor.Layout.Fingerprint() != _saved || _alphabetical != _editor.SortAlphabetically);
-    private bool HasEmpty => _editor?.Layout.Keys.Any(k => !k.Protected && k.Get("Type") == "0") == true;
+    private bool HasEmpty => _editor?.Layout.Keys.Any(k => k.Get("Type") == "0") == true;
     private IEnumerable<SwitchboardPhone> EligiblePhones => _state.Phones.Where(p => _state.FleetPhones.Any(f => f.Id == p.Id && f.Enabled));
     private IEnumerable<SelectOption<int>> FleetOptions => new[] { new SelectOption<int>(0, "Choose a fleet phone") }.Concat(_state.FleetPhones.Where(p => p.Enabled && _state.Phones.All(s => s.Id != p.Id)).Select(p => new SelectOption<int>(p.Id, $"{p.Name} · {p.IpAddress}")));
-    private static IEnumerable<SelectOption<string>> TypeOptions(SwitchboardKey key) { SelectOption<string>[] options = [new("0", "None"), new("1", "Memory Key"), new("2", "Line")]; return options.Any(o => o.Value == key.Get("Type")) ? options : options.Append(new(key.Get("Type"), $"Captured ({key.Get("Type")})")); }
+    private static IEnumerable<SelectOption<string>> TypeOptions(SwitchboardKey key) => SwitchboardKeyOptions.Types.Select(o => new SelectOption<string>(o.Value, o.Text)).Concat(SwitchboardKeyOptions.Types.Any(o => o.Value == key.Get("Type")) ? [] : new[] { new SelectOption<string>(key.Get("Type"), key.TypeLabel) });
     protected override Task OnInitializedAsync() => RefreshAsync();
     private Task RefreshAsync() => RunAsync("Loading switchboards…", async () => { await ReloadAsync(); if (_editor is null && EligiblePhones.FirstOrDefault() is { } first) { await LoadEditorAsync(first.Id); _selected.Add(first.Id); } else if (_editor is not null) await LoadEditorAsync(_editor.PhoneId); });
     private async Task ReloadAsync() { _state = await Keys.GetStateAsync(LifetimeToken); _selected.IntersectWith(EligiblePhones.Select(p => p.Id)); if (_editor is not null && EligiblePhones.All(p => p.Id != _editor.PhoneId)) { _editor = null; _saved = ""; } }
@@ -121,8 +118,14 @@
     private void Invalidate() { _previews.Clear(); _previewErrors.Clear(); _previewPages.Clear(); }
     private void ChangeText(SwitchboardKey key, string field, ChangeEventArgs e) { key.Fields[field] = e.Value?.ToString() ?? ""; Invalidate(); }
     private void ChangeNumber(SwitchboardKey key, ChangeEventArgs e, bool secondary) { var value = e.Value?.ToString() ?? ""; Invalidate(); if (value.Contains('|')) { _error = "Enter Value and Value2 separately, without pipe characters."; return; } _error = ""; key.Fields["Value"] = secondary ? key.Extension + (value.Length == 0 ? "" : "|" + value) : value + (key.Value2.Length == 0 ? "" : "|" + key.Value2); Invalidate(); }
-    private void ChangeType(SwitchboardKey key, string type) { key.Fields["Type"] = type; key.Fields["Line"] = _editor!.Layout.Keys.Single(k => k.Page == 1 && k.Slot == 1).Get("Line"); if (type == "0") { key.Fields["Title"] = ""; key.Fields["Value"] = ""; key.Fields["PICKUP"] = ""; } else if (type == "1" && key.Get("MemorySubType") is "" or "21") key.Fields["MemorySubType"] = "91"; Invalidate(); }
-    private void AddKey() { if (_editor?.Layout.Keys.FirstOrDefault(k => !k.Protected && k.Get("Type") == "0") is not { } key) return; var copy = key with { Fields = new(key.Fields) }; copy.Fields["Type"] = "1"; copy.Fields["MemorySubType"] = "91"; copy.Fields["MediaType"] = "0"; _editingKey = copy; }
+    private void ChangeType(SwitchboardKey key, string type)
+    {
+        var copy = key with { Fields = new(key.Fields) };
+        SwitchboardKeyOptions.ChangeType(copy, type, SwitchboardEditing.PhoneLine(_editor!.Baseline));
+        if (SwitchboardKeyOptions.SubtypeField(copy).Length > 0 && type != "1") { _editingKey = copy; return; }
+        key.Fields.Clear(); foreach (var field in copy.Fields) key.Fields[field.Key] = field.Value; Invalidate();
+    }
+    private void AddKey() { if (_editor?.Layout.Keys.FirstOrDefault(k => k.Get("Type") == "0") is not { } key) return; var copy = key with { Fields = new(key.Fields) }; copy.Fields["Type"] = "1"; copy.Fields["MemorySubType"] = "91"; copy.Fields["MediaType"] = "0"; _editingKey = copy; }
     private void UseKey(SwitchboardKey key) { var old = _editor!.Layout.Keys.Single(k => k.Page == key.Page && k.Slot == key.Slot); old.Fields.Clear(); foreach (var field in key.Fields) old.Fields[field.Key] = field.Value; _page = key.Page; _editingKey = null; Invalidate(); }
     private void SortKeys() { if (_editor is not null) _editor = _editor with { Layout = SwitchboardEditing.Sort(_editor.Layout) }; Invalidate(); }
     private Task DiscardAsync() => RunAsync("Discarding unsaved edits…", async () => { if (_editor is not null) await LoadEditorAsync(_editor.PhoneId); });
@@ -130,11 +133,10 @@
     private async Task SaveCoreAsync() { if (_editor is null) return; var layout = _alphabetical ? SwitchboardEditing.Sort(_editor.Layout) : _editor.Layout; _editor = await Keys.SaveDraftAsync(_editor.PhoneId, _editor.Revision, layout, _alphabetical, LifetimeToken); _saved = _editor.Layout.Fingerprint(); await ReloadAsync(); }
     private Task ReviewAsync(int[] ids) => RunAsync("Reading selected phones and preparing previews…", async () => { if (_editor is null) return; if (Dirty) await SaveCoreAsync(); foreach (var id in ids.Distinct()) { LifetimeToken.ThrowIfCancellationRequested(); try { _previews.Add(await Keys.PreviewDraftAsync(_editor.PhoneId, id, _keepNumbers, LifetimeToken)); } catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException or TimeoutException) { _previewErrors.Add($"{PhoneName(id)}: {ex.Message}"); } await InvokeAsync(StateHasChanged); } await ReloadAsync(); });
     private Task RestoreAsync(Guid id) => RunAsync("Preparing restoration preview…", async () => { _previews.Add(await Keys.PreviewRestoreAsync(id, LifetimeToken)); await ReloadAsync(); });
-    private Task SetupAsync(int id) => RunAsync("Preparing F2 correction preview…", async () => { _previews.Add(await Keys.PreviewTemplateSetupAsync(id, LifetimeToken)); await ReloadAsync(); });
     private Task DeployAsync() => RunAsync("Syncing and verifying keys…", async () =>
     {
         if (_previews.Count == 0 || _previewErrors.Count > 0 || Dirty) return;
-        if (!await Feedback.ConfirmAsync("Sync reviewed function keys", $"Apply these reviewed layouts to {_previews.Count} phone(s)? Each phone is backed up and all five pages are verified. Protected keys and handset settings stay as shown in the previews. A stopped sync may have updated earlier pages.", "Sync keys", ct: LifetimeToken)) return;
+        if (!await Feedback.ConfirmAsync("Sync reviewed function keys", $"Apply these reviewed layouts to {_previews.Count} phone(s)? Each phone is backed up and all five pages are verified. All 60 keys, including F1 and F2, can change as shown. Handset-wide settings are retained. A stopped sync may have updated earlier pages.", "Sync keys", ct: LifetimeToken)) return;
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(LifetimeToken); _deliveryCancellation = stop; _delivering = true;
         try { for (var i = 0; i < _previews.Count; i++) { if (stop.IsCancellationRequested) break; _previews[i] = await Keys.DeployAsync(_previews[i].Id, stop.Token); await InvokeAsync(StateHasChanged); if (_previews[i].Status != "Success") break; } }
         finally { _delivering = false; _deliveryCancellation = null; }
@@ -153,5 +155,5 @@
     private string PhoneName(int id) => _state.FleetPhones.FirstOrDefault(p => p.Id == id)?.Name ?? $"Phone {id}";
     private static string Display(string value) => string.IsNullOrEmpty(value) ? "—" : value;
     private static bool Changed(SwitchboardKey a, SwitchboardKey b) => !SwitchboardEditing.SameKey(a, b);
-    private static string Subtype(SwitchboardKey key) => key.Get("MemorySubType") switch { "91" => "BLF/BXFER", "92" => "BLF/AXFER", "" or "21" => "None", var v => v };
+    private static string Subtype(SwitchboardKey key) => SwitchboardKeyOptions.SubtypeLabel(key);
 }

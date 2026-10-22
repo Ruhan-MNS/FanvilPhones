@@ -20,7 +20,35 @@ public sealed class PhoneSyncService(
     private PhoneOperationOptions Settings => options.Value;
     private sealed record HandsetResult(bool Success, int? HttpStatus, string Message);
 
-    public async Task<IReadOnlyList<SyncResult>> SyncAllAsync(CancellationToken ct = default, IProgress<SyncProgress>? progress = null)
+    // A SIP push or connection probe must not change phonebook retry eligibility.
+    private static IQueryable<SyncRun> LatestDeliveries(AppDbContext db) => db.SyncRuns.AsNoTracking()
+        .Where(r => r.Action == "Sync" && !db.SyncRuns.Any(next => next.PhoneId == r.PhoneId && next.Action == "Sync" && next.Id > r.Id));
+
+    public async Task<IReadOnlyList<PhoneSyncStatus>> GetStatusAsync(CancellationToken ct = default)
+    {
+        await access.RequireAuthenticatedAsync(ct);
+        await using var db = await dbf.CreateDbContextAsync(ct);
+        var phones = await db.Phones.AsNoTracking().OrderBy(p => p.Name)
+            .Select(p => new { p.Id, p.Name, p.IpAddress, p.Enabled }).ToListAsync(ct);
+        var latest = await LatestDeliveries(db).ToDictionaryAsync(r => r.PhoneId, ct);
+        return phones.Select(p =>
+        {
+            latest.TryGetValue(p.Id, out var run);
+            return new PhoneSyncStatus(p.Id, p.Name, p.IpAddress, p.Enabled, run?.Status ?? "Pending", run?.StartedAt, run?.Message);
+        }).ToList();
+    }
+
+    public Task<IReadOnlyList<SyncResult>> SyncAllAsync(CancellationToken ct = default, IProgress<SyncProgress>? progress = null) =>
+        SyncBatchAsync(null, false, ct, progress);
+
+    public Task<IReadOnlyList<SyncResult>> SyncFailedAsync(CancellationToken ct = default, IProgress<SyncProgress>? progress = null) =>
+        SyncBatchAsync(null, true, ct, progress);
+
+    public Task<IReadOnlyList<SyncResult>> SyncSelectedAsync(IReadOnlyCollection<int> phoneIds, CancellationToken ct = default, IProgress<SyncProgress>? progress = null) =>
+        SyncBatchAsync(phoneIds?.Distinct().ToArray() ?? throw new ArgumentNullException(nameof(phoneIds)), false, ct, progress);
+
+    private async Task<IReadOnlyList<SyncResult>> SyncBatchAsync(IReadOnlyCollection<int>? phoneIds, bool failedOnly,
+        CancellationToken ct, IProgress<SyncProgress>? progress)
     {
         using var stopping = CancellationTokenSource.CreateLinkedTokenSource(ct, application.ApplicationStopping);
         ct = stopping.Token;
@@ -29,7 +57,20 @@ public sealed class PhoneSyncService(
         List<Contact> contacts;
         await using (var db = await dbf.CreateDbContextAsync(ct))
         {
-            phones = await db.Phones.AsNoTracking().Where(p => p.Enabled).OrderBy(p => p.Id).ToListAsync(ct);
+            var query = db.Phones.AsNoTracking().Where(p => p.Enabled);
+            if (phoneIds is not null)
+            {
+                if (phoneIds.Count == 0) throw new PhoneSyncValidationException("Select at least one phone to sync.");
+                query = query.Where(p => phoneIds.Contains(p.Id));
+            }
+            if (failedOnly)
+            {
+                var failed = LatestDeliveries(db).Where(r => r.Status == "Failed" || r.Status == "Error" || r.Status == "TimedOut" || r.Status == "Cancelled");
+                query = query.Where(p => failed.Any(r => r.PhoneId == p.Id));
+            }
+            phones = await query.OrderBy(p => p.Id).ToListAsync(ct);
+            if (phoneIds is not null && phones.Count != phoneIds.Count)
+                throw new PhoneSyncValidationException("A selected phone was removed or disabled. Refresh delivery status and try again.");
             contacts = await db.Contacts.AsNoTracking().OrderBy(c => c.DisplayName).ToListAsync(ct);
         }
         var csv = PhonebookCsv.Build(contacts, ct);

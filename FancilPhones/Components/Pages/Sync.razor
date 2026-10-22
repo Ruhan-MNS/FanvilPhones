@@ -21,8 +21,21 @@
     </div>
 }
 @if (_results.Count > 0) {
-    <section class="section-block"><div class="section-heading"><div><h2>Latest run results</h2><p role="status">@_summary</p></div><span class="badge badge--@(_results.All(r => r.Success) ? "success" : "warning")">@_results.Count(r => r.Success) / @_results.Count successful</span></div><div class="table-wrap"><table><thead><tr><th scope="col">Phone</th><th scope="col">Result</th><th scope="col">HTTP</th><th scope="col">Details</th></tr></thead><tbody>@foreach (var result in _results) { <tr><td class="cell-title">@result.PhoneName</td><td><StatusBadge Status="@(result.Success ? "Success" : "Failed")" /></td><td class="mono">@(result.HttpStatus?.ToString() ?? "—")</td><td class="message-cell">@result.Message</td></tr> }</tbody></table></div></section>
+    <section class="section-block"><div class="section-heading"><div><h2>Latest run results</h2><p role="status">@_summary</p></div><span class="badge badge--@(_results.All(r => r.Success) ? "success" : "warning")">@_results.Count(r => r.Success) / @_results.Count successful</span></div><div class="table-wrap"><table><thead><tr><th scope="col">Phone</th><th scope="col">Result</th><th scope="col">HTTP</th><th scope="col">Details</th><AuthorizeView Policy="@PhonePolicies.Administrator"><th scope="col" class="align-right">Action</th></AuthorizeView></tr></thead><tbody>@foreach (var result in _results) { <tr @key="result.PhoneId"><td class="cell-title">@result.PhoneName</td><td><StatusBadge Status="@(result.Success ? "Success" : "Failed")" /></td><td class="mono">@(result.HttpStatus?.ToString() ?? "—")</td><td class="message-cell">@result.Message</td><AuthorizeView Policy="@PhonePolicies.Administrator"><td class="align-right"><AsyncButton Text="@(result.Success ? "Sync again" : "Retry")" Icon="sync" Disabled="@(ControlsDisabled || !_phones.Any(p => p.PhoneId == result.PhoneId && p.Enabled))" OnClick="() => SyncPhoneAsync(result.PhoneId)" aria-label="@($"Sync phonebook to {result.PhoneName} again")" /></td></AuthorizeView></tr> }</tbody></table></div></section>
 }
+<section class="section-block" aria-labelledby="phone-deliveries-title">
+    <div class="section-heading"><div><h2 id="phone-deliveries-title">Phone delivery status <span class="count-label">@_phones.Count</span></h2><p>Sync one phone, or retry failed and interrupted deliveries. Successful phones are skipped by retries.</p></div><AuthorizeView Policy="@PhonePolicies.Administrator"><AsyncButton Text="@($"Retry failed phones ({FailedCount})")" Icon="refresh" Disabled="@(ControlsDisabled || FailedCount == 0)" OnClick="RetryFailedAsync" /></AuthorizeView></div>
+    <div class="table-toolbar"><div class="filter-tabs" role="group" aria-label="Filter delivery status"><button type="button" class="@(!_failedOnly ? "is-active" : "")" aria-pressed="@(!_failedOnly)" @onclick="() => FilterPhones(false)">All phones</button><button type="button" class="@(_failedOnly ? "is-active" : "")" aria-pressed="@_failedOnly" @onclick="() => FilterPhones(true)">Needs retry <span>@FailedCount</span></button></div><label class="search-field"><RadzenIcon Icon="search" aria-hidden="true" /><input type="search" placeholder="Search name or IP address…" aria-label="Search delivery phones" @bind="_search" @bind:event="oninput" @bind:after="ResetPhonePage" /></label></div>
+    <div class="table-wrap" aria-busy="@_loading"><table class="sync-status-table"><thead><tr><th scope="col">Phone</th><th scope="col">Last phonebook delivery</th><th scope="col">Last attempt</th><th scope="col">Details</th><AuthorizeView Policy="@PhonePolicies.Administrator"><th scope="col" class="align-right">Action</th></AuthorizeView></tr></thead><tbody>
+        @if (FilteredPhones.Count == 0) { <tr><td colspan="5" class="empty-cell"><strong>@(_loading ? "Loading phone status…" : _phones.Count == 0 ? "No phones in your fleet" : "No matching phones")</strong><span>@(_phones.Count == 0 ? "Add a handset in Phone fleet to begin." : "Try a different search or filter.")</span></td></tr> }
+        @foreach (var phone in FilteredPhones.Skip((_phonePage - 1) * _phonePageSize).Take(_phonePageSize))
+        {
+            var result = _results.LastOrDefault(r => r.PhoneId == phone.PhoneId);
+            var status = _running && result is not null ? result.Success ? "Success" : "Failed" : _running && _targetIds.Contains(phone.PhoneId) ? "Running" : phone.Status;
+            <tr @key="phone.PhoneId"><td><strong class="cell-title">@phone.PhoneName</strong><small class="mono">@phone.IpAddress</small>@if (!phone.Enabled) { <span class="badge">Disabled in fleet</span> }</td><td><StatusBadge Status="@status" /></td><td class="nowrap">@UiFormat.Date(phone.LastAttemptAt)</td><td class="message-cell">@(_running && result is not null ? result.Message : phone.Message ?? "No phonebook delivery recorded.")</td><AuthorizeView Policy="@PhonePolicies.Administrator"><td class="align-right"><AsyncButton Text="@(phone.CanRetry ? "Retry sync" : "Sync phone")" BusyText="Syncing…" Icon="sync" Busy="@(_running && _activePhoneId == phone.PhoneId)" Disabled="@(ControlsDisabled || !phone.Enabled)" OnClick="() => SyncPhoneAsync(phone.PhoneId)" aria-label="@($"Sync phonebook to {phone.PhoneName}")" /></td></AuthorizeView></tr>
+        }
+    </tbody></table></div><TablePager Total="@FilteredPhones.Count" @bind-Page="_phonePage" @bind-PageSize="_phonePageSize" />
+</section>
 <section class="section-block"><div class="section-heading"><div><h2>Delivery history <span class="count-label">@_history.Count</span></h2><p>Recent phonebook syncs, including deliveries to individual phones</p></div><a class="text-link" href="/logs">All activity <RadzenIcon Icon="arrow_forward" aria-hidden="true" /></a></div><div class="table-wrap" aria-busy="@_loading"><table><thead><tr><th scope="col">Started</th><th scope="col">Phone</th><th scope="col">Result</th><th scope="col">Contacts</th><th scope="col">Duration</th><th scope="col">Details</th></tr></thead><tbody>
     @if (_history.Count == 0) { <tr><td colspan="6" class="empty-cell"><RadzenIcon Icon="sync" aria-hidden="true" /><strong>@(_loading ? "Loading deliveries…" : "No deliveries recorded yet")</strong><span>The results of your first phonebook sync will appear here.</span></td></tr> }
     @foreach (var run in _history.Skip((_page - 1) * _pageSize).Take(_pageSize)) { <tr><td class="nowrap">@UiFormat.Date(run.StartedAt)</td><td class="cell-title">@(run.Phone?.Name ?? "Deleted phone")</td><td><StatusBadge Status="@run.Status" /></td><td>@run.ContactCount</td><td>@UiFormat.Duration(run.StartedAt, run.FinishedAt)</td><td class="message-cell">@run.Message</td></tr> }
@@ -34,6 +47,19 @@
     private string _summary = "";
     private List<SyncRun> _history = [];
     private List<SyncResult> _results = [];
+    private List<PhoneSyncStatus> _phones = [];
+    private HashSet<int> _targetIds = [];
+    private int? _activePhoneId;
+    private int _phonePage = 1, _phonePageSize = 10;
+    private bool _failedOnly;
+    private string _search = "";
+    private bool ControlsDisabled => _loading || _running || _confirming || _error is not null;
+    private int FailedCount => _phones.Count(p => p.CanRetry);
+    private List<PhoneSyncStatus> FilteredPhones => _phones.Where(p => (!_failedOnly || p.CanRetry)
+        && (string.IsNullOrWhiteSpace(_search) || p.PhoneName.Contains(_search, StringComparison.OrdinalIgnoreCase) || p.IpAddress.Contains(_search, StringComparison.OrdinalIgnoreCase))).ToList();
+    private void ResetPhonePage() => _phonePage = 1;
+    private void FilterPhones(bool failedOnly) { _failedOnly = failedOnly; ResetPhonePage(); }
+    private enum SyncScope { All, Failed, Phone }
     protected override Task OnInitializedAsync() => LoadAsync();
     private CancellationTokenSource? _runCancellation;
     private SyncProgress _progress = new(0, 0, 0, 0);
@@ -45,36 +71,46 @@
     private void StopSync() => _runCancellation?.Cancel();
     private async Task LoadAsync()
     {
-        if (!TryBeginLoad("Loading delivery status…")) return;
+        if (_running || _confirming || !TryBeginLoad("Loading delivery status…")) return;
         _loading = true; _error = null;
         try
         {
             var summaryTask = Directory.GetSummaryAsync(LifetimeToken);
             var historyTask = Directory.GetHistoryAsync(50, LifetimeToken, action: "Sync");
-            await Task.WhenAll(summaryTask, historyTask);
+            var statusTask = SyncSvc.GetStatusAsync(LifetimeToken);
+            await Task.WhenAll(summaryTask, historyTask, statusTask);
             LifetimeToken.ThrowIfCancellationRequested();
             var summary = await summaryTask;
             _contactCount = summary.ContactCount; _enabledCount = summary.EnabledPhoneCount;
             _history = await historyTask; _page = 1;
+            _phones = (await statusTask).ToList(); ResetPhonePage();
         }
         catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
         catch (Exception ex) { Logger.LogError(ex, "Failed to load phonebook delivery status."); _error = "Delivery status could not be loaded. Please try again."; }
         finally { _loading = false; EndLoad(); }
     }
-    private async Task RunAsync()
+    private Task RunAsync() => DeliverAsync(SyncScope.All);
+    private Task RetryFailedAsync() => DeliverAsync(SyncScope.Failed);
+    private Task SyncPhoneAsync(int phoneId) => DeliverAsync(SyncScope.Phone, phoneId);
+    private async Task DeliverAsync(SyncScope scope, int? phoneId = null)
     {
-        if (_running || _confirming || IsDisposed) return;
+        if (ControlsDisabled || IsDisposed) return;
+        var targets = _phones.Where(p => p.Enabled && (scope == SyncScope.All || scope == SyncScope.Failed && p.CanRetry || scope == SyncScope.Phone && p.PhoneId == phoneId)).ToList();
+        if (targets.Count == 0) return;
+        var title = scope == SyncScope.Failed ? "Retry failed phones" : scope == SyncScope.Phone ? $"Sync {targets[0].PhoneName}" : "Sync enabled phones";
         _confirming = true;
         try
         {
-            if (!await Feedback.ConfirmAsync("Sync enabled phones", $"Send the current phonebook ({_contactCount} contacts) to {_enabledCount} enabled phones? Existing handset phonebooks are replaced by the master directory.", "Start sync", ct: LifetimeToken)) return;
+            var destination = scope == SyncScope.Phone ? $"{targets[0].PhoneName} ({targets[0].IpAddress})" : $"{targets.Count} {(scope == SyncScope.Failed ? "phones with failed or interrupted deliveries" : "enabled phones")}";
+            if (!await Feedback.ConfirmAsync(title, $"Send the current phonebook ({_contactCount} contacts) to {destination}? Existing handset phonebooks are replaced by the master directory.", scope == SyncScope.Failed ? "Retry deliveries" : "Start sync", ct: LifetimeToken)) return;
         }
         catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { return; }
         finally { _confirming = false; }
         using var run = CancellationTokenSource.CreateLinkedTokenSource(LifetimeToken);
         _runCancellation = run;
         _running = true; _results.Clear();
-        _progress = new(0, _enabledCount, 0, 0);
+        _targetIds = targets.Select(p => p.PhoneId).ToHashSet(); _activePhoneId = scope == SyncScope.Phone ? phoneId : null;
+        _progress = new(0, targets.Count, 0, 0);
         using var activity = Activity.Begin("Delivering the shared phonebook…", run.Token);
         var progress = new Progress<SyncProgress>(update =>
         {
@@ -86,10 +122,15 @@
         });
         try
         {
-            _results = (await SyncSvc.SyncAllAsync(run.Token, progress)).ToList();
+            _results = (scope switch
+            {
+                SyncScope.All => await SyncSvc.SyncAllAsync(run.Token, progress),
+                SyncScope.Failed => await SyncSvc.SyncFailedAsync(run.Token, progress),
+                _ => await SyncSvc.SyncSelectedAsync([phoneId!.Value], run.Token, progress)
+            }).ToList();
             LifetimeToken.ThrowIfCancellationRequested();
             var success = _results.Count(r => r.Success);
-            _summary = $"{success} of {_results.Count} phones received the phonebook successfully.";
+            _summary = _results.Count == 0 ? "No eligible phones remain to sync. Delivery status has been refreshed." : $"{success} of {_results.Count} phones received the phonebook successfully.";
             Feedback.Notify(_summary, success == _results.Count ? "success" : "warning");
         }
         catch (OperationCanceledException) when (run.IsCancellationRequested)
@@ -97,10 +138,10 @@
             _summary = $"Stopped after {_progress.Completed} of {_progress.Total} phones; {_progress.Succeeded} successful, {_progress.Failed} failed.";
             if (!IsDisposed) Feedback.Notify("Synchronization stopped. Review delivery history for completed and cancelled handsets.", "warning");
         }
-        catch (Exception ex) { Logger.LogError(ex, "Fleet synchronization could not complete."); if (!IsDisposed) Feedback.Notify("The fleet sync could not be completed. Review the activity log before retrying.", "danger"); }
+        catch (Exception ex) { Logger.LogError(ex, "Phonebook synchronization could not complete."); if (!IsDisposed) Feedback.Notify(ex is PhoneSyncValidationException ? ex.Message : "The sync could not be completed. Refresh delivery status and review the activity log before retrying.", "danger"); }
         finally
         {
-            _runCancellation = null; _running = false;
+            _runCancellation = null; _running = false; _activePhoneId = null; _targetIds.Clear();
             if (!IsDisposed) await LoadAsync();
         }
     }

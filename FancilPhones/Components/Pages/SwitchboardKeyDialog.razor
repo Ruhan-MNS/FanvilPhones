@@ -1,44 +1,72 @@
-<AppDialog Open="true" Title="@($"Edit Page {Key.Page} · F{Key.Slot}")" Description="Changes stay in the layout until you review and sync it." OnClose="OnCancel">
+<AppDialog Open="true" Title="@($"Edit Page {Key.Page} · F{Key.Slot}")" Description="Choose a key type, then configure its settings. Changes are applied only after a reviewed sync." OnClose="OnCancel">
     <div class="dialog-body">
-    @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error</div> }
-    <div class="form-grid">
-        <div class="field"><span>Type</span><WorkspaceSelect TValue="string" Options="TypeOptions" Value="@_key.Get("Type")" ValueChanged="SetType" Label="Key type" /></div>
-        <label class="field">SIP line<input value="@Line" readonly /><small>Each phone uses its own SIP line.</small></label>
-        <label class="field field--wide">Name<input maxlength="63" value="@_key.Name" @oninput='e => Set("Title", e)' /></label>
-        <label class="field">Value<input maxlength="31" value="@_key.Extension" @oninput="e => SetNumber(e, false)" /></label>
-        <label class="field">Value2<input maxlength="31" value="@_key.Value2" @oninput="e => SetNumber(e, true)" /></label>
-        <div class="field"><span>Subtype</span><WorkspaceSelect TValue="string" Options="SubtypeOptions" Value="@_key.Get("MemorySubType")" ValueChanged='v => _key.Fields["MemorySubType"] = v' Label="Key subtype" /></div>
-        <div class="field"><span>Media</span><WorkspaceSelect TValue="string" Options="MediaOptions" Value="@_key.Get("MediaType")" ValueChanged='v => _key.Fields["MediaType"] = v' Label="Key media" /></div>
-        <label class="field">Pickup number<input maxlength="31" value="@_key.Get("PICKUP")" @oninput='e => Set("PICKUP", e)' /></label>
-        <div class="field"><span>Icon color</span><WorkspaceSelect TValue="string" Options="IconOptions" Value="@_key.Get("IconType")" ValueChanged='v => _key.Fields["IconType"] = v' Label="Key icon color" /></div>
-    </div><p class="field-hint">Name: up to 63 UTF-8 bytes. Value and Value2 combined, and pickup number: each up to 31 bytes.</p></div>
+        @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error</div> }
+        <div class="form-grid">
+            <div class="field"><span>Type</span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Types, "Type")" Value="@_key.Get("Type")" ValueChanged="SetType" Label="Key type" /></div>
+            <label class="field">Name<input maxlength="63" value="@_key.Name" @oninput='e => Set("Title", e)' /></label>
+            @if (SwitchboardKeyOptions.SubtypeField(_key).Length > 0)
+            {
+                <div class="field field--wide"><span>@SubtypeCaption</span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Subtypes(_key), SwitchboardKeyOptions.SubtypeField(_key))" Value="@_key.Get(SwitchboardKeyOptions.SubtypeField(_key))" ValueChanged="SetSubtype" Label="Key subtype" /></div>
+            }
+            @if (SwitchboardKeyOptions.DetailField(_key).Length > 0)
+            {
+                <div class="field field--wide"><span>@(SwitchboardKeyOptions.DetailField(_key) == "PttSubTypeValue" ? "Multicast codec" : "Contact group")</span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Details(_key), SwitchboardKeyOptions.DetailField(_key))" Value="@_key.Get(SwitchboardKeyOptions.DetailField(_key))" ValueChanged="SetDetail" Label="Key subtype details" /></div>
+            }
+            @if (SwitchboardKeyOptions.HasValue(_key))
+            {
+                <label class="field">@ValueCaption<input maxlength="@SwitchboardKeyOptions.ValueLimit(_key)" value="@_key.Extension" placeholder="@ValuePlaceholder" @oninput="e => SetNumber(e, false)" /></label>
+                <label class="field">Value2<input maxlength="@SwitchboardKeyOptions.ValueLimit(_key)" value="@_key.Value2" @oninput="e => SetNumber(e, true)" /><small>Optional secondary value.</small></label>
+            }
+            @if (SwitchboardKeyOptions.HasLine(_key))
+            {
+                <div class="field"><span>SIP line</span><WorkspaceSelect TValue="string" Options="LineOptions" Value="@_key.Get("Line")" ValueChanged='v => SetValue("Line", v)' Label="Key SIP line" /><small>Primary-line assignments adapt to each target phone. Explicit SIP lines and Auto are retained.</small></div>
+            }
+            @if (_key.Get("Type") == "1")
+            {
+                <div class="field"><span>Media</span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Media, "MediaType")" Value="@_key.Get("MediaType")" ValueChanged='v => SetValue("MediaType", v)' Label="Key media" /></div>
+                <label class="field">Pickup number<input maxlength="31" value="@_key.Get("PICKUP")" @oninput='e => Set("PICKUP", e)' /></label>
+            }
+            <div class="field"><span>Icon color</span><WorkspaceSelect TValue="string" Options="@Options(SwitchboardKeyOptions.Icons, "IconType")" Value="@_key.Get("IconType")" ValueChanged='v => SetValue("IconType", v)' Label="Key icon color" /></div>
+        </div>
+        <p class="field-hint key-editor-hint">Name: 63 UTF-8 bytes. @(SwitchboardKeyOptions.ValueLimit(_key) == 127 ? "URL values: up to 127 bytes each." : "Value and Value2 combined: 31 bytes.")</p>
+    </div>
     <footer class="dialog-footer"><button type="button" class="button" @onclick="OnCancel">Cancel</button><button type="button" class="button button--primary" @onclick="Save">Use key</button></footer>
 </AppDialog>
 @code {
     [Parameter, EditorRequired] public SwitchboardKey Key { get; set; } = null!;
-    [Parameter, EditorRequired] public string Line { get; set; } = "";
+    [Parameter, EditorRequired] public string Line { get; set; } = "1";
     [Parameter] public EventCallback<SwitchboardKey> OnSaved { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
     private SwitchboardKey _key = null!;
     private string? _error;
+    private bool _invalidValue, _invalidValue2;
     protected override void OnInitialized() => _key = Key with { Fields = new(Key.Fields) };
-    private IEnumerable<SelectOption<string>> TypeOptions => Options("Type", [new("0", "None"), new("1", "Memory Key"), new("2", "Line")]);
-    private IEnumerable<SelectOption<string>> SubtypeOptions => Options("MemorySubType", [new(_key.Get("MemorySubType") is "" or "21" ? _key.Get("MemorySubType") : "21", "None"), new("91", "BLF/BXFER"), new("92", "BLF/AXFER")]);
-    private IEnumerable<SelectOption<string>> MediaOptions => Options("MediaType", [new(_key.Get("MediaType") is "" or "0" ? _key.Get("MediaType") : "0", "Default")]);
-    private IEnumerable<SelectOption<string>> IconOptions => Options("IconType", [new("Green", "Default Green"), new("Red", "Red")]);
-    private IEnumerable<SelectOption<string>> Options(string field, SelectOption<string>[] known) => known.Any(o => o.Value == _key.Get(field)) ? known : known.Append(new(_key.Get(field), $"Captured ({_key.Get(field)})"));
-    private void Set(string field, ChangeEventArgs e) { _error = null; _key.Fields[field] = e.Value?.ToString() ?? ""; }
-    private void SetNumber(ChangeEventArgs e, bool secondary) { var value = e.Value?.ToString() ?? ""; if (value.Contains('|')) { _error = "Enter Value and Value2 separately, without pipe characters."; return; } _error = null; _key.Fields["Value"] = secondary ? _key.Extension + (value.Length == 0 ? "" : "|" + value) : value + (_key.Value2.Length == 0 ? "" : "|" + _key.Value2); }
-    private void SetType(string type) { _error = null; _key.Fields["Type"] = type; if (type == "0") { _key.Fields["Title"] = ""; _key.Fields["Value"] = ""; } }
+    private IEnumerable<SelectOption<string>> Options(IEnumerable<KeyOption> options, string field) => options.Select(o => new SelectOption<string>(o.Value, o.Text)).Concat(options.Any(o => o.Value == _key.Get(field)) ? [] : new[] { new SelectOption<string>(_key.Get(field), string.IsNullOrEmpty(_key.Get(field)) ? "None (captured)" : $"Captured ({_key.Get(field)})") });
+    private IEnumerable<SelectOption<string>> LineOptions => new[] { new SelectOption<string>("-1", "Auto") }.Concat(Enumerable.Range(1, 20).Select(n => new SelectOption<string>(n.ToString(), $"SIP {n}" + (n.ToString() == Line ? " (primary)" : "")))).Append(new("23", "Mobile"));
+    private string SubtypeCaption => _key.Get("Type") switch { "3" => "Key event", "14" => "Multicast codec", "20" => "HTTP method", "24" => "PTT mode", _ => "Subtype" };
+    private string ValueCaption => _key.Get("Type") is "7" or "20" or "21" ? "URL" : _key.Get("Type") is "14" or "22" || _key.Get("Type") == "24" && _key.Get("PttSubType") == "14" ? "Multicast address" : _key.Get("Type") == "4" ? "DTMF sequence" : "Value";
+    private string ValuePlaceholder => ValueCaption switch { "URL" => "https://…", "Multicast address" => "Multicast IP address:port", _ => "" };
+    private void SetValue(string field, string value) { _error = null; _key.Fields[field] = value; }
+    private void Set(string field, ChangeEventArgs e) => SetValue(field, e.Value?.ToString() ?? "");
+    private void SetNumber(ChangeEventArgs e, bool secondary)
+    {
+        var value = e.Value?.ToString() ?? "";
+        if (secondary) _invalidValue2 = value.Contains('|'); else _invalidValue = value.Contains('|');
+        if (value.Contains('|')) { _error = "Enter Value and Value2 separately, without pipe characters."; return; }
+        _error = null;
+        _key.Fields["Value"] = secondary ? _key.Extension + (value.Length == 0 ? "" : "|" + value) : value + (_key.Value2.Length == 0 ? "" : "|" + _key.Value2);
+    }
+    private void SetType(string type) { _error = null; if (type != _key.Get("Type")) _invalidValue = _invalidValue2 = false; SwitchboardKeyOptions.ChangeType(_key, type, Line); }
+    private void SetSubtype(string value) { _error = null; SwitchboardKeyOptions.ChangeSubtype(_key, value); if (!SwitchboardKeyOptions.HasValue(_key)) _invalidValue = _invalidValue2 = false; }
+    private void SetDetail(string value) => SetValue(SwitchboardKeyOptions.DetailField(_key), value);
     private Task Save()
     {
+        if (SwitchboardKeyOptions.HasValue(_key) && (_invalidValue || _invalidValue2)) { _error = "Enter Value and Value2 separately, without pipe characters."; return Task.CompletedTask; }
         if (_error is not null) return Task.CompletedTask;
-        if (_key.Get("Type") == "1" && (string.IsNullOrWhiteSpace(_key.Name) || string.IsNullOrWhiteSpace(_key.Extension)))
-            _error = "Enter a name and a value for this Memory Key.";
-        else if (System.Text.Encoding.UTF8.GetByteCount(_key.Name) > 63 || System.Text.Encoding.UTF8.GetByteCount(_key.Get("Value")) > 31 || System.Text.Encoding.UTF8.GetByteCount(_key.Get("PICKUP")) > 31)
-            _error = "The name or number exceeds this phone's field limit. Shorten it before continuing.";
-        if (_error is not null) return Task.CompletedTask;
-        _key.Fields["Line"] = Line;
-        return OnSaved.InvokeAsync(_key);
+        if (_key.Get("Type") == "1" && string.IsNullOrWhiteSpace(_key.Name)) _error = "Enter a name for this Memory Key.";
+        else if (SwitchboardKeyOptions.HasValue(_key) && string.IsNullOrWhiteSpace(_key.Extension)) _error = $"Enter a {ValueCaption.ToLowerInvariant()} for this key.";
+        else if (System.Text.Encoding.UTF8.GetByteCount(_key.Name) > 63 || System.Text.Encoding.UTF8.GetByteCount(_key.Get("Value")) > SwitchboardKeyOptions.CombinedValueLimit(_key) || System.Text.Encoding.UTF8.GetByteCount(_key.Get("PICKUP")) > 31)
+            _error = "The name or value exceeds this key type's field limit. Shorten it before continuing.";
+        return _error is null ? OnSaved.InvokeAsync(_key) : Task.CompletedTask;
     }
 }
