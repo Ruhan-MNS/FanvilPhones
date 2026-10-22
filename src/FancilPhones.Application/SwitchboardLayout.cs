@@ -34,20 +34,29 @@ public sealed record SwitchboardLayout(List<SwitchboardKey> Keys, Dictionary<str
 public static class SwitchboardRules
 {
     public const string EmptyDirectoryMessage = "Import contacts from a captured phone, or select Include beside at least one contact in the Master key directory before previewing.";
-    public static readonly IReadOnlySet<string> SupportedIps = new HashSet<string>(StringComparer.Ordinal)
+    // These addresses retain their existing F2 policy; enrollment is capability-based.
+    public static readonly IReadOnlySet<string> ReservedProfileIps = new HashSet<string>(StringComparer.Ordinal)
     { "192.168.55.101", "192.168.55.113", "192.168.55.133", "192.168.55.147", "192.168.55.150" };
     public static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     public static string NameKey(string name) => Regex.Replace(name.Trim(), @"\s+", " ", RegexOptions.None, TimeSpan.FromSeconds(1)).ToUpperInvariant();
 
     public static void ValidateGeometry(string ip, SwitchboardLayout layout)
     {
-        if (!SupportedIps.Contains(ip)) throw new InvalidOperationException("This phone is not one of the five designated switchboards.");
         if (layout.Keys.Count != 60 || layout.Keys.Select(k => (k.Page, k.Slot)).Distinct().Count() != 60
             || layout.Keys.Any(k => k.Page is < 1 or > 5 || k.Slot is < 1 or > 12))
             throw new InvalidOperationException("A verified five-page, twelve-key layout is required.");
     }
 
     public static void Validate(string ip, SwitchboardLayout layout)
+    {
+        ValidateReserved(ip, layout);
+        if (layout.Keys.Any(k => !k.Protected && k.Get("Type") is not ("0" or "1")))
+            throw new InvalidOperationException("An editable position contains a special key. It must be reviewed before automatic ordering.");
+        var duplicate = layout.Keys.Where(k => !k.Protected && k.Name.Length > 0).GroupBy(k => NameKey(k.Name)).FirstOrDefault(g => g.Count() > 1);
+        if (duplicate is not null) throw new InvalidOperationException("Duplicate contact names on this handset must be reconciled before ordering.");
+    }
+
+    public static void ValidateReserved(string ip, SwitchboardLayout layout)
     {
         ValidateGeometry(ip, layout);
         var first = layout.Keys.Single(k => k.Page == 1 && k.Slot == 1);
@@ -56,14 +65,10 @@ public static class SwitchboardRules
             throw new InvalidOperationException("Page 1 F1 must be a configured Line key.");
         var reception = ip == "192.168.55.101";
         var expectedName = reception ? NameKey(second.Name) is "OVERIDE DAY/NIGHT" or "OVERRIDE DAY/NIGHT" : NameKey(second.Name) == "RECEPTION";
-        if (second.Get("Type") != "1" || second.Get("Value") != (reception ? "*271" : "201") || !expectedName
+        if (ReservedProfileIps.Contains(ip) && (second.Get("Type") != "1" || second.Get("Value") != (reception ? "*271" : "201") || !expectedName
             || second.Get("Line") != first.Get("Line")
-            || (reception ? second.Get("MemorySubType") is not ("" or "21") : second.Get("MemorySubType") != "91"))
+            || (reception ? second.Get("MemorySubType") is not ("" or "21") : second.Get("MemorySubType") != "91")))
             throw new InvalidOperationException("Page 1 F2 does not match the required Day/Night or Reception profile. Review the F2 setup preview before ordering contacts.");
-        if (layout.Keys.Any(k => !k.Protected && k.Get("Type") is not ("0" or "1")))
-            throw new InvalidOperationException("An editable position contains a special key. It must be reviewed before automatic ordering.");
-        var duplicate = layout.Keys.Where(k => !k.Protected && k.Name.Length > 0).GroupBy(k => NameKey(k.Name)).FirstOrDefault(g => g.Count() > 1);
-        if (duplicate is not null) throw new InvalidOperationException("Duplicate contact names on this handset must be reconciled before ordering.");
     }
 
     public static SwitchboardLayout Generate(string ip, SwitchboardLayout baseline, IReadOnlyList<SwitchboardMember> members,
@@ -113,13 +118,22 @@ public static class SwitchboardRules
     }
 }
 
-public sealed record SwitchboardPhone(int Id, string Name, string IpAddress, DateTime? CapturedAt, string? ConfigurationWarning = null);
+public sealed record SwitchboardPhone(int Id, string Name, string IpAddress, DateTime? CapturedAt, string? ConfigurationWarning = null, bool HasDraft = false);
+public sealed record SwitchboardFleetPhone(int Id, string Name, string IpAddress, bool Enabled);
+public sealed record SwitchboardEditor(int PhoneId, Guid Revision, SwitchboardLayout Baseline, SwitchboardLayout Layout, bool SortAlphabetically = true);
 public sealed record SwitchboardState(List<SwitchboardPhone> Phones, List<Contact> Contacts, List<SwitchboardMember> Members,
-    List<SwitchboardOverride> Overrides, List<SwitchboardDeployment> History);
+    List<SwitchboardOverride> Overrides, List<SwitchboardDeployment> History)
+{
+    public List<SwitchboardFleetPhone> FleetPhones { get; init; } = [];
+}
 public interface ISwitchboardService
 {
     Task<SwitchboardState> GetStateAsync(CancellationToken ct = default);
     Task CaptureAsync(int phoneId, CancellationToken ct = default);
+    Task RemovePhoneAsync(int phoneId, CancellationToken ct = default);
+    Task<SwitchboardEditor> GetEditorAsync(int phoneId, CancellationToken ct = default);
+    Task<SwitchboardEditor> SaveDraftAsync(int phoneId, Guid revision, SwitchboardLayout layout, bool sortAlphabetically = true, CancellationToken ct = default);
+    Task<SwitchboardDeployment> PreviewDraftAsync(int sourcePhoneId, int targetPhoneId, bool keepTargetNumbers, CancellationToken ct = default);
     Task ImportContactsAsync(int phoneId, CancellationToken ct = default);
     Task SetMemberAsync(int contactId, bool included, string? sortName, CancellationToken ct = default);
     Task SaveOverrideAsync(int phoneId, int contactId, string? extension, string? value2, CancellationToken ct = default);

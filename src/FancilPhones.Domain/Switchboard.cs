@@ -7,6 +7,9 @@ public sealed class SwitchboardProfile
     public int PhoneId { get; set; }
     public Phone Phone { get; set; } = null!;
     public string BaselineJson { get; set; } = "";
+    public string? DraftJson { get; set; }
+    public Guid DraftRevision { get; set; } = Guid.NewGuid();
+    public bool SortAlphabetically { get; set; } = true;
     public DateTime CapturedAt { get; set; }
     public Guid Revision { get; set; } = Guid.NewGuid();
     public Guid? LeaseId { get; set; }
@@ -39,6 +42,8 @@ public sealed class SwitchboardDeployment
     public Phone Phone { get; set; } = null!;
     [MaxLength(64)] public string IpAddress { get; set; } = "";
     public Guid ProfileRevision { get; set; }
+    public int? SourcePhoneId { get; set; }
+    public Guid? SourceRevision { get; set; }
     [MaxLength(64)] public string DirectoryHash { get; set; } = "";
     public string BeforeJson { get; set; } = "";
     public string TargetJson { get; set; } = "";

@@ -61,7 +61,8 @@ public sealed class SwitchboardLayoutTests
     {
         var layout = SwitchboardFixture.Layout();
         var member = new SwitchboardMember { ContactId = 1, Contact = new() { DisplayName = "Test", OfficeNumber = "200" } };
-        Assert.Throws<InvalidOperationException>(() => SwitchboardRules.Generate("192.168.55.136", layout, [member], []));
+        Assert.Single(SwitchboardRules.Generate("192.168.55.199", layout, [member], []).Keys, k => k.Name == "Test");
+        Assert.Throws<InvalidOperationException>(() => SwitchboardRules.ValidateGeometry("192.168.55.136", new(layout.Keys.Take(2).ToList(), [])));
         Assert.Throws<SwitchboardValidationException>(() => SwitchboardRules.Generate("192.168.55.133", layout, [], []));
         Assert.Throws<InvalidOperationException>(() => SwitchboardRules.Generate("192.168.55.133", layout, Enumerable.Repeat(member, 59).ToList(), []));
         Assert.Throws<InvalidOperationException>(() => SwitchboardRules.Generate("192.168.55.133", layout, [member, member], []));
@@ -119,7 +120,7 @@ public sealed class SwitchboardLayoutTests
     }
 }
 
-public sealed class SwitchboardServiceTests : IAsyncLifetime
+public sealed partial class SwitchboardServiceTests : IAsyncLifetime
 {
     private readonly SqliteConnection connection = new("Data Source=:memory:");
     private Factory factory = null!;
@@ -155,7 +156,7 @@ public sealed class SwitchboardServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task NonAdministratorsAndStandardHandsetsNeverReachTheDevice()
+    public async Task NonAdministratorsNeverReachDevicesAndStandardHandsetsCannotBeEnrolled()
     {
         var viewer = Service(false);
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => viewer.CaptureAsync(1));
@@ -165,9 +166,15 @@ public sealed class SwitchboardServiceTests : IAsyncLifetime
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => viewer.SetMemberAsync(1, true, null));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => viewer.ImportContactsAsync(1));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => viewer.SaveOverrideAsync(1, 1, null, null));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Service().CaptureAsync(2));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => viewer.GetEditorAsync(1));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => viewer.SaveDraftAsync(1, Guid.NewGuid(), device.Layout));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => viewer.PreviewDraftAsync(1, 2, true));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => viewer.RemovePhoneAsync(1));
         Assert.Equal(0, device.Logins);
-        Assert.Single((await Service().GetStateAsync()).Phones);
+        await Assert.ThrowsAsync<InvalidDataException>(() => Service().CaptureAsync(2));
+        Assert.Equal(1, device.Logins);
+        Assert.Equal(0, device.Writes);
+        Assert.Empty((await Service().GetStateAsync()).Phones);
     }
 
     [Fact]
@@ -376,12 +383,14 @@ internal static class SwitchboardFixture
     public sealed class Device : IFanvilClientFactory
     {
         public SwitchboardLayout Layout { get; } = SwitchboardFixture.Layout();
+        public Dictionary<string, SwitchboardLayout> Layouts { get; } = [];
         public int Logins, Writes, FailPage;
         public Action<CancellationToken>? BeforeWrite;
-        public IFanvilClient Create(string host, bool useTls, TimeSpan? connectTimeout = null) => new Client(this);
-        private sealed class Client(Device device) : IFanvilClient
+        public IFanvilClient Create(string host, bool useTls, TimeSpan? connectTimeout = null) => new Client(this, host);
+        private sealed class Client(Device device, string host) : IFanvilClient
         {
             private int page = 1;
+            private SwitchboardLayout Layout => device.Layouts.GetValueOrDefault(host, device.Layout);
             public Task<(bool ok, string message)> LoginAsync(string username, string password, CancellationToken ct = default)
             { ct.ThrowIfCancellationRequested(); device.Logins++; return Task.FromResult((true, "OK")); }
             public Task LogoutAsync(CancellationToken ct = default) => Task.CompletedTask;
@@ -397,11 +406,11 @@ internal static class SwitchboardFixture
                     device.BeforeWrite?.Invoke(ct); ct.ThrowIfCancellationRequested();
                     if (page == device.FailPage) throw new IOException("Synthetic write failure");
                     device.Writes++;
-                    foreach (var key in device.Layout.Keys.Where(k => k.Page == page))
+                    foreach (var key in Layout.Keys.Where(k => k.Page == page))
                         foreach (var name in key.Fields.Keys.ToArray()) key.Fields[name] = fields[$"SIDE_Key_{name}_RW({key.Slot})"];
                 }
                 else throw new InvalidOperationException("Unexpected mutation");
-                return Task.FromResult(new FanvilResponse { StatusCode = 200, Body = Html(device.Layout, page) });
+                return Task.FromResult(new FanvilResponse { StatusCode = 200, Body = host == "192.168.55.136" ? "<form>Standard phone with two DSS keys</form>" : Html(Layout, page) });
             }
             public void Dispose() { }
         }

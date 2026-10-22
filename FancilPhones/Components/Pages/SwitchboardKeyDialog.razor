@@ -1,0 +1,44 @@
+<AppDialog Open="true" Title="@($"Edit Page {Key.Page} · F{Key.Slot}")" Description="Changes stay in the layout until you review and sync it." OnClose="OnCancel">
+    <div class="dialog-body">
+    @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error</div> }
+    <div class="form-grid">
+        <div class="field"><span>Type</span><WorkspaceSelect TValue="string" Options="TypeOptions" Value="@_key.Get("Type")" ValueChanged="SetType" Label="Key type" /></div>
+        <label class="field">SIP line<input value="@Line" readonly /><small>Each phone uses its own SIP line.</small></label>
+        <label class="field field--wide">Name<input maxlength="63" value="@_key.Name" @oninput='e => Set("Title", e)' /></label>
+        <label class="field">Value<input maxlength="31" value="@_key.Extension" @oninput="e => SetNumber(e, false)" /></label>
+        <label class="field">Value2<input maxlength="31" value="@_key.Value2" @oninput="e => SetNumber(e, true)" /></label>
+        <div class="field"><span>Subtype</span><WorkspaceSelect TValue="string" Options="SubtypeOptions" Value="@_key.Get("MemorySubType")" ValueChanged='v => _key.Fields["MemorySubType"] = v' Label="Key subtype" /></div>
+        <div class="field"><span>Media</span><WorkspaceSelect TValue="string" Options="MediaOptions" Value="@_key.Get("MediaType")" ValueChanged='v => _key.Fields["MediaType"] = v' Label="Key media" /></div>
+        <label class="field">Pickup number<input maxlength="31" value="@_key.Get("PICKUP")" @oninput='e => Set("PICKUP", e)' /></label>
+        <div class="field"><span>Icon color</span><WorkspaceSelect TValue="string" Options="IconOptions" Value="@_key.Get("IconType")" ValueChanged='v => _key.Fields["IconType"] = v' Label="Key icon color" /></div>
+    </div><p class="field-hint">Name: up to 63 UTF-8 bytes. Value and Value2 combined, and pickup number: each up to 31 bytes.</p></div>
+    <footer class="dialog-footer"><button type="button" class="button" @onclick="OnCancel">Cancel</button><button type="button" class="button button--primary" @onclick="Save">Use key</button></footer>
+</AppDialog>
+@code {
+    [Parameter, EditorRequired] public SwitchboardKey Key { get; set; } = null!;
+    [Parameter, EditorRequired] public string Line { get; set; } = "";
+    [Parameter] public EventCallback<SwitchboardKey> OnSaved { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    private SwitchboardKey _key = null!;
+    private string? _error;
+    protected override void OnInitialized() => _key = Key with { Fields = new(Key.Fields) };
+    private IEnumerable<SelectOption<string>> TypeOptions => Options("Type", [new("0", "None"), new("1", "Memory Key"), new("2", "Line")]);
+    private IEnumerable<SelectOption<string>> SubtypeOptions => Options("MemorySubType", [new(_key.Get("MemorySubType") is "" or "21" ? _key.Get("MemorySubType") : "21", "None"), new("91", "BLF/BXFER"), new("92", "BLF/AXFER")]);
+    private IEnumerable<SelectOption<string>> MediaOptions => Options("MediaType", [new(_key.Get("MediaType") is "" or "0" ? _key.Get("MediaType") : "0", "Default")]);
+    private IEnumerable<SelectOption<string>> IconOptions => Options("IconType", [new("Green", "Default Green"), new("Red", "Red")]);
+    private IEnumerable<SelectOption<string>> Options(string field, SelectOption<string>[] known) => known.Any(o => o.Value == _key.Get(field)) ? known : known.Append(new(_key.Get(field), $"Captured ({_key.Get(field)})"));
+    private void Set(string field, ChangeEventArgs e) { _error = null; _key.Fields[field] = e.Value?.ToString() ?? ""; }
+    private void SetNumber(ChangeEventArgs e, bool secondary) { var value = e.Value?.ToString() ?? ""; if (value.Contains('|')) { _error = "Enter Value and Value2 separately, without pipe characters."; return; } _error = null; _key.Fields["Value"] = secondary ? _key.Extension + (value.Length == 0 ? "" : "|" + value) : value + (_key.Value2.Length == 0 ? "" : "|" + _key.Value2); }
+    private void SetType(string type) { _error = null; _key.Fields["Type"] = type; if (type == "0") { _key.Fields["Title"] = ""; _key.Fields["Value"] = ""; } }
+    private Task Save()
+    {
+        if (_error is not null) return Task.CompletedTask;
+        if (_key.Get("Type") == "1" && (string.IsNullOrWhiteSpace(_key.Name) || string.IsNullOrWhiteSpace(_key.Extension)))
+            _error = "Enter a name and a value for this Memory Key.";
+        else if (System.Text.Encoding.UTF8.GetByteCount(_key.Name) > 63 || System.Text.Encoding.UTF8.GetByteCount(_key.Get("Value")) > 31 || System.Text.Encoding.UTF8.GetByteCount(_key.Get("PICKUP")) > 31)
+            _error = "The name or number exceeds this phone's field limit. Shorten it before continuing.";
+        if (_error is not null) return Task.CompletedTask;
+        _key.Fields["Line"] = Line;
+        return OnSaved.InvokeAsync(_key);
+    }
+}

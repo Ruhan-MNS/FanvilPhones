@@ -186,6 +186,12 @@ namespace FancilPhones.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<int?>("SourcePhoneId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("SourceRevision")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -254,6 +260,12 @@ namespace FancilPhones.Infrastructure.Migrations
                     b.Property<DateTime>("CapturedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("DraftJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("DraftRevision")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("LeaseId")
                         .HasColumnType("uniqueidentifier");
 
@@ -263,6 +275,9 @@ namespace FancilPhones.Infrastructure.Migrations
                     b.Property<Guid>("Revision")
                         .IsConcurrencyToken()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("SortAlphabetically")
+                        .HasColumnType("bit");
 
                     b.HasKey("PhoneId");
 

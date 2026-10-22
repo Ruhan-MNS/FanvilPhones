@@ -34,9 +34,9 @@ public sealed class AuthenticationTests
         if (expected == HttpStatusCode.OK)
         {
             var html = await response.Content.ReadAsStringAsync();
-            Assert.Contains("Master key directory", html);
-            Assert.Contains("Choose your switchboard contacts", html);
-            Assert.Contains("Preview becomes available once contacts are selected.", html);
+            Assert.Contains("Add switchboard from phone fleet", html);
+            Assert.Contains("Add your first switchboard", html);
+            Assert.Contains("Edit one layout. Sync the phones you choose.", html);
             Assert.Contains("Delivery history and backups", html);
             Assert.DoesNotContain("The operation could not be completed", html);
         }
