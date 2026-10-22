@@ -20,7 +20,7 @@
     private bool _loading = true;
     private string? _error;
     private string _action = "All", _status = "All", _search = "";
-    private static readonly SelectOption<string>[] ActionOptions = [new("All", "All actions"), new("Sync", "Sync"), new("Push", "Push"), new("Probe", "Probe")];
+    private static readonly SelectOption<string>[] ActionOptions = [new("All", "All actions"), new("Sync", "Sync"), new("Push", "Push"), new("Probe", "Probe"), new("SipRead", "Read SIP settings")];
     private static readonly SelectOption<string>[] StatusOptions = [new("All", "All results"), new("Success", "Success"), new("Failed", "Failed"), new("Error", "Error"), new("Running", "Running"), new("Cancelled", "Cancelled"), new("TimedOut", "Timed out"), new("Pending", "Pending")];
     private int _page = 1, _pageSize = 25;
     private List<SyncRun> Filtered => _runs.Where(r => (_action == "All" || r.Action == _action) && (_status == "All" || r.Status == _status) && (string.IsNullOrWhiteSpace(_search) || new[] { r.Phone?.Name, r.Phone?.IpAddress, r.Message }.Any(s => s?.Contains(_search, StringComparison.OrdinalIgnoreCase) == true))).ToList();

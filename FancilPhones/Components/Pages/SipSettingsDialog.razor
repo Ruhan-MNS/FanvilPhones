@@ -1,0 +1,88 @@
+@inherits AsyncComponentBase
+@inject IPhoneSyncService SyncSvc
+@inject UiFeedback Feedback
+@inject ILogger<SipSettingsDialog> Logger
+<AppDialog Open="true" Title="SIP settings" Description="Read the current line settings, edit them, then apply the reviewed changes." Busy="@_busy" OnClose="OnCancel">
+    <div class="dialog-body">
+        <p><strong>@Phone.Name</strong> · @Phone.IpAddress</p>
+        <div class="form-grid">
+            <label class="field">Line number<InputNumber @bind-Value="_line" min="1" max="16" disabled="@_busy" /></label>
+            <AsyncButton Class="button" Text="Reload from phone" BusyText="Reading…" Icon="refresh" Busy="_loading" disabled="@_busy" OnClick="LoadAsync" />
+        </div>
+        @if (_error is not null) { <div class="alert alert--danger" role="alert">@_error</div> }
+        @if (_loading) { <p role="status">Reading the current SIP settings from the phone…</p> }
+        @if (_snapshot is not null && _settings is not null)
+        {
+            <p role="status">Line @_snapshot.LineIndex · @_snapshot.LineStatus</p>
+            <EditForm Model="_settings" OnValidSubmit="PushAsync" FormName="sip-settings-editor">
+                <DataAnnotationsValidator /><ValidationSummary />
+                <fieldset disabled="@_busy"><legend>SIP account</legend><div class="form-grid">
+                    <label class="field">Display name<TextFieldInput @bind-Value="_settings.DisplayName" maxlength="63" /></label>
+                    <label class="field">Username / extension<TextFieldInput @bind-Value="_settings.Username" maxlength="39" /></label>
+                    <label class="field">Authentication User<TextFieldInput @bind-Value="_settings.AuthenticationUser" maxlength="199" autocomplete="off" /></label>
+                    <label class="field">Replacement Authentication Password<TextFieldInput @bind-Value="_settings.ReplacementPassword" type="password" maxlength="199" autocomplete="new-password" /><small>Leave blank to keep the phone’s existing password. Existing passwords cannot be read.</small></label>
+                    <label class="field">Realm<TextFieldInput @bind-Value="_settings.Realm" maxlength="63" /></label>
+                    <label class="field">Server name<TextFieldInput @bind-Value="_settings.ServerName" maxlength="63" /></label>
+                    <label class="field">SIP Server 1 address<TextFieldInput @bind-Value="_settings.ServerAddress" maxlength="255" /></label>
+                    <label class="field">SIP Server 1 port<InputNumber @bind-Value="_settings.ServerPort" min="1" max="65535" /></label>
+                    <label class="field">SIP Server 2 address<TextFieldInput @bind-Value="_settings.BackupServerAddress" maxlength="255" /></label>
+                    <label class="field">SIP Server 2 port<InputNumber @bind-Value="_settings.BackupServerPort" min="1" max="65535" /></label>
+                    <label class="check-row field--wide"><InputCheckbox @bind-Value="_settings.RegistrationEnabled" /><span>Activate SIP registration</span></label>
+                </div></fieldset>
+                <p class="field-hint">Values are loaded from the handset. Unedited settings and existing passwords are preserved. Reloading discards your edits. Changes on the phone since loading require a fresh review.</p>
+                <footer class="dialog-footer"><button type="button" class="button" disabled="@_busy" @onclick="OnCancel">Close</button><AsyncButton Type="submit" Class="button button--primary" Text="Push SIP settings" BusyText="Applying and verifying…" Icon="badge" Busy="_pushing" disabled="@(_busy || _snapshot.LineIndex != _line || _mustReload)" /></footer>
+            </EditForm>
+        }
+        else
+        {
+            <footer class="dialog-footer"><button type="button" class="button" disabled="@_busy" @onclick="OnCancel">Close</button></footer>
+        }
+    </div>
+</AppDialog>
+@code {
+    [Parameter, EditorRequired] public Phone Phone { get; set; } = null!;
+    [Parameter] public EventCallback OnCancel { get; set; }
+    private SipSettingsSnapshot? _snapshot;
+    private SipLineSettings? _settings;
+    private int _line;
+    private bool _busy, _loading, _pushing, _mustReload;
+    private string? _error;
+    protected override async Task OnInitializedAsync() { _line = Phone.SipLineIndex; await LoadAsync(); }
+    private async Task LoadAsync()
+    {
+        if (_busy || IsDisposed) return;
+        if (_line is < 1 or > 16) { _error = "Choose a SIP line between 1 and 16."; return; }
+        _busy = _loading = true; _error = null; _snapshot = null; _settings = null;
+        using var activity = BeginActivity($"Reading SIP line {_line} on {Phone.Name}…");
+        try
+        {
+            _snapshot = await SyncSvc.ReadSipSettingsAsync(Phone.Id, _line, LifetimeToken);
+            LifetimeToken.ThrowIfCancellationRequested();
+            _settings = _snapshot.Settings.Copy(); _mustReload = false;
+        }
+        catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
+        catch (Exception ex) { Logger.LogWarning(ex, "Could not read SIP settings for phone {PhoneId}.", Phone.Id); _error = ex.Message; }
+        finally { _busy = _loading = false; }
+    }
+    private async Task PushAsync()
+    {
+        if (_busy || _mustReload || _snapshot is null || _settings is null || _line != _snapshot.LineIndex || IsDisposed) return;
+        _busy = _pushing = true; _error = null;
+        try
+        {
+            if (!await Feedback.ConfirmAsync("Push SIP settings", $"Apply the edited settings to line {_snapshot.LineIndex} on {Phone.Name}? The phone will re-register if required. A blank replacement password keeps the existing password.", "Apply settings", ct: LifetimeToken)) return;
+            using var activity = BeginActivity($"Applying and verifying SIP settings on {Phone.Name}…");
+            _mustReload = true;
+            var result = await SyncSvc.PushSipSettingsAsync(_snapshot, _settings, LifetimeToken);
+            LifetimeToken.ThrowIfCancellationRequested();
+            _settings.ReplacementPassword = null;
+            if (!result.ok) { _error = result.message + " Reload from phone before applying again."; return; }
+            Feedback.Notify(result.message, "success");
+            _snapshot = await SyncSvc.ReadSipSettingsAsync(Phone.Id, _line, LifetimeToken);
+            _settings = _snapshot.Settings.Copy(); _mustReload = false;
+        }
+        catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
+        catch (Exception ex) { Logger.LogWarning(ex, "Could not apply SIP settings for phone {PhoneId}.", Phone.Id); _error = "Could not complete verification. Reload from phone before retrying."; }
+        finally { if (_settings is not null) _settings.ReplacementPassword = null; _busy = _pushing = false; }
+    }
+}

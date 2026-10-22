@@ -50,6 +50,8 @@ public interface IPhoneSyncService
     Task<IReadOnlyList<SyncResult>> SyncSelectedAsync(IReadOnlyCollection<int> phoneIds, CancellationToken ct = default, IProgress<SyncProgress>? progress = null);
     Task<SyncResult> SyncOneAsync(int phoneId, CancellationToken ct = default);
     Task<(bool ok, string message)> PushSipDisplayNameAsync(int phoneId, CancellationToken ct = default);
+    Task<SipSettingsSnapshot> ReadSipSettingsAsync(int phoneId, int lineIndex, CancellationToken ct = default);
+    Task<(bool ok, string message)> PushSipSettingsAsync(SipSettingsSnapshot baseline, SipLineSettings settings, CancellationToken ct = default);
     Task<(bool reachable, int? status, string message)> ProbeAsync(Phone phone, CancellationToken ct = default);
 }
 

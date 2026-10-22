@@ -48,6 +48,8 @@ public sealed class PhoneDirectoryTests : IAsyncLifetime
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => sync.SyncAllAsync());
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => sync.SyncOneAsync(1));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => sync.PushSipDisplayNameAsync(1));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => sync.ReadSipSettingsAsync(1, 1));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => sync.PushSipSettingsAsync(new(1, 1, "fingerprint", "Registered", new()), new()));
     }
 
     [Fact]
