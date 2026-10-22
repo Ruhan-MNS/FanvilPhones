@@ -29,6 +29,8 @@
     --info: #aeb9ef;
     --sidebar: 246px;
     --header: 74px;
+    /* Above workspace navigation (110), below Radzen's modal layer (1000). */
+    --layer-workspace-activity: 120;
     --rz-primary: var(--accent);
     --rz-icon-font-family: 'Material Symbols';
     --rz-icon-size: 21px;
@@ -2439,7 +2441,7 @@ progress::-webkit-progress-value {
     inset-inline: 0;
     height: 3px;
     overflow: hidden;
-    z-index: 2100;
+    z-index: var(--layer-workspace-activity);
     pointer-events: none;
     background: var(--accent-soft);
 }
@@ -2455,7 +2457,7 @@ progress::-webkit-progress-value {
     position: fixed;
     inset-inline-end: 22px;
     bottom: 22px;
-    z-index: 2100;
+    z-index: var(--layer-workspace-activity);
     display: flex;
     align-items: center;
     gap: 12px;
