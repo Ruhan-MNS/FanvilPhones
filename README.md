@@ -8,6 +8,8 @@ The voice workspace uses Radzen icons and Radzen dialogs with a custom warm grap
 
 The responsive shell includes a collapsible desktop sidebar and mobile navigation. Fleet, phonebook, and activity tables include search, filters, pagination, and contained horizontal scrolling on smaller screens. Editors use validated Blazor forms; text fields update validation while typing. Imports, deletions, SIP pushes, and fleet synchronization show explicit confirmation dialogs. Informational notifications dismiss after seven seconds; warnings and errors remain until dismissed.
 
+The Switchboard keys page uses the same shared dropdowns, buttons, typography, and theme tokens. Its scoped stylesheet provides responsive handset cards, a setup guide, directory capacity and inclusion filters, protected-key reference panels, and paged before/after comparisons with a changed-keys filter.
+
 Shared UI components live in `FancilPhones/Components/Shared`, circuit-scoped feedback lives in `FancilPhones/UI`, and visual tokens and layout rules live in `FancilPhones/wwwroot/app.css`. `AppDialog` adapts controlled component state to Radzen's dialog lifecycle; it does not implement a separate modal system.
 
 ## Architecture

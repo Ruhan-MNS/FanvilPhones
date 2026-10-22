@@ -5,94 +5,126 @@
 @inject UiFeedback Feedback
 @inject ILogger<Switchboards> Logger
 
-<PageTitle>Switchboard keys · Fanvil Phones</PageTitle>
-<PageHeader Title="Switchboard keys" Description="Maintain one directory and preview alphabetical key layouts for the five switchboards.">
-    <AsyncButton Text="Refresh" Icon="refresh" Busy="_busy" OnClick="RefreshAsync" />
-    <button class="button button--primary" disabled="@Disabled" @onclick="() => _editing = new Contact()">Add contact</button>
-</PageHeader>
-@if (_error is not null) { <div class="alert alert--danger" role="alert">@_error</div> }
-@if (_validationMessage is not null) { <div class="alert alert--warning" role="status">@_validationMessage</div> }
-<LoadingState Visible="_busy" Text="@_working" />
-<aside class="help-note"><RadzenIcon Icon="lock" aria-hidden="true" /><div><strong>F1 and F2 stay fixed on Page 1</strong><p>Reception keeps Line and Override Day/Night (*271). The other four keep Line and Reception (201). Contacts fill the remaining 58 positions across five pages. Standard handsets are excluded.</p></div></aside>
-@if (!_busy && _state.Members.Count == 0)
-{
-    <aside class="help-note" role="status"><RadzenIcon Icon="playlist_add" aria-hidden="true" /><div><strong>Choose your switchboard contacts</strong><p>Capture a phone, then use its <strong>Import contacts</strong> action. You can also select <strong>Include</strong> beside contacts in the <a href="#switchboard-directory">Master key directory</a>. Preview becomes available once contacts are selected.</p></div></aside>
-}
+<div class="sb-workspace">
+    <PageTitle>Switchboard keys · Fanvil Phones</PageTitle>
+    <PageHeader Title="Switchboard keys" Eyebrow="Voice operations" Description="One directory. Five switchboards. Every key in order.">
+        <AsyncButton Text="Refresh" BusyText="Refreshing…" Icon="refresh" Busy="_busy" OnClick="RefreshAsync" />
+    </PageHeader>
 
-<section class="section-block">
-    <div class="section-heading"><div><h2>Switchboards</h2><p>Capture and import each phone before the first deployment. Captures read settings without changing keys.</p></div></div>
-    <div class="table-wrap"><table><thead><tr><th>Select</th><th>Phone</th><th>Template</th><th>Last capture</th><th>Actions</th></tr></thead><tbody>
-    @foreach (var phone in _state.Phones)
-    {
-        <tr @key="phone.Id"><td><input type="checkbox" aria-label="@($"Select {phone.Name}")" checked="@_selected.Contains(phone.Id)" disabled="@Disabled" @onchange="e => SelectPhone(phone.Id, e.Value is true)" /></td><td><strong>@phone.Name</strong><small class="mono">@phone.IpAddress</small></td><td>@(phone.IpAddress == "192.168.55.101" ? "Reception · Day/Night" : "Switchboard · Reception")@if (phone.ConfigurationWarning is not null) { <small role="status">@phone.ConfigurationWarning</small> }</td><td>@(phone.CapturedAt is null ? "Not captured" : UiFormat.Date(phone.CapturedAt))</td><td><div class="row-actions">
-            <AsyncButton Text="Capture" Disabled="_busy" OnClick="() => CaptureAsync(phone)" />
-            <AsyncButton Text="Import contacts" Disabled="@(_busy || phone.CapturedAt is null)" OnClick="() => ImportAsync(phone)" />
-            <AsyncButton Text="Preview" Disabled="@(_busy || phone.CapturedAt is null || _state.Members.Count == 0)" OnClick="() => PreviewAsync([phone.Id])" />
-            @if (phone.ConfigurationWarning?.Contains("F2") == true) { <AsyncButton Text="Preview F2 setup" Disabled="_busy" OnClick="() => SetupAsync(phone.Id)" /> }
-        </div></td></tr>
-    }
-    @if (_state.Phones.Count == 0) { <tr><td colspan="5" class="empty-cell">Add the five designated switchboards in Phone fleet to begin.</td></tr> }
-    </tbody></table></div>
-    <div class="switchboard-actions"><AsyncButton Text="Preview selected phones" Icon="preview" Disabled="@(_busy || _selected.Count == 0 || _state.Members.Count == 0 || _state.Phones.Any(p => _selected.Contains(p.Id) && p.CapturedAt is null))" OnClick="() => PreviewAsync(_selected.ToArray())" /><span class="muted">@_selected.Count selected</span></div>
-</section>
+    @if (_error is not null) { <div class="alert alert--danger" role="alert"><RadzenIcon Icon="error_outline" aria-hidden="true" />@_error</div> }
+    @if (_validationMessage is not null) { <div class="sb-notice" role="status"><RadzenIcon Icon="info" aria-hidden="true" />@_validationMessage</div> }
+    <LoadingState Visible="_busy" Text="@_working" />
 
-@if (_previews.Count > 0)
-{
-    <section class="section-block" aria-label="Deployment preview">
-        <div class="section-heading"><div><h2>Review key changes</h2><p>All positions are shown. Changed rows are marked; protected keys are locked. Previews expire after 30 minutes.</p></div><AsyncButton Class="button button--primary" Text="Deploy reviewed previews" Icon="send" Disabled="@(_busy || _previews.Any(p => p.Status != "Preview"))" OnClick="DeployAsync" /></div>
-        @if (_delivering) { <AsyncButton Text="Stop delivery" Icon="stop" OnClick="CancelDelivery" /> }
-        @foreach (var preview in _previews)
-        {
-            var before = SwitchboardLayout.FromJson(preview.BeforeJson);
-            var target = SwitchboardLayout.FromJson(preview.TargetJson);
-            <h3>@PhoneName(preview.PhoneId) · @preview.IpAddress <span class="badge">@preview.Status</span></h3>
-            <p>@preview.Message</p>
-            <div class="table-wrap switchboard-preview"><table><thead><tr><th>Position</th><th>Change</th><th>Previous settings</th><th>Type</th><th>New name</th><th>Value</th><th>Value2</th><th>Subtype</th><th>SIP line</th><th>Media / pickup / icon</th></tr></thead><tbody>
-            @foreach (var key in target.Keys)
-            {
-                var old = before.Keys.Single(k => k.Page == key.Page && k.Slot == key.Slot);
-                var changed = Changed(old, key);
-                <tr class="@(changed ? "switchboard-changed" : "")"><td>@($"Page {key.Page} · F{key.Slot}")</td><td>@(key.Protected ? changed && preview.Purpose == "TemplateSetup" ? "F2 setup" : "Locked" : changed ? "Changed" : "Unchanged")</td><td>@old.Name <small>@old.Extension @(old.Value2.Length > 0 ? $" / {old.Value2}" : "")</small><small>@old.TypeLabel · @Subtype(old) · SIP line @old.Get("Line")</small></td><td>@key.TypeLabel</td><td>@key.Name</td><td class="mono">@key.Extension</td><td class="mono">@key.Value2</td><td>@Subtype(key)</td><td>@key.Get("Line")</td><td>@key.Get("MediaType") / @key.Get("PICKUP") / @key.Get("IconType")</td></tr>
-            }
-            </tbody></table></div>
-        }
+    <section class="sb-overview" aria-label="Switchboard overview">
+        <div class="sb-overview-intro"><span class="sb-kicker">YOUR WORKSPACE</span><strong>Keep the whole desk in sync.</strong><p>Capture the current keys, choose your contacts, then review the changes.</p></div>
+        <dl class="sb-stats">
+            <div><dt>Phones captured</dt><dd>@CapturedCount<span> / @_state.Phones.Count</span></dd></div>
+            <div><dt>Key contacts</dt><dd class="@(_state.Members.Count > 58 ? "sb-over-capacity" : "")">@_state.Members.Count<span> / 58</span></dd></div>
+            <div><dt>Need review</dt><dd>@ReviewCount<span>@(ReviewCount == 1 ? " phone" : " phones")</span></dd></div>
+        </dl>
     </section>
-}
 
-<section class="section-block" id="switchboard-directory">
-    <div class="section-heading"><div><h2>Master key directory <span class="count-label">@_state.Members.Count / 58</span></h2><p>Uses the shared phonebook. Include contacts here; edit their names and office numbers once for all switchboards.</p></div></div>
-    <label class="search-field"><RadzenIcon Icon="search" /><input type="search" placeholder="Search contacts…" aria-label="Search switchboard contacts" @bind="_search" @bind:event="oninput" @bind:after="ResetPage" /></label>
-    <div class="table-wrap"><table><thead><tr><th>Include</th><th>Contact</th><th>Office number</th><th>Sort name (optional)</th><th>Actions</th></tr></thead><tbody>
-    @foreach (var contact in PagedContacts)
+    <nav class="sb-workflow" aria-label="Key management steps">
+        <a href="#sb-phones" class="@(CapturedCount > 0 ? "is-complete" : "is-current")" aria-current="@(CapturedCount == 0 ? "step" : null)"><span class="sb-step">01</span><span><strong>Capture phones</strong><small>Read the existing configuration</small></span><RadzenIcon Icon="@(CapturedCount > 0 ? "check" : "arrow_forward")" aria-hidden="true" /></a>
+        <a href="#switchboard-directory" class="@(_state.Members.Count > 0 ? "is-complete" : CapturedCount > 0 ? "is-current" : "")" aria-current="@(CapturedCount > 0 && _state.Members.Count == 0 ? "step" : null)"><span class="sb-step">02</span><span><strong>Choose contacts</strong><small>Build your alphabetical directory</small></span><RadzenIcon Icon="@(_state.Members.Count > 0 ? "check" : "arrow_forward")" aria-hidden="true" /></a>
+        <a href="@(_previews.Count > 0 ? "#sb-review" : "#sb-phones")" class="@(CapturedCount > 0 && _state.Members.Count > 0 ? "is-current" : "")" aria-current="@(CapturedCount > 0 && _state.Members.Count > 0 ? "step" : null)"><span class="sb-step">03</span><span><strong>Preview &amp; deploy</strong><small>Review every change before sending</small></span><RadzenIcon Icon="arrow_forward" aria-hidden="true" /></a>
+    </nav>
+
+    <section id="sb-phones" class="sb-section" aria-labelledby="sb-phones-title">
+        <header class="sb-section-heading"><div><span class="sb-kicker">01 / HANDSETS</span><h2 id="sb-phones-title">Your switchboards <span class="count-label">@_state.Phones.Count</span></h2><p>Only these phones receive the multi-page key layout.</p></div><span class="sb-security-note"><RadzenIcon Icon="lock_outline" aria-hidden="true" />F1 &amp; F2 protected on Page 1</span></header>
+        @if (!_busy && _state.Members.Count == 0)
+        {
+            <div class="sb-onboarding" role="status"><div class="sb-onboarding-icon"><RadzenIcon Icon="playlist_add" aria-hidden="true" /></div><div><strong>Choose your switchboard contacts</strong><p>Start with <strong>Capture</strong>, then <strong>Import contacts</strong> on a phone below, or select <strong>Include</strong> in the <a href="#switchboard-directory">Master key directory</a>. Preview becomes available once contacts are selected.</p></div></div>
+        }
+        <div class="sb-device-grid">
+            @foreach (var phone in _state.Phones)
+            {
+                var selected = _selected.Contains(phone.Id);
+                var needsReview = phone.ConfigurationWarning is not null;
+                <article @key="phone.Id" class="sb-device @(selected ? "is-selected" : "") @(needsReview ? "needs-review" : "")" aria-label="@($"{phone.Name}, {phone.IpAddress}")">
+                    <div class="sb-device-top"><span class="sb-device-icon"><RadzenIcon Icon="@(phone.IpAddress == "192.168.55.101" ? "support_agent" : "deskphone")" aria-hidden="true" /></span><label class="sb-card-selection"><span>Select</span><input type="checkbox" aria-label="@($"Select {phone.Name}")" checked="@selected" disabled="@Disabled" @onchange="e => SelectPhone(phone.Id, e.Value is true)" /></label></div>
+                    <h3>@phone.Name</h3><span class="mono sb-ip">@phone.IpAddress</span>
+                    <div class="sb-device-state"><span class="sb-state @(needsReview ? "sb-state--warning" : phone.CapturedAt is not null ? "sb-state--success" : "")"><span></span>@(needsReview ? "Needs review" : phone.CapturedAt is not null ? "Captured" : "Capture required")</span><span class="sb-device-kind">@(phone.IpAddress == "192.168.55.101" ? "Reception" : "Switchboard")</span></div>
+                    <div class="sb-device-meta"><span>Last capture</span><time>@(phone.CapturedAt is null ? "Not captured yet" : UiFormat.Date(phone.CapturedAt))</time></div>
+                    @if (needsReview)
+                    {
+                        <details class="sb-device-warning"><summary><RadzenIcon Icon="warning_amber" aria-hidden="true" />Configuration needs attention</summary><p>@phone.ConfigurationWarning</p></details>
+                        @if (phone.ConfigurationWarning?.Contains("F2") == true) { <AsyncButton Text="Preview F2 setup" Icon="build" Class="button sb-setup-action" Disabled="_busy" OnClick="() => SetupAsync(phone.Id)" /> }
+                    }
+                    <div class="sb-device-actions"><AsyncButton Text="Capture" Icon="download" Disabled="_busy" OnClick="() => CaptureAsync(phone)" /><AsyncButton Text="Import contacts" Icon="playlist_add" Disabled="@(_busy || phone.CapturedAt is null)" OnClick="() => ImportAsync(phone)" /></div>
+                    <AsyncButton Text="Preview" Icon="preview" Class="button sb-device-preview" Disabled="@(_busy || phone.CapturedAt is null || _state.Members.Count == 0 || needsReview)" OnClick="() => PreviewAsync([phone.Id])" />
+                </article>
+            }
+        </div>
+        @if (_state.Phones.Count == 0 && !_busy) { <div class="sb-empty"><RadzenIcon Icon="deskphone" aria-hidden="true" /><strong>No switchboards configured</strong><p>Add the designated switchboards in Phone fleet to get started.</p><a class="button" href="/phones">Open phone fleet</a></div> }
+        <div class="sb-selection-bar"><div><RadzenIcon Icon="checklist" aria-hidden="true" /><strong>@_selected.Count selected</strong><span>Preview each selected phone together.</span></div><AsyncButton Text="Preview selected phones" Icon="arrow_forward" Class="button button--primary" Disabled="@(_busy || _selected.Count == 0 || _state.Members.Count == 0 || _state.Phones.Any(p => _selected.Contains(p.Id) && (p.CapturedAt is null || p.ConfigurationWarning is not null)))" OnClick="() => PreviewAsync(_selected.ToArray())" /></div>
+    </section>
+
+    @if (_previews.Count > 0)
     {
-        var included = _state.Members.Any(m => m.ContactId == contact.Id);
-        <tr @key="contact.Id"><td><input type="checkbox" checked="@included" aria-label="@($"Include {contact.DisplayName}")" disabled="@Disabled" @onchange="e => SetMemberAsync(contact.Id, e.Value is true)" /></td><td>@contact.DisplayName</td><td class="mono">@contact.OfficeNumber</td><td><label class="field"><input aria-label="@($"Sort name for {contact.DisplayName}")" maxlength="128" disabled="@Disabled" @bind="_sortNames[contact.Id]" /></label></td><td><div class="row-actions"><AsyncButton Text="Save sort" Disabled="@(_busy || !included)" OnClick="() => SetMemberAsync(contact.Id, true)" /><button class="button" disabled="@Disabled" @onclick="() => EditContact(contact)">Edit contact</button></div></td></tr>
+        <section id="sb-review" class="sb-section sb-review" aria-label="Deployment preview">
+            <header class="sb-section-heading"><div><span class="sb-kicker">03 / REVIEW</span><h2>Review key changes</h2><p>Compare the current keys with the proposed layout. Previews expire after 30 minutes.</p></div><div class="sb-review-actions">@if (_delivering) { <AsyncButton Text="Stop delivery" Icon="stop" Class="button button--danger" OnClick="CancelDelivery" /> }<AsyncButton Class="button button--primary" Text="Deploy reviewed previews" Icon="send" Disabled="@(_busy || _previews.Any(p => p.Status != "Preview"))" OnClick="DeployAsync" /></div></header>
+            @foreach (var preview in _previews)
+            {
+                var before = SwitchboardLayout.FromJson(preview.BeforeJson);
+                var target = SwitchboardLayout.FromJson(preview.TargetJson);
+                var pageNumber = PreviewPage(preview.Id);
+                var changedCount = target.Keys.Count(k => Changed(before.Keys.Single(o => o.Page == k.Page && o.Slot == k.Slot), k));
+                var visibleKeys = target.Keys.Where(k => k.Page == pageNumber && (!_changesOnly || Changed(before.Keys.Single(o => o.Page == k.Page && o.Slot == k.Slot), k))).ToList();
+                <article class="sb-preview-panel">
+                    <div class="sb-preview-heading"><div><h3>@PhoneName(preview.PhoneId)</h3><span class="mono">@preview.IpAddress</span></div><div class="sb-preview-summary"><span>@changedCount keys changed</span><StatusBadge Status="@preview.Status" /></div></div>
+                    <p class="sb-preview-message" role="status">@preview.Message</p>
+                    <div class="sb-preview-toolbar"><div class="sb-page-buttons" role="group" aria-label="@($"Key pages for {PhoneName(preview.PhoneId)}")">@for (var number = 1; number <= 5; number++) { var keyPage = number; <button type="button" class="@(pageNumber == number ? "is-active" : "")" aria-pressed="@(pageNumber == number)" @onclick="() => _previewPages[preview.Id] = keyPage">Page @number</button> }</div><label class="sb-inline-check"><input type="checkbox" @bind="_changesOnly" />Changed keys only</label></div>
+                    <div class="sb-preview-table table-wrap" tabindex="0" role="region" aria-label="@($"Page {pageNumber} key comparison for {PhoneName(preview.PhoneId)}")"><table><thead><tr><th scope="col">Key</th><th scope="col">Change</th><th scope="col">Current settings</th><th scope="col">Proposed settings</th><th scope="col">Value2</th><th scope="col">Type / subtype</th><th scope="col">SIP line</th><th scope="col">Other settings</th></tr></thead><tbody>
+                    @foreach (var key in visibleKeys)
+                    {
+                        var old = before.Keys.Single(k => k.Page == key.Page && k.Slot == key.Slot);
+                        var changed = Changed(old, key);
+                        <tr class="@(changed ? "sb-key-changed" : "")"><td><span class="sb-key-number">@($"F{key.Slot}")</span></td><td><span class="sb-change @(changed ? "sb-change--updated" : key.Protected ? "sb-change--locked" : "")">@if (key.Protected && !changed) { <RadzenIcon Icon="lock_outline" aria-hidden="true" /> }@(key.Protected ? changed && preview.Purpose == "TemplateSetup" ? "F2 setup" : "Locked" : changed ? "Changed" : "Unchanged")</span></td><td><strong>@(string.IsNullOrEmpty(old.Name) ? "—" : old.Name)</strong><small class="mono">@(string.IsNullOrEmpty(old.Extension) ? "—" : old.Extension) @(old.Value2.Length > 0 ? $" / {old.Value2}" : "")</small><small>@old.TypeLabel · @Subtype(old) · SIP @old.Get("Line")</small></td><td><strong>@(string.IsNullOrEmpty(key.Name) ? "—" : key.Name)</strong><small class="mono">@(string.IsNullOrEmpty(key.Extension) ? "—" : key.Extension)</small></td><td class="mono">@(string.IsNullOrEmpty(key.Value2) ? "—" : key.Value2)</td><td>@key.TypeLabel<small>@Subtype(key)</small></td><td class="mono">@key.Get("Line")</td><td><small>Media: @(key.Get("MediaType") is "" or "0" ? "Default" : key.Get("MediaType"))</small><small>Pickup: @(key.Get("PICKUP").Length == 0 ? "—" : key.Get("PICKUP"))</small><small>Icon: @key.Get("IconType")</small></td></tr>
+                    }
+                    @if (visibleKeys.Count == 0) { <tr><td colspan="8" class="empty-cell">No changed keys on this page. Turn off “Changed keys only” to view every position.</td></tr> }
+                    </tbody></table></div>
+                    <div class="sb-preview-footer"><span>Page @pageNumber of 5 · @visibleKeys.Count positions shown</span><span><RadzenIcon Icon="verified_user" aria-hidden="true" />Verified after delivery</span></div>
+                </article>
+            }
+        </section>
     }
-    </tbody></table></div>
-    <TablePager Total="@FilteredContacts.Count()" @bind-Page="_directoryPage" @bind-PageSize="_directoryPageSize" />
-</section>
 
-<section class="section-block">
-    <div class="section-heading"><div><h2>Phone-specific numbers</h2><p>Imported differences appear here. A blank extension uses the master office number. Secondary values are independent for each phone.</p></div></div>
-    <div class="switchboard-overrides">
-        <label class="field">Phone<select @bind="_overridePhone" disabled="@Disabled" @bind:after="LoadOverride"><option value="0">Choose phone</option>@foreach (var p in _state.Phones) { <option value="@p.Id">@p.Name (@p.IpAddress)</option> }</select></label>
-        <label class="field">Contact<select @bind="_overrideContact" disabled="@Disabled" @bind:after="LoadOverride"><option value="0">Choose contact</option>@foreach (var m in _state.Members.OrderBy(m => m.Contact.DisplayName)) { <option value="@m.ContactId">@m.Contact.DisplayName</option> }</select></label>
-        <label class="field">Extension override<input maxlength="31" disabled="@Disabled" @bind="_extension" /></label>
-        <label class="field">Value2<input maxlength="31" disabled="@Disabled" @bind="_secondary" /></label>
-        <AsyncButton Text="Save numbers" Disabled="@(_busy || _overridePhone == 0 || _overrideContact == 0)" OnClick="SaveOverrideAsync" />
+    <div class="sb-main-grid">
+        <section class="sb-panel sb-directory" id="switchboard-directory" aria-labelledby="sb-directory-title">
+            <header class="sb-panel-heading"><div><span class="sb-kicker">02 / DIRECTORY</span><h2 id="sb-directory-title">Master key directory</h2><p>Choose which shared contacts appear on your switchboards.</p></div><button class="button" disabled="@Disabled" @onclick="() => _editing = new Contact()"><RadzenIcon Icon="person_add" aria-hidden="true" />Add contact</button></header>
+            <div class="sb-capacity"><div><strong>@_state.Members.Count <span>of 58 positions used</span></strong><span class="@(_state.Members.Count > 58 ? "sb-over-capacity" : "")">@(_state.Members.Count > 58 ? $"{_state.Members.Count - 58} over capacity" : $"{58 - _state.Members.Count} available")</span></div><progress value="@Math.Min(58, _state.Members.Count)" max="58" aria-label="Switchboard contact capacity"></progress><small>Contacts sort from Page 1 F3 through Page 5. Use a sort name to adjust their order.</small></div>
+            <div class="sb-directory-toolbar"><label class="search-field"><RadzenIcon Icon="search" aria-hidden="true" /><input type="search" placeholder="Search name or extension…" aria-label="Search switchboard contacts" @bind="_search" @bind:event="oninput" @bind:after="ResetPage" /></label><WorkspaceSelect TValue="string" Options="DirectoryViewOptions" @bind-Value="_contactView" @bind-Value:after="ResetPage" Label="Filter switchboard contacts" /></div>
+            <div class="sb-directory-table table-wrap" tabindex="0" role="region" aria-label="Master contact selection"><table><thead><tr><th scope="col">Include</th><th scope="col">Contact</th><th scope="col">Sort name</th><th scope="col" class="align-right">Actions</th></tr></thead><tbody>
+            @foreach (var contact in PagedContacts)
+            {
+                var included = _state.Members.Any(m => m.ContactId == contact.Id);
+                <tr @key="contact.Id" class="@(included ? "sb-contact-included" : "")"><td><input type="checkbox" checked="@included" aria-label="@($"Include {contact.DisplayName}")" disabled="@Disabled" @onchange="e => SetMemberAsync(contact.Id, e.Value is true)" /></td><td><strong>@contact.DisplayName</strong><small class="mono">@(string.IsNullOrWhiteSpace(contact.OfficeNumber) ? "No office number" : contact.OfficeNumber)</small></td><td><label class="field"><span class="sb-sr-only">Sort name for @contact.DisplayName</span><input aria-label="@($"Sort name for {contact.DisplayName}")" placeholder="Use contact name" maxlength="128" disabled="@Disabled" @bind="_sortNames[contact.Id]" /></label></td><td><div class="row-actions"><AsyncButton Class="icon-button" title="Save sort name" aria-label="@($"Save sort name for {contact.DisplayName}")" Icon="save" Disabled="@(_busy || !included)" OnClick="() => SetMemberAsync(contact.Id, true)" /><button class="icon-button" title="Edit contact" aria-label="@($"Edit {contact.DisplayName}")" disabled="@Disabled" @onclick="() => EditContact(contact)"><RadzenIcon Icon="edit" aria-hidden="true" /></button></div></td></tr>
+            }
+            @if (!PagedContacts.Any()) { <tr><td colspan="4" class="empty-cell"><RadzenIcon Icon="@(string.IsNullOrEmpty(_search) ? "contacts" : "search_off")" aria-hidden="true" /><strong>@(_state.Contacts.Count == 0 ? "Start your key directory" : "No matching contacts")</strong><span>@(_state.Contacts.Count == 0 ? "Import contacts from a captured phone, or add a contact above." : "Try another name, number or filter.")</span></td></tr> }
+            </tbody></table></div>
+            <TablePager Total="@FilteredContacts.Count()" @bind-Page="_directoryPage" @bind-PageSize="_directoryPageSize" />
+        </section>
+
+        <aside class="sb-sidebar">
+            <section class="sb-panel sb-protection" aria-labelledby="sb-protection-title"><header class="sb-panel-heading"><div><span class="sb-kicker">LAYOUT RULES</span><h2 id="sb-protection-title"><RadzenIcon Icon="lock_outline" aria-hidden="true" />Protected positions</h2><p>F1 and F2 stay fixed on Page 1.</p></div></header><div class="sb-template"><strong>Reception <span class="mono">.101</span></strong><div><kbd>F1</kbd><span>Line</span><RadzenIcon Icon="lock_outline" aria-hidden="true" /></div><div><kbd>F2</kbd><span>Override Day/Night <small class="mono">*271</small></span><RadzenIcon Icon="lock_outline" aria-hidden="true" /></div></div><div class="sb-template"><strong>Other four switchboards</strong><div><kbd>F1</kbd><span>Line</span><RadzenIcon Icon="lock_outline" aria-hidden="true" /></div><div><kbd>F2</kbd><span>Reception <small class="mono">201</small></span><RadzenIcon Icon="lock_outline" aria-hidden="true" /></div></div><p class="sb-panel-note">Each phone keeps its own SIP line. Standard phones are excluded from key layout updates.</p></section>
+
+            <section class="sb-panel sb-overrides" aria-labelledby="sb-overrides-title"><header class="sb-panel-heading"><div><span class="sb-kicker">OPTIONAL / PER PHONE</span><h2 id="sb-overrides-title">Phone-specific numbers</h2><p>Keep an exception on one handset without changing the shared directory.</p></div></header>
+                <div class="sb-override-form"><label class="field">Phone<WorkspaceSelect TValue="int" Options="PhoneOptions" @bind-Value="_overridePhone" Disabled="_busy" @bind-Value:after="LoadOverride" Label="Phone for number overrides" /></label><label class="field">Contact<WorkspaceSelect TValue="int" Options="ContactOptions" @bind-Value="_overrideContact" Disabled="@(_busy || _state.Members.Count == 0)" @bind-Value:after="LoadOverride" Label="Contact for number overrides" /></label><div class="sb-number-fields"><label class="field">Extension override<input type="tel" placeholder="Use master number" maxlength="31" disabled="@(Disabled || _overridePhone == 0 || _overrideContact == 0)" @bind="_extension" /></label><label class="field">Value2<input type="tel" placeholder="Secondary number" maxlength="31" disabled="@(Disabled || _overridePhone == 0 || _overrideContact == 0)" @bind="_secondary" /></label></div><p class="sb-form-hint">Leave the extension blank to use the master number. Saving a blank Value2 clears that phone’s secondary number.</p><AsyncButton Text="Save numbers" Icon="save" Disabled="@(_busy || _overridePhone == 0 || _overrideContact == 0)" OnClick="SaveOverrideAsync" /></div>
+                <details class="sb-saved-overrides"><summary>@VisibleOverrides.Count() saved number overrides<RadzenIcon Icon="expand_more" aria-hidden="true" /></summary><div class="sb-override-list">@foreach (var item in VisibleOverrides) { <div class="sb-override-record"><strong>@ContactName(item.ContactId)</strong><span>@PhoneName(item.PhoneId)</span><dl><div><dt>Extension</dt><dd>@(item.Extension ?? "Master")</dd></div><div><dt>Value2</dt><dd>@(string.IsNullOrEmpty(item.Value2) ? "—" : item.Value2)</dd></div></dl></div> }@if (!VisibleOverrides.Any()) { <p>No phone-specific numbers saved yet.</p> }</div></details>
+            </section>
+        </aside>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Phone</th><th>Contact</th><th>Extension override</th><th>Value2</th></tr></thead><tbody>
-    @foreach (var item in _state.Overrides.Where(o => o.Extension is not null || !string.IsNullOrEmpty(o.Value2)))
-    { <tr><td>@PhoneName(item.PhoneId)</td><td>@ContactName(item.ContactId)</td><td>@(item.Extension ?? "Use master")</td><td>@item.Value2</td></tr> }
-    </tbody></table></div>
-</section>
 
-<section class="section-block"><div class="section-heading"><div><h2>Delivery history and backups</h2><p>Delivery can stop between pages. Failed, interrupted or timed-out operations require inspection; restoration also uses a preview.</p></div></div>
-    <div class="table-wrap"><table><thead><tr><th>Created</th><th>Phone</th><th>Status</th><th>Details</th><th>Backup</th></tr></thead><tbody>
-    @foreach (var item in _state.History)
-    { <tr><td>@UiFormat.Date(item.CreatedAt)</td><td>@PhoneName(item.PhoneId)</td><td><StatusBadge Status="@item.Status" /></td><td>@item.Purpose · @item.Message</td><td>@if (item.Purpose != "TemplateSetup" && item.Status is "Success" or "Failed" or "Cancelled" or "TimedOut" or "Applying") { <AsyncButton Text="Preview restoration" Disabled="_busy" OnClick="() => RestoreAsync(item.Id)" /> }</td></tr> }
-    </tbody></table></div>
-</section>
+    <section class="sb-panel sb-history" aria-labelledby="sb-history-title"><header class="sb-panel-heading"><div><span class="sb-kicker">ACTIVITY</span><h2 id="sb-history-title">Delivery history and backups</h2><p>Track delivery results and review a saved configuration before restoring it.</p></div><span class="count-label">@_state.History.Count records</span></header>
+        @if (_state.History.Count == 0) { <div class="sb-empty"><RadzenIcon Icon="history" aria-hidden="true" /><strong>No deliveries yet</strong><p>Your deployment results and restoration backups will appear here.</p></div> }
+        else
+        {
+            <div class="sb-history-table table-wrap" tabindex="0" role="region" aria-label="Switchboard delivery history"><table><thead><tr><th scope="col">Created</th><th scope="col">Phone</th><th scope="col">Result</th><th scope="col">Details</th><th scope="col" class="align-right">Backup</th></tr></thead><tbody>@foreach (var item in _state.History) { <tr><td class="nowrap">@UiFormat.Date(item.CreatedAt)</td><td><strong>@PhoneName(item.PhoneId)</strong><small>@(item.Purpose == "TemplateSetup" ? "F2 template setup" : "Key layout")</small></td><td><StatusBadge Status="@item.Status" /></td><td class="sb-history-message">@item.Message</td><td class="align-right">@if (item.Purpose != "TemplateSetup" && item.Status is "Success" or "Failed" or "Cancelled" or "TimedOut" or "Applying") { <AsyncButton Text="Preview restoration" Icon="restore" Disabled="_busy" OnClick="() => RestoreAsync(item.Id)" /> } else { <span class="muted">—</span> }</td></tr> }</tbody></table></div>
+        }
+        <footer class="sb-history-note"><RadzenIcon Icon="info_outline" aria-hidden="true" /><span>A stopped delivery may have updated earlier pages. Review the result before retrying or restoring.</span></footer>
+    </section>
+</div>
 @if (_editing is not null) { <ContactEditDialog Model="_editing" OnSaved="ContactSavedAsync" OnCancel="() => _editing = null" /> }
 
 @code {
@@ -100,6 +132,16 @@
     private readonly HashSet<int> _selected = [];
     private readonly Dictionary<int, string> _sortNames = [];
     private readonly List<SwitchboardDeployment> _previews = [];
+    private readonly Dictionary<Guid, int> _previewPages = [];
+    private bool _changesOnly;
+    private string _contactView = "all";
+    private int CapturedCount => _state.Phones.Count(p => p.CapturedAt is not null);
+    private int ReviewCount => _state.Phones.Count(p => p.ConfigurationWarning is not null);
+    private int PreviewPage(Guid id) => _previewPages.GetValueOrDefault(id, 1);
+    private IEnumerable<SwitchboardOverride> VisibleOverrides => _state.Overrides.Where(o => o.Extension is not null || !string.IsNullOrEmpty(o.Value2));
+    private static readonly SelectOption<string>[] DirectoryViewOptions = [new("all", "All contacts"), new("included", "Included contacts"), new("excluded", "Not included")];
+    private IEnumerable<SelectOption<int>> PhoneOptions => new[] { new SelectOption<int>(0, "Choose a phone") }.Concat(_state.Phones.Select(p => new SelectOption<int>(p.Id, $"{p.Name} · {p.IpAddress}")));
+    private IEnumerable<SelectOption<int>> ContactOptions => new[] { new SelectOption<int>(0, "Choose a contact") }.Concat(_state.Members.OrderBy(m => m.Contact.DisplayName).Select(m => new SelectOption<int>(m.ContactId, m.Contact.DisplayName)));
     private bool _busy = true;
     private bool _delivering;
     private CancellationTokenSource? _deliveryCancellation;
@@ -107,10 +149,10 @@
     private string? _validationMessage;
     private string _working = "Loading switchboards…", _search = "", _extension = "", _secondary = "";
     private int _overridePhone, _overrideContact;
-    private int _directoryPage = 1, _directoryPageSize = 25;
+    private int _directoryPage = 1, _directoryPageSize = 10;
     private Contact? _editing;
     private bool Disabled => _busy || !RendererInfo.IsInteractive;
-    private IEnumerable<Contact> FilteredContacts => _state.Contacts.Where(c => string.IsNullOrWhiteSpace(_search) || c.DisplayName.Contains(_search, StringComparison.OrdinalIgnoreCase) || c.OfficeNumber?.Contains(_search, StringComparison.OrdinalIgnoreCase) == true);
+    private IEnumerable<Contact> FilteredContacts => _state.Contacts.Where(c => (_contactView == "all" || _state.Members.Any(m => m.ContactId == c.Id) == (_contactView == "included")) && (string.IsNullOrWhiteSpace(_search) || c.DisplayName.Contains(_search, StringComparison.OrdinalIgnoreCase) || c.OfficeNumber?.Contains(_search, StringComparison.OrdinalIgnoreCase) == true));
     private IEnumerable<Contact> PagedContacts => FilteredContacts.Skip((Math.Clamp(_directoryPage, 1, Math.Max(1, (int)Math.Ceiling((double)FilteredContacts.Count() / _directoryPageSize))) - 1) * _directoryPageSize).Take(_directoryPageSize);
     private void ResetPage() => _directoryPage = 1;
     protected override async Task OnInitializedAsync() { _busy = false; await RefreshAsync(); }
