@@ -173,8 +173,9 @@
 .sb-history-table { border-inline: 0; }
 .sb-history-table table { min-width: 850px; }
 .sb-history-message { min-width: 230px; max-width: 440px; color: var(--muted); font-size: .75rem; }
-.sb-history-note { display: flex; align-items: flex-start; gap: 8px; padding: 14px 24px; font-size: .71rem; color: var(--subtle); }
-.sb-history-note ::deep .rzi { font-size: 17px; }
+.sb-history-note { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border); background: #ffffff02; font-size: .76rem; line-height: 1.65; color: var(--muted); }
+.sb-history-note ::deep .rzi { display: block; width: 18px; height: 18px; margin-top: 1px; font-size: 18px; line-height: 18px; color: var(--info); overflow: hidden; }
+.sb-history-note > span { min-width: 0; overflow-wrap: anywhere; }
 .sb-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 44px 24px; text-align: center; border-top: 1px solid var(--border); }
 .sb-empty > strong { font-size: .9rem; }
 .sb-empty > p { font-size: .78rem; max-width: 340px; }

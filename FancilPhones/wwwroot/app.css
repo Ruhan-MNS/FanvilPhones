@@ -60,6 +60,7 @@
     --rz-dropdown-panel-border: 1px solid var(--line);
     --rz-dropdown-panel-shadow: 0 12px 30px #0006;
     --rz-dropdown-panel-padding: 4px;
+    --rz-dropdown-items-margin: 0;
     --rz-dropdown-items-padding: 0;
     --rz-dropdown-item-padding: 10px 12px;
     --rz-dropdown-item-font-size: .85rem;
@@ -1081,12 +1082,32 @@ input:-webkit-autofill {
     border-radius: 0;
     font-size: .85rem;
     cursor: pointer;
+    transition: border-color 120ms, background-color 120ms, box-shadow 120ms;
+}
+
+.workspace-select.rz-dropdown:not(.rz-state-disabled):is(:focus, :focus-within, [aria-expanded=true]) {
+    border-color: var(--accent);
+    background: var(--surface);
+    outline: none;
+    box-shadow: 0 0 0 2px #e4b27726;
+}
+
+.workspace-select.rz-dropdown.rz-state-disabled {
+    border-color: var(--border);
+    cursor: not-allowed;
+    box-shadow: none;
 }
 
 .workspace-select .rz-dropdown-label {
     padding: 10px 40px 10px 12px;
     line-height: 20px;
     color: var(--text);
+    min-width: 0;
+}
+
+.workspace-select.rz-state-disabled .rz-dropdown-label,
+.workspace-select.rz-state-disabled .rz-dropdown-trigger {
+    color: var(--subtle);
 }
 
 .workspace-select .rz-dropdown-trigger {
@@ -1098,6 +1119,12 @@ input:-webkit-autofill {
 .workspace-select .rz-dropdown-trigger .rzi {
     margin: 0;
     font-size: 20px;
+    transition: transform 120ms;
+}
+
+.workspace-select[aria-expanded=true] .rz-dropdown-trigger .rzi {
+    color: var(--accent);
+    transform: rotate(180deg);
 }
 
 .inline-field .workspace-select {
@@ -1105,20 +1132,69 @@ input:-webkit-autofill {
     min-width: 140px;
 }
 
+.inline-field {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.inline-field > span {
+    flex-shrink: 0;
+}
+
 .rz-dropdown-panel {
     color: var(--text);
     max-width: calc(100vw - 24px);
+    background: var(--raised);
+    border-radius: 0;
+    overflow: hidden;
 }
 
-.rz-dropdown-item {
+/* Material's default negative list margins assume a larger panel padding. */
+.rz-dropdown-panel .rz-dropdown-items-wrapper {
+    margin: 0;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) var(--raised);
+}
+
+.rz-dropdown-panel .rz-dropdown-item {
+    position: relative;
+    display: flex;
+    align-items: center;
     min-height: 40px;
+    padding: 10px 32px 10px 12px;
     line-height: 20px;
+    white-space: normal;
     overflow-wrap: anywhere;
+    cursor: pointer;
 }
 
-.rz-dropdown-item:focus-visible {
+.rz-dropdown-panel .rz-dropdown-item[aria-selected=true] {
+    box-shadow: inset 2px 0 var(--accent);
+    font-weight: 550;
+}
+
+.rz-dropdown-panel .rz-dropdown-item[aria-selected=true]::after {
+    content: "";
+    position: absolute;
+    right: 12px;
+    top: calc(50% - 6px);
+    width: 6px;
+    height: 10px;
+    border: solid currentColor;
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+    pointer-events: none;
+}
+
+.rz-dropdown-panel .rz-dropdown-item:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .workspace-select.rz-dropdown,
+    .workspace-select .rz-dropdown-trigger .rzi { transition: none; }
 }
 
 .filter-fields {

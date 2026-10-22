@@ -122,7 +122,7 @@
         {
             <div class="sb-history-table table-wrap" tabindex="0" role="region" aria-label="Switchboard delivery history"><table><thead><tr><th scope="col">Created</th><th scope="col">Phone</th><th scope="col">Result</th><th scope="col">Details</th><th scope="col" class="align-right">Backup</th></tr></thead><tbody>@foreach (var item in _state.History) { <tr><td class="nowrap">@UiFormat.Date(item.CreatedAt)</td><td><strong>@PhoneName(item.PhoneId)</strong><small>@(item.Purpose == "TemplateSetup" ? "F2 template setup" : "Key layout")</small></td><td><StatusBadge Status="@item.Status" /></td><td class="sb-history-message">@item.Message</td><td class="align-right">@if (item.Purpose != "TemplateSetup" && item.Status is "Success" or "Failed" or "Cancelled" or "TimedOut" or "Applying") { <AsyncButton Text="Preview restoration" Icon="restore" Disabled="_busy" OnClick="() => RestoreAsync(item.Id)" /> } else { <span class="muted">—</span> }</td></tr> }</tbody></table></div>
         }
-        <footer class="sb-history-note"><RadzenIcon Icon="info_outline" aria-hidden="true" /><span>A stopped delivery may have updated earlier pages. Review the result before retrying or restoring.</span></footer>
+        <footer class="sb-history-note"><RadzenIcon Icon="info" aria-hidden="true" /><span>A stopped delivery may have updated earlier pages. Review the result before retrying or restoring.</span></footer>
     </section>
 </div>
 @if (_editing is not null) { <ContactEditDialog Model="_editing" OnSaved="ContactSavedAsync" OnCancel="() => _editing = null" /> }

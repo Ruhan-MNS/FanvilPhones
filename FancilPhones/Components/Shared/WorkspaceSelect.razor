@@ -4,7 +4,8 @@
 <RadzenDropDown TValue="TValue" Data="@Options" TextProperty="Text" ValueProperty="Value"
                 Value="@Value" ValueChanged="@ValueChanged" ValueExpression="@ValueExpression"
                 Class="@($"workspace-select {Class}")" Disabled="@(Disabled || !RendererInfo.IsInteractive)"
-                AllowClear="false" aria-label="@Label" InputAttributes="@_inputAttributes" @attributes="AdditionalAttributes" />
+                AllowClear="false" PopupStyle="max-height:min(280px,50dvh);overflow-x:hidden"
+                aria-label="@Label" InputAttributes="@_inputAttributes" @attributes="AdditionalAttributes" />
 
 @code {
     [Parameter, EditorRequired] public IEnumerable<SelectOption<TValue>> Options { get; set; } = [];
