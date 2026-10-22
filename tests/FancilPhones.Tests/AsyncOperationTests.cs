@@ -13,6 +13,26 @@ namespace FancilPhones.Tests;
 
 public sealed partial class AsyncOperationTests : IAsyncLifetime
 {
+    [Theory]
+    [InlineData("login", "signing in", "No phonebook or SIP changes were requested.", 0)]
+    [InlineData("delete", "clearing the phonebook", "the upload was not started", 0)]
+    [InlineData("upload", "uploading the phonebook", "verify its state", 1)]
+    public async Task TimeoutHistoryIdentifiesTheFailedStageWithoutReplayingTheUpload(string failure, string stage, string hint, int expectedUploads)
+    {
+        var uploads = 0;
+        var clients = new ControlledFanvilFactory
+        {
+            Login = (_, _) => failure == "login" ? throw new TimeoutException("Synthetic response timeout") : Task.FromResult((true, "OK")),
+            Delete = (_, _) => failure == "delete" ? throw new TimeoutException("Synthetic response timeout") : Task.FromResult(new FanvilResponse { StatusCode = 200 }),
+            Upload = (_, _) => { uploads++; if (failure == "upload") throw new TimeoutException("Synthetic response timeout"); return Task.FromResult(new FanvilResponse { StatusCode = 200 }); }
+        };
+        var result = await CreateService(clients).SyncOneAsync(1);
+        Assert.False(result.Success); Assert.Contains(stage, result.Message); Assert.Contains(hint, result.Message);
+        Assert.Equal(expectedUploads, uploads); Assert.Equal(1, clients.LoggedOut);
+        await using var db = factory.CreateDbContext();
+        var saved = await db.SyncRuns.SingleAsync(); Assert.Equal("TimedOut", saved.Status); Assert.Equal(result.Message, saved.Message);
+    }
+
     private readonly string database = Path.Combine(Path.GetTempPath(), $"fanvil-async-{Guid.NewGuid():N}.db");
     private Factory factory = null!;
     public async Task InitializeAsync()

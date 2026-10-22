@@ -45,7 +45,15 @@ public sealed class SwitchboardService(IDbContextFactory<AppDbContext> factory, 
         var phone = await PhoneAsync(db, phoneId, ct);
         var profile = await db.SwitchboardProfiles.SingleOrDefaultAsync(p => p.PhoneId == phoneId, ct);
         EnsureIdle(profile);
-        var layout = await OnPhoneAsync(phone, async (client, token) => await adapter.ReadAsync(client, token), ct);
+        SwitchboardLayout layout;
+        try { layout = await OnPhoneAsync(phone, async (client, token) => await adapter.ReadAsync(client, token), ct); }
+        catch (SwitchboardCompatibilityException ex)
+        {
+            logger.LogInformation("PhoneId {PhoneId} did not expose a compatible switchboard layout. No profile or keys were changed.", phone.Id);
+            var message = profile is null ? $"{phone.Name} ({phone.IpAddress}) was not added."
+                : $"Could not read keys from {phone.Name} ({phone.IpAddress}). Its saved layout was kept.";
+            throw new SwitchboardCompatibilityException($"{message} {ex.Message}");
+        }
         SwitchboardRules.ValidateGeometry(phone.IpAddress, layout);
         if (profile is null)
         {

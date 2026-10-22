@@ -7,6 +7,7 @@ internal sealed class ControlledFanvilFactory : IFanvilClientFactory
     public Func<string, CancellationToken, Task<(bool, string)>>? Login { get; init; }
     public Func<string, CancellationToken, Task<FanvilResponse>>? Get { get; init; }
     public Func<string, CancellationToken, Task<FanvilResponse>>? Upload { get; init; }
+    public Func<string, CancellationToken, Task<FanvilResponse>>? Delete { get; init; }
     public Func<CancellationToken, Task>? Logout { get; init; }
     private int created, disposed, loggedOut;
     public int Created => Volatile.Read(ref created);
@@ -36,7 +37,7 @@ internal sealed class ControlledFanvilFactory : IFanvilClientFactory
             ct.ThrowIfCancellationRequested();
             return owner.Get?.Invoke(host, ct) ?? Task.FromResult(new FanvilResponse { StatusCode = 200, Body = "Fanvil" });
         }
-        public Task<FanvilResponse> DeleteAllContactsAsync(CancellationToken ct = default) => Response(ct);
+        public Task<FanvilResponse> DeleteAllContactsAsync(CancellationToken ct = default) => owner.Delete?.Invoke(host, ct) ?? Response(ct);
         public Task<FanvilResponse> PostFormAsync(string path, IReadOnlyDictionary<string, string> fields, CancellationToken ct = default) => Response(ct);
         public Task<FanvilResponse> PostFileAsync(string path, string fieldName, string fileName, byte[] fileBytes, string fileContentType, CancellationToken ct = default)
         {

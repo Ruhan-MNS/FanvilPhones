@@ -18,9 +18,11 @@ public sealed class FanvilSwitchboardAdapter
     public static SwitchboardLayout ParsePage(string html, int page)
     {
         if (html.Length > 4 * 1024 * 1024 || page is < 1 or > 5) throw new InvalidDataException("Unsupported side-key response.");
+        if (html.Contains("logonButton", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The handset returned a login page instead of its side keys. Check the stored credentials and try again.");
         if (!Matches(html, @"var\s+pageNum\s*=\s*[""']5[""']").Any()
             || !Matches(html, @"var\s+dsskeyNums\s*=\s*[""']12[""']").Any())
-            throw new InvalidDataException("This firmware does not expose the required five pages of twelve side keys.");
+            throw new SwitchboardCompatibilityException("Switchboard keys requires five pages of twelve side keys. This phone did not expose that layout. Standard two-key phones can still receive phonebook updates through Phone fleet or Synchronization.");
         var forms = Matches(html, @"<form\b[^>]*>.*?</form>").Cast<Match>();
         var form = forms.SingleOrDefault(m => Attributes(m.Value[..(m.Value.IndexOf('>') + 1)]).GetValueOrDefault("id") == "SideKeyForm")
             ?? throw new InvalidDataException("The side-key form was not returned. Check handset authentication and firmware.");

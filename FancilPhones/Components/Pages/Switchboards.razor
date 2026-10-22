@@ -10,6 +10,7 @@
 <div class="sb-workspace">
 <PageHeader Title="Switchboard keys" Eyebrow="Voice operations" Description="Edit one layout. Sync the phones you choose."><AsyncButton Text="Refresh" Icon="refresh" Disabled="@Dirty" Busy="_busy" OnClick="RefreshAsync" /></PageHeader>
 @if (!string.IsNullOrEmpty(_error)) { <div class="alert alert--danger" role="alert"><RadzenIcon Icon="error" aria-hidden="true" /><span>@_error</span></div> }
+@if (!string.IsNullOrEmpty(_notice)) { <aside class="help-note" role="status"><RadzenIcon Icon="info" aria-hidden="true" /><div><strong>A supported switchboard layout is required</strong><p>@_notice</p><a href="/phones">Open Phone fleet</a><span> · </span><a href="/sync">Open Synchronization</a></div></aside> }
 <LoadingState Visible="_busy" Text="@_working" />
 <div class="sb-workbench">
     <aside class="sb-phones" aria-labelledby="sb-phones-title">
@@ -90,6 +91,7 @@
     private SwitchboardState _state = new([], [], [], [], []);
     private SwitchboardEditor? _editor;
     private string _saved = "", _error = "", _working = "Loading switchboards…";
+    private string _notice = "";
     private bool _busy, _alphabetical = true, _keepNumbers = true, _delivering;
     private int _addPhone, _page = 1;
     private SwitchboardKey? _editingKey;
@@ -145,9 +147,10 @@
     private void CancelDelivery() => _deliveryCancellation?.Cancel();
     private async Task RunAsync(string message, Func<Task> action, bool invalidate = true)
     {
-        if (_busy || IsDisposed) return; _busy = true; _working = message; _error = ""; if (invalidate) Invalidate(); using var activity = BeginActivity(message);
+        if (_busy || IsDisposed) return; _busy = true; _working = message; _error = ""; _notice = ""; if (invalidate) Invalidate(); using var activity = BeginActivity(message);
         try { await action(); }
         catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested) { }
+        catch (SwitchboardCompatibilityException ex) { _notice = ex.Message; }
         catch (SwitchboardValidationException ex) { _error = ex.Message; }
         catch (Exception ex) { Logger.LogError(ex, "Switchboard operation failed."); _error = ex is InvalidOperationException or InvalidDataException ? ex.Message : "The operation could not be completed. Check the phone connection and try again."; }
         finally { _busy = false; }

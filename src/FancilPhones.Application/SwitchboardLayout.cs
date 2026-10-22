@@ -7,7 +7,8 @@ using FancilPhones.Domain;
 
 namespace FancilPhones.Application;
 
-public sealed class SwitchboardValidationException(string message) : InvalidOperationException(message);
+public class SwitchboardValidationException(string message) : InvalidOperationException(message);
+public sealed class SwitchboardCompatibilityException(string message) : SwitchboardValidationException(message);
 
 public sealed record SwitchboardKey(int Page, int Slot, Dictionary<string, string> Fields)
 {

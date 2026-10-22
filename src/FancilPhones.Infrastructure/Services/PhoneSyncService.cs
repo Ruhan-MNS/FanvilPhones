@@ -115,11 +115,13 @@ public sealed class PhoneSyncService(
 
     private async Task<SyncResult> PushAsync(Phone phone, int count, byte[] csv, CancellationToken ct)
     {
-        var result = await RunHandsetAsync(phone, "Sync", count, async (client, token) =>
+        var result = await RunHandsetAsync(phone, "Sync", count, async (client, token, stage) =>
         {
+            stage("clearing the phonebook");
             var deleted = await client.DeleteAllContactsAsync(token);
             if (deleted.StatusCode is < 200 or >= 400)
                 return new(false, deleted.StatusCode, "The handset rejected clearing its phonebook; upload was not attempted.");
+            stage("uploading the phonebook");
             var response = await client.PostFileAsync(phone.UploadPath, phone.UploadFieldName, "phonebook.csv", csv, "application/octet-stream", token);
             var ok = response.StatusCode is >= 200 and < 400;
             return new(ok, response.StatusCode, ok ? $"Uploaded {count} contacts (HTTP {response.StatusCode})" : $"HTTP {response.StatusCode}: {Truncate(response.Body, 400)}");
@@ -137,7 +139,7 @@ public sealed class PhoneSyncService(
         if (phone is null) return (false, "Phone not found");
         if (string.IsNullOrWhiteSpace(phone.SipDisplayName) && string.IsNullOrWhiteSpace(phone.SipExtension))
             return (false, "No SIP display name or extension configured for this phone.");
-        var result = await RunHandsetAsync(phone, "Push", 0, (client, token) => PushSipSettingsAsync(client, phone, token), ct);
+        var result = await RunHandsetAsync(phone, "Push", 0, (client, token, stage) => { stage("applying SIP settings"); return PushSipSettingsAsync(client, phone, token); }, ct);
         return (result.Success, result.Message);
     }
 
@@ -147,14 +149,14 @@ public sealed class PhoneSyncService(
         ct = stopping.Token;
         await access.RequireAuthenticatedAsync(ct);
         var result = await RunHandsetAsync(phone, "Probe", 0,
-            (_, _) => Task.FromResult(new HandsetResult(true, 200, "Reachable, login OK")), ct);
+            (_, _, _) => Task.FromResult(new HandsetResult(true, 200, "Reachable, login OK")), ct);
         return (result.Success, result.HttpStatus, result.Message);
     }
 
     // Each operation owns its timeout and client. Cleanup gets a separate, short token
     // so caller cancellation cannot strand sessions or leave history marked Running.
     private async Task<HandsetResult> RunHandsetAsync(Phone phone, string action, int contactCount,
-        Func<IFanvilClient, CancellationToken, Task<HandsetResult>> operation, CancellationToken ct)
+        Func<IFanvilClient, CancellationToken, Action<string>, Task<HandsetResult>> operation, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         var run = new SyncRun { PhoneId = phone.Id, Action = action, Status = "Running", ContactCount = contactCount };
@@ -170,12 +172,17 @@ public sealed class PhoneSyncService(
         HandsetResult result;
         string status;
         bool canceled = false;
+        var stage = "signing in";
+        void SetStage(string value) { stage = value; logger.LogDebug("Handset operation stage: {Stage}.", stage); }
+        string StateHint() => stage == "signing in" ? "No phonebook or SIP changes were requested."
+            : stage == "clearing the phonebook" ? "The phonebook may have been cleared; the upload was not started."
+            : "The handset may have applied changes; verify its state before retrying.";
         logger.LogInformation("Handset operation started.");
         try
         {
             client = clients.Create(phone.IpAddress, phone.Scheme == "https");
             var login = await client.LoginAsync(phone.Username, phone.Password, timeout.Token);
-            result = login.ok ? await operation(client, timeout.Token) : new(false, 401, login.message);
+            result = login.ok ? await operation(client, timeout.Token, SetStage) : new(false, 401, login.message);
             timeout.Token.ThrowIfCancellationRequested();
             status = result.Success ? "Success" : "Failed";
         }
@@ -183,21 +190,23 @@ public sealed class PhoneSyncService(
         {
             canceled = true;
             status = "Cancelled";
-            result = new(false, null, "Operation cancelled. The handset may have applied partial changes; verify its state before retrying.");
+            result = new(false, null, $"Cancelled while {stage}. {StateHint()}");
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)
         {
             status = "TimedOut";
-            result = new(false, null, "The handset operation timed out. Verify its state before retrying.");
+            logger.LogWarning("Handset operation deadline expired while {Stage}.", stage);
+            result = new(false, null, $"Timed out while {stage}. {StateHint()}");
         }
-        catch (TimeoutException)
+        catch (TimeoutException ex)
         {
             status = "TimedOut";
-            result = new(false, null, "Timed out waiting for the handset response. Verify its state before retrying.");
+            logger.LogWarning(ex, "Handset response timed out while {Stage}.", stage);
+            result = new(false, null, $"Timed out waiting for a response while {stage}. {StateHint()}");
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Handset operation failed.");
+            logger.LogWarning(ex, "Handset operation failed while {Stage}.", stage);
             status = "Error";
             result = new(false, null, ex.Message);
         }

@@ -16,6 +16,19 @@ namespace FancilPhones.Tests;
 public sealed class SwitchboardLayoutTests
 {
     [Theory]
+    [InlineData("1", "2")]
+    [InlineData("4", "12")]
+    [InlineData("5", "6")]
+    public void UnsupportedGeometryIsAnExpectedCompatibilityResult(string pages, string slots)
+    {
+        var html = SwitchboardFixture.Html(SwitchboardFixture.Layout(), 1)
+            .Replace("pageNum = '5'", $"pageNum = '{pages}'").Replace("dsskeyNums = '12'", $"dsskeyNums = '{slots}'");
+        var error = Assert.Throws<SwitchboardCompatibilityException>(() => FanvilSwitchboardAdapter.ParsePage(html, 1));
+        Assert.Contains("five pages of twelve", error.Message);
+        Assert.Contains("Phone fleet", error.Message);
+    }
+
+    [Theory]
     [InlineData("192.168.55.101")]
     [InlineData("192.168.55.133")]
     public void SortingSpansPagesAndPreservesProtectedKeysAndWholeContactRows(string ip)
@@ -96,7 +109,7 @@ public sealed class SwitchboardLayoutTests
         Assert.Equal("012 000 0000", fields["SIDE_Key_Value2_RW(3)"]);
         Assert.DoesNotContain("DSS_Key_Home_Page_RW", fields.Keys);
         Assert.Throws<InvalidDataException>(() => FanvilSwitchboardAdapter.ParsePage(SwitchboardFixture.Html(layout, 1), 2));
-        Assert.Throws<InvalidDataException>(() => FanvilSwitchboardAdapter.ParsePage("<html>Login</html>", 1));
+        Assert.Throws<InvalidDataException>(() => FanvilSwitchboardAdapter.ParsePage("<form><input id='logonButton'></form>", 1));
         Assert.Throws<InvalidDataException>(() => FanvilSwitchboardAdapter.ParsePage(SwitchboardFixture.Html(layout, 1).Replace("SIDE_Key_Value_RW(3)", "MissingField"), 1));
     }
 
@@ -122,6 +135,22 @@ public sealed class SwitchboardLayoutTests
 
 public sealed partial class SwitchboardServiceTests : IAsyncLifetime
 {
+    [Fact]
+    public async Task AnIncompatibleRecaptureKeepsTheExistingBaselineAndDraft()
+    {
+        await Service().CaptureAsync(1);
+        var editor = await Service().GetEditorAsync(1); editor.Layout.Keys[2].Fields["Value"] = "299";
+        var saved = await Service().SaveDraftAsync(1, editor.Revision, editor.Layout, false);
+        device.UnsupportedLayout = true;
+        var error = await Assert.ThrowsAsync<SwitchboardCompatibilityException>(() => Service().CaptureAsync(1));
+        Assert.Contains("saved layout was kept", error.Message);
+        var after = await Service().GetEditorAsync(1);
+        Assert.Equal(saved.Revision, after.Revision);
+        Assert.Equal(saved.Layout.Fingerprint(), after.Layout.Fingerprint());
+        Assert.Equal(saved.Baseline.Fingerprint(), after.Baseline.Fingerprint());
+        Assert.Equal(0, device.Writes);
+    }
+
     private readonly SqliteConnection connection = new("Data Source=:memory:");
     private Factory factory = null!;
     private readonly SwitchboardFixture.Device device = new();
@@ -171,10 +200,15 @@ public sealed partial class SwitchboardServiceTests : IAsyncLifetime
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => viewer.PreviewDraftAsync(1, 2, true));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => viewer.RemovePhoneAsync(1));
         Assert.Equal(0, device.Logins);
-        await Assert.ThrowsAsync<InvalidDataException>(() => Service().CaptureAsync(2));
+        var incompatibility = await Assert.ThrowsAsync<SwitchboardCompatibilityException>(() => Service().CaptureAsync(2));
+        Assert.Contains("Standard", incompatibility.Message);
+        Assert.Contains("Synchronization", incompatibility.Message);
         Assert.Equal(1, device.Logins);
         Assert.Equal(0, device.Writes);
         Assert.Empty((await Service().GetStateAsync()).Phones);
+        await using var check = factory.CreateDbContext();
+        Assert.Empty(await check.SwitchboardProfiles.ToListAsync());
+        Assert.True((await check.Phones.SingleAsync(p => p.Id == 2)).Enabled);
     }
 
     [Fact]
@@ -428,6 +462,7 @@ internal static class SwitchboardFixture
     }
     public sealed class Device : IFanvilClientFactory
     {
+        public bool UnsupportedLayout;
         public SwitchboardLayout Layout { get; } = SwitchboardFixture.Layout();
         public Dictionary<string, SwitchboardLayout> Layouts { get; } = [];
         public int Logins, Writes, FailPage;
@@ -456,7 +491,7 @@ internal static class SwitchboardFixture
                         foreach (var name in key.Fields.Keys.ToArray()) key.Fields[name] = fields[$"SIDE_Key_{name}_RW({key.Slot})"];
                 }
                 else throw new InvalidOperationException("Unexpected mutation");
-                return Task.FromResult(new FanvilResponse { StatusCode = 200, Body = host == "192.168.55.136" ? "<form>Standard phone with two DSS keys</form>" : Html(Layout, page) });
+                return Task.FromResult(new FanvilResponse { StatusCode = 200, Body = device.UnsupportedLayout || host == "192.168.55.136" ? "<form>Standard phone with two DSS keys</form>" : Html(Layout, page) });
             }
             public void Dispose() { }
         }
