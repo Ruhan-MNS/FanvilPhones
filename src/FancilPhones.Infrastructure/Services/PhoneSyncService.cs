@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using FancilPhones.Domain;
 using FancilPhones.Infrastructure.Data;
 using FancilPhones.Application;
@@ -213,8 +214,8 @@ public sealed class PhoneSyncService(
         return (result.Success, result.HttpStatus, result.Message);
     }
 
-    // Each operation owns its timeout and client. Cleanup gets a separate, short token
-    // so caller cancellation cannot strand sessions or leave history marked Running.
+    // Each operation owns its timeout and client. Logout and result persistence have
+    // independent deadlines so caller cancellation cannot interrupt finalization.
     private async Task<HandsetResult> RunHandsetAsync(Phone phone, string action, int contactCount,
         Func<IFanvilClient, CancellationToken, Action<string>, Task<HandsetResult>> operation, CancellationToken ct)
     {
@@ -284,11 +285,19 @@ public sealed class PhoneSyncService(
             }
         }
 
-        using var persist = new CancellationTokenSource(TimeSpan.FromSeconds(Settings.CleanupTimeoutSeconds));
+        // SQL connection acquisition, two updates and commit need their own budget;
+        // the short handset logout deadline can cancel otherwise healthy SQL commands.
+        var persistenceTimeoutSeconds = Settings.ResultPersistenceTimeoutSeconds;
+        using var persist = new CancellationTokenSource(TimeSpan.FromSeconds(persistenceTimeoutSeconds));
+        var persistenceElapsed = Stopwatch.StartNew();
         try { await FinishRunAsync(run.Id, phone.Id, status, result, action is "Sync" or "Push", persist.Token); }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Could not persist the handset operation result {Status}.", status);
+            logger.LogError(ex,
+                "Could not persist the handset operation result {Status} after {ElapsedMilliseconds} ms. " +
+                "Persistence deadline: {PersistenceTimeoutSeconds}s; expired: {PersistenceDeadlineExpired}. " +
+                "The handset operation has already finished; verify its state before retrying.",
+                status, persistenceElapsed.ElapsedMilliseconds, persistenceTimeoutSeconds, persist.IsCancellationRequested);
             if (!canceled) throw;
         }
         logger.Log(canceled || result.Success ? LogLevel.Information : LogLevel.Warning,
